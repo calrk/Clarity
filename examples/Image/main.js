@@ -10,11 +10,6 @@ var filters = [
 		filter: new CLARITY.Smoother()
 	},
 	{
-		name: "Motion Detector",
-		id: "motion",
-		filter: new CLARITY.MotionDetector()
-	},
-	{
 		name: "Edge Detector",
 		id: "edge",
 		filter: new CLARITY.EdgeDetector({efficient:true})
@@ -45,11 +40,6 @@ var filters = [
 		filter: new CLARITY.DotRemover()
 	},
 	{
-		name: "Ghoster",
-		id: "ghost",
-		filter: new CLARITY.Ghoster()
-	},
-	{
 		name: "Puzzler",
 		id: "puzzler",
 		filter: new CLARITY.Puzzler()
@@ -58,8 +48,6 @@ var filters = [
 
 var canvas;
 var ctx;
-var localMediaStream = null;
-var video;
 var width;
 var height;
 
@@ -86,14 +74,13 @@ function init(){
 					}
 				}
 			});
+			render();
 		}
 
 		filters[i].position = i;
 		filters[i].active = false;
 	}
-	shuffleChanged();
 
-	video = document.querySelector("#vid");
 	canvas = document.querySelector('#canvas');
 	ctx = canvas.getContext('2d');
 	width = canvas.width;
@@ -105,16 +92,10 @@ function init(){
 				filter.filter.setClick([e.clientX, e.clientY]);
 		});
 		filters[filters.length-1].filter.setClick([e.clientX, e.clientY]);
+		render();
 	}
 
-	navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
-	window.URL = window.URL || window.webkitURL;
-	navigator.getUserMedia({video:true}, function (stream){
-		video.src = window.URL.createObjectURL(stream);
-		localMediaStream = stream;
-	}, onCameraFail);
-
-	requestAnimationFrame(loop);
+	render();
 }
 
 function shuffleChanged(){
@@ -138,17 +119,10 @@ function compareFilters(first, second){
 	return first.position > second.position;
 }
 
-function printFilters(){
-	for(var i = 0; i < filters.length; i++){
-		console.log(filters[i].id);
-	}
-}
-
-function loop(){
-	requestAnimationFrame(loop);
-	// var img = document.getElementById("image");
+function render(){
+	var img = document.getElementById("image");
 	
-	ctx.drawImage(video, 0, 0, width, height);
+	ctx.drawImage(img, 0, 0, width, height);
 
 	var frame = ctx.getImageData(0,0,width,height);
 
@@ -159,11 +133,6 @@ function loop(){
 	}
 
 	ctx.putImageData(frame, 0, 0);
-	// log(words)
-}
-
-function onCameraFail(e){
-	console.log("Camera did not work: ", e);
 }
 
 window.onload = init;
