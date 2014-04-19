@@ -1,3 +1,4 @@
+//TODO: Make this reduce image to a set number of colours, rather than rgb quantisation
 
 //Posterise object
 CLARITY.Posteriser = function(options){

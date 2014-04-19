@@ -1,8 +1,8 @@
 //Smoother object
 CLARITY.Smoother = function(options){
 	var options = options || {};
-	this. distance = options.distance || 1;
-	this. iterations = options.iterations || 1;
+	this.distance = options.distance || 1;
+	this.iterations = options.iterations || 1;
 
 	CLARITY.Filter.call( this, options );
 }

@@ -1,4 +1,4 @@
-
+//TODO: Make work properly
 //Difference detector object
 CLARITY.DifferenceDetector = function(options){
 	var options = options || {};

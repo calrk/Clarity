@@ -1,12 +1,13 @@
 
+//Scrambles the canvas scene
 CLARITY.Puzzler = function(options){
 	var options = options || {};
-	this.width = 640;
-	this.height = 480;
+	this.width = options.width || 640;
+	this.height = options.height || 480;
 
-	this.selected;
+	this.selected = null;
 
-	this.splits = 8;
+	this.splits = options.splits || 8;
 	this.swaps = [];
 	var count = 0;
 	for(var i = 0; i < this.splits; i++){
@@ -28,6 +29,7 @@ CLARITY.Puzzler = function(options){
 
 	CLARITY.Filter.call( this, options );
 };
+
 CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Puzzler.prototype.process = function(frame){
