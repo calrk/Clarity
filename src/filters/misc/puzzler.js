@@ -33,7 +33,7 @@ CLARITY.Puzzler = function(options){
 CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Puzzler.prototype.process = function(frame){
-	var output = this.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var minHeight = this.height/this.splits;
 	var minWidth = this.width/this.splits;

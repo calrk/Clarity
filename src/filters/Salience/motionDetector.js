@@ -12,7 +12,7 @@ CLARITY.MotionDetector = function(options){
 CLARITY.MotionDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.MotionDetector.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	this.pushFrame(frame);
 	

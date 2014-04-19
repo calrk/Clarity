@@ -16,7 +16,7 @@ CLARITY.Contourer = function(options){
 CLARITY.Contourer.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Contourer.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.data.length; i+=4){
 		if(frame.data[i] > this.maxValue){

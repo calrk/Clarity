@@ -15,7 +15,7 @@ CLARITY.DifferenceDetector.prototype.process = function(frame){
 			return frame;
 		}
 
-		var outPut = this.ctx.createImageData(frame.width, frame.height);
+		var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 		for(var i = 0; i < frame.width*frame.height*4; i+=4){
 			/*if(frame.data[i] != this.original.data[i] &&

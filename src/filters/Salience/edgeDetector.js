@@ -17,7 +17,7 @@ CLARITY.EdgeDetector = function(options){
 CLARITY.EdgeDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.EdgeDetector.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	if(!this.fast){
 		for(var y = 4; y < frame.height*4-4; y+=4){

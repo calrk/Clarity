@@ -12,7 +12,7 @@ CLARITY.Posteriser = function(options){
 CLARITY.Posteriser.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Posteriser.prototype.process = function(frame){
-	var outPut = ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.data.length; i++){
 		if(!((i+1)%4 == 0)){

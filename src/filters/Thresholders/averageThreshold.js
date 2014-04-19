@@ -10,7 +10,7 @@ CLARITY.AverageThreshold = function(options){
 CLARITY.AverageThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.AverageThreshold.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value
 	var threshold = this.thresh || this.getThresholdValue(frame);
@@ -49,7 +49,6 @@ CLARITY.AverageThreshold.prototype.process = function(frame){
 
 //used to get an iterative average threshold value
 CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
-	log("Getting threshold value.");
 	var average;
 	average = this.getColourValue(data, 0);
 	//finds the intial average of all the data
@@ -57,7 +56,6 @@ CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
 		var colour = this.getColourValue(data, i);
 		average = (average+colour)/2;
 	}
-	log("average " + average);
 
 	var lower = 0;
 	var upper = 0;
@@ -66,7 +64,6 @@ CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
 	//checks to see if the new average is near the old average
 	while(!(previous > current - 1 && previous < current + 1)){
 		previous = current;
-		log("previous: " + previous);
 		//splits the data up depending on the current threshold, and finds an average of each
 		for(var i = 0; i < data.width*data.height*4; i+=4){
 			var colour = this.getColourValue(data, i);
@@ -91,8 +88,6 @@ CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
 		current = (upper+lower)/2;
 		lower = 0;
 		upper = 0;
-		log("current: " + current);
 	}
-	log("final: " + current);
 	return current;
 }

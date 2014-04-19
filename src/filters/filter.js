@@ -5,8 +5,6 @@ CLARITY.Filter = function(options){
 };
 
 CLARITY.Filter.prototype = {
-	ctx: document.createElement('canvas').getContext('2d'),
-
 	process: function(frame){
 		return frame;
 	},

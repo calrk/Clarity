@@ -9,7 +9,7 @@ CLARITY.SkinDetector = function(options){
 CLARITY.SkinDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.SkinDetector.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 	this.RGBAtoYCbCr(outPut, frame);
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		//values for skin colour sourced from http://www.journal.au.edu/ijcim/2007/jan07/IJCIMvol15no1_article3.pdf

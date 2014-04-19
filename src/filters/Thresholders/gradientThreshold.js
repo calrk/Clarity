@@ -12,7 +12,7 @@ CLARITY.GradientThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 //The main function to do all the thresholding from
 CLARITY.GradientThreshold.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var found = false;
 	for(var y = this.distance; y < frame.height - this.distance; y++){

@@ -15,7 +15,7 @@ CLARITY.Ghoster.prototype.process = function(frame){
 		this.frames.pop();
 	}
 
-	var output = this.ctx.createImageData(width, height);
+	var output = CLARITY.ctx.createImageData(width, height);
 
 	for(var i = 0; i < frame.data.length; i+=4){
 		for (var j = 0; j < this.frames.length; j++) {

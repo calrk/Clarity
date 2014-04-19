@@ -10,7 +10,7 @@ CLARITY.Smoother = function(options){
 CLARITY.Smoother.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Smoother.prototype.process = function(frame){
-	var outPut = ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var z = 0; z < this.iterations; z++){
 		for(var y = this.distance; y < frame.height - this.distance; y++){
