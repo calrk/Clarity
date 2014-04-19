@@ -1,5 +1,7 @@
 
-var CLARITY = {};
+var CLARITY = {
+	ctx: document.createElement('canvas').getContext('2d')
+};
 //Filter parent
 CLARITY.Filter = function(options){
 	var options = options || {};
@@ -7,8 +9,6 @@ CLARITY.Filter = function(options){
 };
 
 CLARITY.Filter.prototype = {
-	ctx: document.createElement('canvas').getContext('2d'),
-
 	process: function(frame){
 		return frame;
 	},
@@ -21,148 +21,279 @@ CLARITY.Filter.prototype = {
 			case 'grey':
 				return data.data[pos+0]*0.2989+data.data[pos+1]*0.5870+data.data[pos+2]*0.1140;
 			case 'red':
+			case 'r':
 				return data.data[pos+0];
 			case 'green':
+			case 'g':
 				return data.data[pos+1];
 			case 'blue':
+			case 'b':
 				return data.data[pos+2];
 			default:
-				// console.log('Unrecognised channel.');
-				return data.data[pos+2];
+				return data.data[pos+0]*0.2989+data.data[pos+1]*0.5870+data.data[pos+2]*0.1140;
 		}
 	}
 }
 
-//Dot Remover object
-CLARITY.DotRemover = function(options){
-	var options = options || {};
-	this.neighboursReq = options.neighboursReq || 1;
-	
-	CLARITY.Filter.call( this, options );
-}
+//function with various image/pixel operations
+CLARITY.Operations = {
 
-CLARITY.DotRemover.prototype = Object.create( CLARITY.Filter.prototype );
+	RGBtoHSV: function(input){
+		var r, g, b;
+		var h, s, v;
+		var min, max, delta;
 
-CLARITY.DotRemover.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+		for(var i = 0; i < input.data.length; i+=4){
+			r = input.data[i];
+			g = input.data[i+1];
+			b = input.data[i+2];
+			min = minimum([r, g, b]);
+			max = maximum([r, g, b]);
 
-	for(var y = 1; y < frame.height - 1; y++){
-		for(var x = 1; x < frame.width - 1; x++){
-			var i = (y*frame.width + x)*4;
-			
-			var up = ((y-1)*frame.width + x)*4;
-			var down = ((y+1)*frame.width + x)*4;
-			var left = (y*frame.width + (x-1))*4;
-			var right = (y*frame.width + (x+1))*4;
-			
-			var col = frame.data[i];
-			var count = 0;
-			if(frame.data[up] == col) count++;
-			if(frame.data[down] == col) count++;
-			if(frame.data[left] == col) count++;
-			if(frame.data[right] == col) count++;
+			// console.log("min: " + min + "   max: " + max);
 
-			if(count <= this.neighboursReq){
-				if(col > 138){
-					outPut.data[i] = 0;
-					outPut.data[i+1] = 0;
-					outPut.data[i+2] = 0;
-				}
-				else{
-					outPut.data[i] = 255;
-					outPut.data[i+1] = 255;
-					outPut.data[i+2] = 255;
-				}
+			v = max;
+			delta = max - min;
+
+			if(max != 0){
+				s = delta / max;
 			}
 			else{
-				outPut.data[i] = col;
-				outPut.data[i+1] = col;
-				outPut.data[i+2] = col;
+				s = 0;
+				h = -1;
+				return;
 			}
-			outPut.data[i+3] = 255;
+
+			if(r == max)
+				h = (g - b) / delta;		// between yellow & magenta
+			else if(g == max)
+				h = 2 + (b - r) / delta;	// between cyan & yellow
+			else
+				h = 4 + (r - g) / delta;	// between magenta & cyan
+			
+			h *= 60;						// degrees
+			if(h < 0)
+				h += 360;
+
+			input.data[i]   = h; 
+			input.data[i+1] = s;
+			input.data[i+2] = v;
 		}
+	},
+
+	HSVtoRGB: function(input){
+		var i;
+		var r, g, b;
+		var h, s, v;
+		var f, p, q, t;
+
+		for(var j = 0; j < input.data.length; j+=4){
+			h = input.data[j];
+			s = input.data[j+1];
+			v = input.data[j+2];
+
+			if(s == 0){
+				// achromatic (grey)
+				r = g = b = v;
+				continue;
+			}
+			h /= 60;			// sector 0 to 5
+			i = Math.floor(h);
+			f = h - i;			// factorial part of h
+			p = v * (1 - s);
+			q = v * (1 - s * f);
+			t = v * (1 - s * (1 - f));
+			switch(i){
+				case 0:
+					r = v;
+					g = t;
+					b = p;
+					break;
+				case 1:
+					r = q;
+					g = v;
+					b = p;
+					break;
+				case 2:
+					r = p;
+					g = v;
+					b = t;
+					break;
+				case 3:
+					r = p;
+					g = q;
+					b = v;
+					break;
+				case 4:
+					r = t;
+					g = p;
+					b = v;
+					break;
+				default:
+					r = v;
+					g = p;
+					b = q;
+					break;
+			}
+			input.data[j]   = r; 
+			input.data[j+1] = g;
+			input.data[j+2] = b;
+		}
+	},
+
+	minimum: function(ins){
+		var out = 256;
+		for(var i = 0; i < ins.length; i++){
+			if(ins[i] < out){
+				out = ins[i];
+			}
+		}
+		return out;
+	},
+
+	maximum: function(ins){
+		var out = 0;
+		for(var i = 0; i < ins.length; i++){
+			if(ins[i] > out){
+				out = ins[i];
+			}
+		}
+		return out;
 	}
 
-	return outPut;
 };
 
 
-//Posterise object
-CLARITY.Posteriser = function(options){
-	this.threshes = [128, 256];
-	this.difference = 32;
+//function with various image/pixel operations
+CLARITY.Pixel = function(r, g, b){
+	this.r = 0;
+	this.g = 0;
+	this.b = 0;
 
-	this.setThresh(64);
-	CLARITY.Filter.call( this, options );
+	this.h = 0;
+	this.s = 0;
+	this.v = 0;
+
+	this.setFromRGB(r, g, b);
 };
 
-CLARITY.Posteriser.prototype = Object.create( CLARITY.Filter.prototype );
+CLARITY.Pixel.prototype = {
+	getColourValue: function(channel){
+		var channel = this.channel || channel || "grey";
 
-CLARITY.Posteriser.prototype.process = function(frame){
-	var outPut = ctx.createImageData(frame.width, frame.height);
+		switch(channel){
+			case 'grey':
+				return this.r*0.2989+this.g*0.5870+this.b*0.1140;
+			case 'red':
+			case 'r':
+				return this.r;
+			case 'green':
+			case 'g':
+				return this.g;
+			case 'blue':
+			case 'b':
+				return this.b;
 
-	for(var i = 0; i < frame.data.length; i++){
-		if(!((i+1)%4 == 0)){
-			for(var j = 0; j < this.threshes.length; j++){
-				if(frame.data[i] < this.threshes[j]){
-					outPut.data[i] = this.threshes[j] - this.difference/2;
-					break;
-				}
-			}
+			case 'hue':
+			case 'h':
+				return this.h;
+			case 'saturation':
+			case 's':
+				return this.s;
+			case 'value':
+			case 'v':
+				return this.v;
+			default:
+				return this.r*0.2989+this.g*0.5870+this.b*0.1140;
+		}
+	},
+
+	setFromRGB: function(r, g, b){
+		var min, max, delta;
+		this.r = r;
+		this.g = g;
+		this.b = b;
+
+		min = minimum([this.r, this.g, this.b]);
+		max = maximum([this.r, this.g, this.b]);
+
+		this.v = max;
+		delta = max - min;
+
+		if(max != 0){
+			this.s = delta / max;
 		}
 		else{
-			outPut.data[i] = 255;
+			this.s = 0;
+			this.h = -1;
+			return;
+		}
+
+		if(this.r == max)
+			this.h = (this.g - this.b) / delta;		// between yellow & magenta
+		else if(this.g == max)
+			this.h = 2 + (this.b - this.r) / delta;	// between cyan & yellow
+		else
+			this.h = 4 + (this.r - this.g) / delta;	// between magenta & cyan
+		
+		this.h *= 60;						// degrees
+		if(this.h < 0)
+			this.h += 360;
+	},
+
+	setFromHSV: function(h, s, v){
+		var i;
+		var f, p, q, t;
+		
+		this.h = h;
+		this.s = s;
+		this.v = v;
+
+		if(this.s == 0){//grey
+			this.r = this.g = this.b = this.v;
+			return;
+		}
+
+		i =  Math.floor(this.h/60);
+		f = this.h - i;			// factorial part of h
+		p = this.v * (1 - this.s);
+		q = this.v * (1 - this.s * f);
+		t = this.v * (1 - this.s * (1 - f));
+
+		switch(i){
+			case 0:
+				this.r = v;
+				this.g = t;
+				this.b = p;
+				break;
+			case 1:
+				this.r = q;
+				this.g = v;
+				this.b = p;
+				break;
+			case 2:
+				this.r = p;
+				this.g = v;
+				this.b = t;
+				break;
+			case 3:
+				this.r = p;
+				this.g = q;
+				this.b = v;
+				break;
+			case 4:
+				this.r = t;
+				this.g = p;
+				this.b = v;
+				break;
+			default:
+				this.r = v;
+				this.g = p;
+				this.b = q;
+				break;
 		}
 	}
-
-	return outPut;
-};
-
-CLARITY.Posteriser.prototype.setThresh = function(newNo){
-	this.threshes = [];
-	this.difference = newNo;
-	var index = 0;
-	for(var i = this.difference; i <= 256; i+= this.difference){
-		this.threshes[index] = i;
-		index ++;
-	}
-	this.threshes[index] = i;
-};
-
-//Smoother object
-CLARITY.Smoother = function(options){
-	var options = options || {};
-	this. distance = options.distance || 1;
-	this. iterations = options.iterations || 1;
-
-	CLARITY.Filter.call( this, options );
 }
-
-CLARITY.Smoother.prototype = Object.create( CLARITY.Filter.prototype );
-
-CLARITY.Smoother.prototype.process = function(frame){
-	var outPut = ctx.createImageData(frame.width, frame.height);
-
-	for(var z = 0; z < this.iterations; z++){
-		for(var y = this.distance; y < frame.height - this.distance; y++){
-			for(var x = this.distance; x < frame.width - this.distance; x++){
-				var i = (y*frame.width + x)*4;
-				
-				var up = ((y-this.distance)*frame.width + x)*4;
-				var down = ((y+this.distance)*frame.width + x)*4;
-				var left = (y*frame.width + (x-this.distance))*4;
-				var right = (y*frame.width + (x+this.distance))*4;
-				
-				outPut.data[i+0] = (frame.data[left+0] + frame.data[right+0] + frame.data[up+0] + frame.data[down+0])/4;
-				outPut.data[i+1] = (frame.data[left+1] + frame.data[right+1] + frame.data[up+1] + frame.data[down+1])/4;
-				outPut.data[i+2] = (frame.data[left+2] + frame.data[right+2] + frame.data[up+2] + frame.data[down+2])/4;
-				outPut.data[i+3] = 255;
-			}
-		}
-	}
-
-	return outPut;
-};
 
 //Edge detector object
 CLARITY.EdgeDetector = function(options){
@@ -183,7 +314,7 @@ CLARITY.EdgeDetector = function(options){
 CLARITY.EdgeDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.EdgeDetector.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	if(!this.fast){
 		for(var y = 4; y < frame.height*4-4; y+=4){
@@ -236,7 +367,7 @@ CLARITY.MotionDetector = function(options){
 CLARITY.MotionDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.MotionDetector.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	this.pushFrame(frame);
 	
@@ -257,7 +388,7 @@ CLARITY.MotionDetector.prototype.process = function(frame){
 
 CLARITY.MotionDetector.prototype.pushFrame = function(frame){
 	//makes a new frame, then copies current frame data into it
-	this.frames[this.index] = ctx.createImageData(frame.width, frame.height);
+	this.frames[this.index] = CLARITY.ctx.createImageData(frame.width, frame.height);
 	for(var i = 0; i < frame.data.length; i++){
 		this.frames[this.index].data[i] = frame.data[i];
 	}
@@ -284,7 +415,7 @@ CLARITY.SkinDetector = function(options){
 CLARITY.SkinDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.SkinDetector.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 	this.RGBAtoYCbCr(outPut, frame);
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		//values for skin colour sourced from http://www.journal.au.edu/ijcim/2007/jan07/IJCIMvol15no1_article3.pdf
@@ -358,7 +489,7 @@ CLARITY.AverageThreshold = function(options){
 CLARITY.AverageThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.AverageThreshold.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value
 	var threshold = this.thresh || this.getThresholdValue(frame);
@@ -397,7 +528,6 @@ CLARITY.AverageThreshold.prototype.process = function(frame){
 
 //used to get an iterative average threshold value
 CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
-	log("Getting threshold value.");
 	var average;
 	average = this.getColourValue(data, 0);
 	//finds the intial average of all the data
@@ -405,7 +535,6 @@ CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
 		var colour = this.getColourValue(data, i);
 		average = (average+colour)/2;
 	}
-	log("average " + average);
 
 	var lower = 0;
 	var upper = 0;
@@ -414,7 +543,6 @@ CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
 	//checks to see if the new average is near the old average
 	while(!(previous > current - 1 && previous < current + 1)){
 		previous = current;
-		log("previous: " + previous);
 		//splits the data up depending on the current threshold, and finds an average of each
 		for(var i = 0; i < data.width*data.height*4; i+=4){
 			var colour = this.getColourValue(data, i);
@@ -439,9 +567,7 @@ CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
 		current = (upper+lower)/2;
 		lower = 0;
 		upper = 0;
-		log("current: " + current);
 	}
-	log("final: " + current);
 	return current;
 }
 
@@ -459,7 +585,7 @@ CLARITY.GradientThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 //The main function to do all the thresholding from
 CLARITY.GradientThreshold.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var found = false;
 	for(var y = this.distance; y < frame.height - this.distance; y++){
@@ -552,7 +678,7 @@ CLARITY.MedianThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 //The main function to do all the thresholding from
 CLARITY.MedianThreshold.prototype.process = function(frame, thresh){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value
 	this.threshes = this.getThresholdValues(frame);
@@ -604,7 +730,139 @@ CLARITY.MedianThreshold.prototype.getThresholdValues = function(data){
 	return median;
 }
 
+//Dot Remover object
+CLARITY.DotRemover = function(options){
+	var options = options || {};
+	this.neighboursReq = options.neighboursReq || 1;
+	
+	CLARITY.Filter.call( this, options );
+}
 
+CLARITY.DotRemover.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.DotRemover.prototype.process = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var y = 1; y < frame.height - 1; y++){
+		for(var x = 1; x < frame.width - 1; x++){
+			var i = (y*frame.width + x)*4;
+			
+			var up = ((y-1)*frame.width + x)*4;
+			var down = ((y+1)*frame.width + x)*4;
+			var left = (y*frame.width + (x-1))*4;
+			var right = (y*frame.width + (x+1))*4;
+			
+			var col = frame.data[i];
+			var count = 0;
+			if(frame.data[up] == col) count++;
+			if(frame.data[down] == col) count++;
+			if(frame.data[left] == col) count++;
+			if(frame.data[right] == col) count++;
+
+			if(count <= this.neighboursReq){
+				if(col > 138){
+					outPut.data[i] = 0;
+					outPut.data[i+1] = 0;
+					outPut.data[i+2] = 0;
+				}
+				else{
+					outPut.data[i] = 255;
+					outPut.data[i+1] = 255;
+					outPut.data[i+2] = 255;
+				}
+			}
+			else{
+				outPut.data[i] = col;
+				outPut.data[i+1] = col;
+				outPut.data[i+2] = col;
+			}
+			outPut.data[i+3] = 255;
+		}
+	}
+
+	return outPut;
+};
+
+//TODO: Make this reduce image to a set number of colours, rather than rgb quantisation
+
+//Posterise object
+CLARITY.Posteriser = function(options){
+	this.threshes = [128, 256];
+	this.difference = 32;
+
+	this.setThresh(64);
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Posteriser.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Posteriser.prototype.process = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var i = 0; i < frame.data.length; i++){
+		if(!((i+1)%4 == 0)){
+			for(var j = 0; j < this.threshes.length; j++){
+				if(frame.data[i] < this.threshes[j]){
+					outPut.data[i] = this.threshes[j] - this.difference/2;
+					break;
+				}
+			}
+		}
+		else{
+			outPut.data[i] = 255;
+		}
+	}
+
+	return outPut;
+};
+
+CLARITY.Posteriser.prototype.setThresh = function(newNo){
+	this.threshes = [];
+	this.difference = newNo;
+	var index = 0;
+	for(var i = this.difference; i <= 256; i+= this.difference){
+		this.threshes[index] = i;
+		index ++;
+	}
+	this.threshes[index] = i;
+};
+
+//Smoother object
+CLARITY.Smoother = function(options){
+	var options = options || {};
+	this.distance = options.distance || 1;
+	this.iterations = options.iterations || 1;
+
+	CLARITY.Filter.call( this, options );
+}
+
+CLARITY.Smoother.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Smoother.prototype.process = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var z = 0; z < this.iterations; z++){
+		for(var y = this.distance; y < frame.height - this.distance; y++){
+			for(var x = this.distance; x < frame.width - this.distance; x++){
+				var i = (y*frame.width + x)*4;
+				
+				var up = ((y-this.distance)*frame.width + x)*4;
+				var down = ((y+this.distance)*frame.width + x)*4;
+				var left = (y*frame.width + (x-this.distance))*4;
+				var right = (y*frame.width + (x+this.distance))*4;
+				
+				outPut.data[i+0] = (frame.data[left+0] + frame.data[right+0] + frame.data[up+0] + frame.data[down+0])/4;
+				outPut.data[i+1] = (frame.data[left+1] + frame.data[right+1] + frame.data[up+1] + frame.data[down+1])/4;
+				outPut.data[i+2] = (frame.data[left+2] + frame.data[right+2] + frame.data[up+2] + frame.data[down+2])/4;
+				outPut.data[i+3] = 255;
+			}
+		}
+	}
+
+	return outPut;
+};
+
+//TODO: Make work properly
 //Difference detector object
 CLARITY.DifferenceDetector = function(options){
 	var options = options || {};
@@ -621,7 +879,7 @@ CLARITY.DifferenceDetector.prototype.process = function(frame){
 			return frame;
 		}
 
-		var outPut = this.ctx.createImageData(frame.width, frame.height);
+		var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 		for(var i = 0; i < frame.width*frame.height*4; i+=4){
 			/*if(frame.data[i] != this.original.data[i] &&
@@ -679,7 +937,7 @@ CLARITY.Contourer = function(options){
 CLARITY.Contourer.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Contourer.prototype.process = function(frame){
-	var outPut = this.ctx.createImageData(frame.width, frame.height);
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.data.length; i+=4){
 		if(frame.data[i] > this.maxValue){
@@ -739,7 +997,7 @@ CLARITY.Ghoster.prototype.process = function(frame){
 		this.frames.pop();
 	}
 
-	var output = this.ctx.createImageData(width, height);
+	var output = CLARITY.ctx.createImageData(width, height);
 
 	for(var i = 0; i < frame.data.length; i+=4){
 		for (var j = 0; j < this.frames.length; j++) {
@@ -753,14 +1011,15 @@ CLARITY.Ghoster.prototype.process = function(frame){
 	return output;
 };
 
+//Scrambles the canvas scene
 CLARITY.Puzzler = function(options){
 	var options = options || {};
-	this.width = 640;
-	this.height = 480;
+	this.width = options.width || 640;
+	this.height = options.height || 480;
 
-	this.selected;
+	this.selected = null;
 
-	this.splits = 8;
+	this.splits = options.splits || 8;
 	this.swaps = [];
 	var count = 0;
 	for(var i = 0; i < this.splits; i++){
@@ -782,10 +1041,11 @@ CLARITY.Puzzler = function(options){
 
 	CLARITY.Filter.call( this, options );
 };
+
 CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Puzzler.prototype.process = function(frame){
-	var output = this.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var minHeight = this.height/this.splits;
 	var minWidth = this.width/this.splits;
@@ -858,3 +1118,153 @@ CLARITY.Puzzler.prototype.numToPos = function(num){
 	y = num;
 	return [x,y];
 }
+
+/*
+//Shot Detector object
+CLARITY.ShotDetector = function(options){
+	var count = [];
+	var postCount = [];
+	var frames = [];
+	var dilateFrames = [];
+	var index = 1;
+	var prevECR = 0;
+	var cutTime = 0;
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Puzzler.prototype.process = function(frame){
+	var outPut = cxt.createImageData(frame.width, frame.height);
+	cxt2.putImageData(outPut, 0, 0);
+	
+	this.pushFrame(frame);
+
+	//waits until the buffer is full before trying to do stuff
+	if(frames.length < 2 || dilateFrames.length < 2){
+		log("returning");
+		return outPut;
+	}
+
+	//create new image data
+	var postProcess = cxt.createImageData(frame.width, frame.height);
+
+	//does the first compare, first frame times second dilation
+	for(var i = 0; i < frames[index].data.length; i+=4){
+		postProcess.data[i+0] = dilateFrames[1].data[i+0] * frames[0].data[i+0];
+		postProcess.data[i+1] = dilateFrames[1].data[i+1] * frames[0].data[i+1];
+		postProcess.data[i+2] = dilateFrames[1].data[i+2] * frames[0].data[i+2];
+		postProcess.data[i+3] = 255;
+	}
+	//counts how many pixels are on after this
+	for(var i = 0; i < frames[index].data.length; i+=4){
+		if(postProcess.data[i] > 128){
+			postCount[index] ++;
+		}
+	}
+
+	//does the second compare, second frame times first dilation
+	for(var i = 0; i < frames[index].data.length; i+=4){
+		postProcess.data[i+0] = dilateFrames[0].data[i+0] * frames[1].data[i+0];
+		postProcess.data[i+1] = dilateFrames[0].data[i+1] * frames[1].data[i+1];
+		postProcess.data[i+2] = dilateFrames[0].data[i+2] * frames[1].data[i+2];
+		postProcess.data[i+3] = 255;
+	}
+
+	//counts how many pixels are on after this
+	for(var i = 0; i < frames[index].data.length; i+=4){
+		if(postProcess.data[i] > 128){
+			postCount[!index] ++;
+		}
+	}
+
+	//calculate the edge change ratio between the two frames
+	var ECR = maximum([postCount[0]/count[0], postCount[1]/count[1]]);
+	ECR = postCount[0]/count[0] + postCount[1]/count[1];
+	
+	//compares the previous ECR with the current ECR to see if theres much difference
+	var shot = false;
+	if(Math.abs(ECR - prevECR) > 0.2){
+		shot = true;
+	}
+	prevECR = ECR;
+	log(ECR);
+
+	if(cutTime > 0){
+		cutTime --;
+		shot = false;
+	}
+	//shows white if it detects a shot, black if not
+	for(var i = 0; i < outPut.data.length; i++){
+		if(shot){
+			cutTime = 3;
+			log("shot detected");
+			outPut.data[i] = 255;
+		}
+		else{
+			outPut.data[i] = 0;
+		}
+	}
+
+	return outPut;
+};
+
+	//used for analysis, to push frames on without processing them
+	this.pushFrame = function(frame){
+		//gets the edges of the new frame
+		var edgeDetector = new EdgeDetector();
+		var threshOld = thresheld;
+		thresheld = true;
+		var outPut = edgeDetector.process(frame);
+		thresheld = threshOld;
+
+		//increments and bounds checks the index
+		index ++;
+		if(index > 1){
+			index = 0;
+		}
+		//makes a new frame, then copies the edge data into it
+		frames[index] = cxt.createImageData(frame.width, frame.height);
+		for(var i = 0; i < outPut.data.length; i++){
+			frames[index].data[i] = outPut.data[i];
+		}
+
+		//resets the counts
+		count[index] = 0;
+		postCount[index] = 0;
+
+		//dilates the image
+		for(var y = 0; y < frame.height*4; y+=4){
+			for(var x = 0; x < frame.width*4; x+=4){
+				var i = y*frame.width + x;
+				if(frames[index].data[i] > 128){
+					cxt2.fillStyle = "#FFFFFF";
+					cxt2.beginPath();
+					cxt2.arc(x/4, y/4, 5, 5, Math.PI*2, true); 
+					cxt2.closePath();
+					cxt2.fill();
+					count[index] ++;
+				}
+			}
+		}
+
+		//gets dilate image data, and sets alpha channel to 255
+		dilateFrames[index] = cxt2.getImageData(0, 0, frame.width, frame.height);
+		for(var i = 3; i < dilateFrames[index].data.length; i+=4){
+			dilateFrames[index].data[i] = 255;
+		}
+	};
+
+//returns the maximum value of the inputs in ins
+	function maximum(ins){
+		var out = 0;
+		for(var i = 0; i < ins.length; i++){
+			if(ins[i] > out){
+				out = ins[i];
+			}
+		}
+		return out;
+	}
+}
+*/

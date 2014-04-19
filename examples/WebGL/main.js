@@ -35,6 +35,11 @@ var filters = [
 		filter: new CLARITY.Posteriser()
 	},
 	{
+		name: "Skin Detector",
+		id: "skin",
+		filter: new CLARITY.SkinDetector()
+	},
+	{
 		name: "Dot Remover (Black & White Only)",
 		id: "dot",
 		filter: new CLARITY.DotRemover()
@@ -51,12 +56,20 @@ var filters = [
 	},
 ];
 
-var canvas;
 var ctx;
-var localMediaStream = null;
-var video;
+var canvas;
+var ctx2;
 var width;
 var height;
+
+var scene;
+var camera;
+var renderer;
+var clock;
+
+var spherer;
+var sphereg;
+var sphereb;
 
 function init(){
 	$("#shuffle").sortable({update:function(event, ui){shuffleChanged()}});
@@ -81,15 +94,15 @@ function init(){
 					}
 				}
 			});
+			render();
 		}
 
 		filters[i].position = i;
 		filters[i].active = false;
 	}
 
-	video = document.querySelector("#vid");
 	canvas = document.querySelector('#canvas');
-	ctx = canvas.getContext('2d');
+	ctx2 = document.querySelector('#canvas2').getContext('2d');
 	width = canvas.width;
 	height = canvas.height;
 
@@ -99,16 +112,32 @@ function init(){
 				filter.filter.setClick([e.clientX, e.clientY]);
 		});
 		filters[filters.length-1].filter.setClick([e.clientX, e.clientY]);
+		render();
 	}
 
-	navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
-	window.URL = window.URL || window.webkitURL;
-	navigator.getUserMedia({video:true}, function (stream){
-		video.src = window.URL.createObjectURL(stream);
-		localMediaStream = stream;
-	}, onCameraFail);
+	//THREE.js stuff
+	renderer = new THREE.WebGLRenderer({antialias:true, canvas: canvas});
+	camera = new THREE.PerspectiveCamera(75, width/height, 0.1, 100);
+	scene = new THREE.Scene();
+	light = new THREE.PointLight(0xFFFFFF, 1);
+	clock = new THREE.Clock()
+	clock.start();
+	camera.add(light);
+	scene.add(camera);
+	camera.position.z = 20;
+	renderer.setSize(width, height);
+	renderer.setClearColor(0x000000, 0);
 
-	requestAnimationFrame(render);
+	spherer = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 16), new THREE.MeshLambertMaterial({color: 0xFF0000}));
+	sphereg = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 16), new THREE.MeshLambertMaterial({color: 0x00FF00}));
+	sphereb = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 16), new THREE.MeshLambertMaterial({color: 0x0000FF}));
+	scene.add(spherer);
+	scene.add(sphereg);
+	scene.add(sphereb);
+	spherer.position.x = -12;
+	sphereb.position.x = 12;
+
+	render();
 }
 
 function shuffleChanged(){
@@ -132,18 +161,19 @@ function compareFilters(first, second){
 	return first.position > second.position;
 }
 
-function printFilters(){
-	for(var i = 0; i < filters.length; i++){
-		console.log(filters[i].id);
-	}
-}
-
 function render(){
 	requestAnimationFrame(render);
-	
-	ctx.drawImage(video, 0, 0, width, height);
 
-	var frame = ctx.getImageData(0,0,width,height);
+	var pos = clock.getElapsedTime();
+	spherer.position.y =  Math.sin(pos*2)*5;
+	sphereg.position.y =  Math.cos(pos*2)*5;
+	sphereb.position.y = -Math.sin(pos*2)*5;
+
+	renderer.render(scene, camera);
+
+	ctx2.drawImage(canvas, 0, 0);
+
+	var frame = ctx2.getImageData(0,0,width,height);
 
 	for(var i = 0; i < filters.length; i++){
 		if(filters[i].active){
@@ -151,11 +181,7 @@ function render(){
 		}
 	}
 
-	ctx.putImageData(frame, 0, 0);
-}
-
-function onCameraFail(e){
-	console.log("Camera did not work: ", e);
+	ctx2.putImageData(frame, 0, 0);
 }
 
 window.onload = init;

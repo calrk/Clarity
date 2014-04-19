@@ -33,7 +33,7 @@ CLARITY.MotionDetector.prototype.process = function(frame){
 
 CLARITY.MotionDetector.prototype.pushFrame = function(frame){
 	//makes a new frame, then copies current frame data into it
-	this.frames[this.index] = ctx.createImageData(frame.width, frame.height);
+	this.frames[this.index] = CLARITY.ctx.createImageData(frame.width, frame.height);
 	for(var i = 0; i < frame.data.length; i++){
 		this.frames[this.index].data[i] = frame.data[i];
 	}
