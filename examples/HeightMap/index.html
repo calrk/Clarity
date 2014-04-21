@@ -1,6 +1,6 @@
 <html>
 <head>
-	<title>Clarity - WebGL</title>
+	<title>Clarity - Height Map</title>
 
 	<script type="text/javascript" src="../js/jquery-1.10.1.min.js"></script>
 	<script type="text/javascript" src="../js/jquery-ui-1.10.3.custom.min.js"></script>
@@ -13,8 +13,10 @@
 </head>
 <body>
 
-	<canvas id="canvas" width="640" height="480" style="border:1px solid #d3d3d3;"></canvas><br>
-	<canvas id="canvas2" style="left:640px;" width="640" height="480" style="border:1px solid #d3d3d3;"></canvas><br>
+	<img id="image" style="display:none;" src="river.png"></img>
+	<canvas id="canvas" width="500" height="500" style="border:1px solid #d3d3d3;"></canvas>
+	<canvas id="normal" width="500" height="500" style="border:1px solid #d3d3d3;"></canvas>
+	<canvas id="three" width="500" height="500" style="border:1px solid #d3d3d3;"></canvas>
 	<ol id="shuffle"></ol>
 </body>
 </html>

@@ -98,7 +98,6 @@ function init(){
 			if(typeof filter.setClick === 'function')
 				filter.filter.setClick([e.clientX, e.clientY]);
 		});
-		filters[filters.length-1].filter.setClick([e.clientX, e.clientY]);
 	}
 
 	navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;

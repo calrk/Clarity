@@ -295,6 +295,305 @@ CLARITY.Pixel.prototype = {
 	}
 }
 
+
+//Contourer object
+CLARITY.Contourer = function(options){
+	var options = options || {}
+	this.contours = options.contours || 10;
+
+	this.threshes = [128, 256];
+	this.threshSets = [0, 256];
+	this.difference = 128;
+	this.maxValue = 0;
+	this.minValue = 255;
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Contourer.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Contourer.prototype.process = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var i = 0; i < frame.data.length; i+=4){
+		if(frame.data[i] > this.maxValue){
+			this.maxValue = frame.data[i];
+		}
+		else if(frame.data[i] < this.minValue){
+			this.minValue = frame.data[i];
+		}
+	}
+	this.setVar(this.contours);
+
+	for(var i = 0; i < frame.data.length; i++){
+		if(!((i+1)%4 == 0)){
+			for(var j = 0; j < this.threshes.length; j++){
+				if(frame.data[i] < this.threshes[j]){
+					outPut.data[i] = this.threshSets[j];
+					break;
+				}
+			}
+		}
+		else{
+			outPut.data[i] = 255;
+		}
+	}
+
+	return outPut;
+};
+
+CLARITY.Contourer.prototype.setVar = function(newNo){
+	this.threshes = [];
+	this.difference = (this.maxValue-this.minValue)/newNo;
+
+	var index = 0;
+	for(var i = this.difference+this.minValue; i <= 256; i+= this.difference){
+		this.threshes[index] = i;
+		this.threshSets[index] = (i-this.difference-this.minValue)/(this.maxValue-this.minValue)*255;
+		index ++;
+	}
+	this.threshes[index] = i;
+	this.threshSets[index] = 255;
+};
+
+
+//NormalGenerator object
+//Contains a bit of vector maths, which may be pulled out in future if other filters require it
+CLARITY.NormalGenerator = function(options){
+	var options = options || {}
+	this.heightMod = options.heightMod || 0.15;
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.NormalGenerator.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.NormalGenerator.prototype.process = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var y = 1; y < frame.height-1; y++){
+		for(var x = 1; x < frame.width-1; x++){
+			var i = (y*frame.width + x)*4;
+			var up    = ((y-1)*frame.width + x)*4;
+			var down  = ((y+1)*frame.width + x)*4;
+			var left  = (y*frame.width + (x-1))*4;
+			var right = (y*frame.width + (x+1))*4;
+
+			var veci =     {x:x, y:y,   z: this.heightMod*frame.data[i]};
+			var vecup =    {x:x, y:y-1, z: this.heightMod*frame.data[up]};
+			var vecdown =  {x:x, y:y+1, z: this.heightMod*frame.data[down]};
+			var vecleft =  {x:x-1, y:y, z: this.heightMod*frame.data[left]};
+			var vecright = {x:x+1, y:y, z: this.heightMod*frame.data[right]};
+
+			var res = this.generateNormal(veci, vecleft, vecright, vecup, vecdown)
+
+			outPut.data[i] =   255-(res.x/2+128);
+			outPut.data[i+1] = 255-(res.y/2+128);
+			outPut.data[i+2] = -res.z;
+
+			outPut.data[i+3] = 255;
+		}
+	}
+
+	return outPut;
+};
+
+CLARITY.NormalGenerator.prototype.generateNormal = function(centreIn, leftIn, rightIn, upIn, downIn){
+	var left  = this.calcNormal(centreIn, upIn,    leftIn);
+    var right = this.calcNormal(centreIn, leftIn,  downIn);
+    var up    = this.calcNormal(centreIn, downIn,  rightIn);
+    var down  = this.calcNormal(centreIn, rightIn, upIn);
+
+    var avg = this.average(left, right, up, down);
+
+    return avg;
+}
+
+CLARITY.NormalGenerator.prototype.calcNormal = function(vcentre, v1, v2){
+	var res1 = this.vectorSub(vcentre, v1);
+	var res2 = this.vectorSub(vcentre, v2);
+    var cross = this.crossProduct(res1, res2);
+    cross = this.normalise(cross);
+    return cross
+}
+
+CLARITY.NormalGenerator.prototype.vectorSub = function(v1, v2){
+	return {
+		x: v1.x-v2.x, 
+		y: v1.y-v2.y, 
+		z: v1.z-v2.z
+	};
+}
+
+CLARITY.NormalGenerator.prototype.vectorAdd = function(v1, v2){
+	return {
+		x: v1.x+v2.x, 
+		y: v1.y+v2.y, 
+		z: v1.z+v2.z
+	};
+}
+
+CLARITY.NormalGenerator.prototype.crossProduct = function(v1, v2){
+	return {
+		x:   v1.y*v2.z - v1.z*v2.y,
+		y: -(v1.x*v2.z - v1.z*v2.x),
+		z:   v1.x*v2.y - v1.y*v2.x
+	}
+}
+
+CLARITY.NormalGenerator.prototype.normalise = function(v){
+	var mag = Math.sqrt(Math.abs(v.x*v.x + v.y*v.y + v.z*v.z));
+	return{
+		x: v.x/mag,
+		y: v.y/mag,
+		z: v.z/mag
+	}
+}
+
+CLARITY.NormalGenerator.prototype.average = function(v1, v2, v3, v4){
+	var res = this.vectorAdd(v1, v2);
+	res = this.vectorAdd(res, v3);
+	res = this.vectorAdd(res, v4);
+
+	res = this.normalise(res);
+	return {
+		x: res.x*255,
+		y: res.y*255,
+		z: res.z*255
+	}
+}
+//Dot Remover object
+CLARITY.DotRemover = function(options){
+	var options = options || {};
+	this.neighboursReq = options.neighboursReq || 1;
+	
+	CLARITY.Filter.call( this, options );
+}
+
+CLARITY.DotRemover.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.DotRemover.prototype.process = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var y = 1; y < frame.height - 1; y++){
+		for(var x = 1; x < frame.width - 1; x++){
+			var i = (y*frame.width + x)*4;
+			
+			var up = ((y-1)*frame.width + x)*4;
+			var down = ((y+1)*frame.width + x)*4;
+			var left = (y*frame.width + (x-1))*4;
+			var right = (y*frame.width + (x+1))*4;
+			
+			var col = frame.data[i];
+			var count = 0;
+			if(frame.data[up] == col) count++;
+			if(frame.data[down] == col) count++;
+			if(frame.data[left] == col) count++;
+			if(frame.data[right] == col) count++;
+
+			if(count <= this.neighboursReq){
+				if(col > 138){
+					outPut.data[i] = 0;
+					outPut.data[i+1] = 0;
+					outPut.data[i+2] = 0;
+				}
+				else{
+					outPut.data[i] = 255;
+					outPut.data[i+1] = 255;
+					outPut.data[i+2] = 255;
+				}
+			}
+			else{
+				outPut.data[i] = col;
+				outPut.data[i+1] = col;
+				outPut.data[i+2] = col;
+			}
+			outPut.data[i+3] = 255;
+		}
+	}
+
+	return outPut;
+};
+
+//TODO: Make this reduce image to a set number of colours, rather than rgb quantisation
+
+//Posterise object
+CLARITY.Posteriser = function(options){
+	this.threshes = [128, 256];
+	this.difference = 32;
+
+	this.setThresh(64);
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Posteriser.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Posteriser.prototype.process = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var i = 0; i < frame.data.length; i++){
+		if(!((i+1)%4 == 0)){
+			for(var j = 0; j < this.threshes.length; j++){
+				if(frame.data[i] < this.threshes[j]){
+					outPut.data[i] = this.threshes[j] - this.difference/2;
+					break;
+				}
+			}
+		}
+		else{
+			outPut.data[i] = 255;
+		}
+	}
+
+	return outPut;
+};
+
+CLARITY.Posteriser.prototype.setThresh = function(newNo){
+	this.threshes = [];
+	this.difference = newNo;
+	var index = 0;
+	for(var i = this.difference; i <= 256; i+= this.difference){
+		this.threshes[index] = i;
+		index ++;
+	}
+	this.threshes[index] = i;
+};
+
+//Smoother object
+CLARITY.Smoother = function(options){
+	var options = options || {};
+	this.distance = options.distance || 1;
+	this.iterations = options.iterations || 1;
+
+	CLARITY.Filter.call( this, options );
+}
+
+CLARITY.Smoother.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Smoother.prototype.process = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var z = 0; z < this.iterations; z++){
+		for(var y = this.distance; y < frame.height - this.distance; y++){
+			for(var x = this.distance; x < frame.width - this.distance; x++){
+				var i = (y*frame.width + x)*4;
+				
+				var up = ((y-this.distance)*frame.width + x)*4;
+				var down = ((y+this.distance)*frame.width + x)*4;
+				var left = (y*frame.width + (x-this.distance))*4;
+				var right = (y*frame.width + (x+this.distance))*4;
+				
+				outPut.data[i+0] = (frame.data[left+0] + frame.data[right+0] + frame.data[up+0] + frame.data[down+0])/4;
+				outPut.data[i+1] = (frame.data[left+1] + frame.data[right+1] + frame.data[up+1] + frame.data[down+1])/4;
+				outPut.data[i+2] = (frame.data[left+2] + frame.data[right+2] + frame.data[up+2] + frame.data[down+2])/4;
+				outPut.data[i+3] = 255;
+			}
+		}
+	}
+
+	return outPut;
+};
+
 //Edge detector object
 CLARITY.EdgeDetector = function(options){
 	var options = options || {};
@@ -730,138 +1029,6 @@ CLARITY.MedianThreshold.prototype.getThresholdValues = function(data){
 	return median;
 }
 
-//Dot Remover object
-CLARITY.DotRemover = function(options){
-	var options = options || {};
-	this.neighboursReq = options.neighboursReq || 1;
-	
-	CLARITY.Filter.call( this, options );
-}
-
-CLARITY.DotRemover.prototype = Object.create( CLARITY.Filter.prototype );
-
-CLARITY.DotRemover.prototype.process = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
-
-	for(var y = 1; y < frame.height - 1; y++){
-		for(var x = 1; x < frame.width - 1; x++){
-			var i = (y*frame.width + x)*4;
-			
-			var up = ((y-1)*frame.width + x)*4;
-			var down = ((y+1)*frame.width + x)*4;
-			var left = (y*frame.width + (x-1))*4;
-			var right = (y*frame.width + (x+1))*4;
-			
-			var col = frame.data[i];
-			var count = 0;
-			if(frame.data[up] == col) count++;
-			if(frame.data[down] == col) count++;
-			if(frame.data[left] == col) count++;
-			if(frame.data[right] == col) count++;
-
-			if(count <= this.neighboursReq){
-				if(col > 138){
-					outPut.data[i] = 0;
-					outPut.data[i+1] = 0;
-					outPut.data[i+2] = 0;
-				}
-				else{
-					outPut.data[i] = 255;
-					outPut.data[i+1] = 255;
-					outPut.data[i+2] = 255;
-				}
-			}
-			else{
-				outPut.data[i] = col;
-				outPut.data[i+1] = col;
-				outPut.data[i+2] = col;
-			}
-			outPut.data[i+3] = 255;
-		}
-	}
-
-	return outPut;
-};
-
-//TODO: Make this reduce image to a set number of colours, rather than rgb quantisation
-
-//Posterise object
-CLARITY.Posteriser = function(options){
-	this.threshes = [128, 256];
-	this.difference = 32;
-
-	this.setThresh(64);
-	CLARITY.Filter.call( this, options );
-};
-
-CLARITY.Posteriser.prototype = Object.create( CLARITY.Filter.prototype );
-
-CLARITY.Posteriser.prototype.process = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
-
-	for(var i = 0; i < frame.data.length; i++){
-		if(!((i+1)%4 == 0)){
-			for(var j = 0; j < this.threshes.length; j++){
-				if(frame.data[i] < this.threshes[j]){
-					outPut.data[i] = this.threshes[j] - this.difference/2;
-					break;
-				}
-			}
-		}
-		else{
-			outPut.data[i] = 255;
-		}
-	}
-
-	return outPut;
-};
-
-CLARITY.Posteriser.prototype.setThresh = function(newNo){
-	this.threshes = [];
-	this.difference = newNo;
-	var index = 0;
-	for(var i = this.difference; i <= 256; i+= this.difference){
-		this.threshes[index] = i;
-		index ++;
-	}
-	this.threshes[index] = i;
-};
-
-//Smoother object
-CLARITY.Smoother = function(options){
-	var options = options || {};
-	this.distance = options.distance || 1;
-	this.iterations = options.iterations || 1;
-
-	CLARITY.Filter.call( this, options );
-}
-
-CLARITY.Smoother.prototype = Object.create( CLARITY.Filter.prototype );
-
-CLARITY.Smoother.prototype.process = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
-
-	for(var z = 0; z < this.iterations; z++){
-		for(var y = this.distance; y < frame.height - this.distance; y++){
-			for(var x = this.distance; x < frame.width - this.distance; x++){
-				var i = (y*frame.width + x)*4;
-				
-				var up = ((y-this.distance)*frame.width + x)*4;
-				var down = ((y+this.distance)*frame.width + x)*4;
-				var left = (y*frame.width + (x-this.distance))*4;
-				var right = (y*frame.width + (x+this.distance))*4;
-				
-				outPut.data[i+0] = (frame.data[left+0] + frame.data[right+0] + frame.data[up+0] + frame.data[down+0])/4;
-				outPut.data[i+1] = (frame.data[left+1] + frame.data[right+1] + frame.data[up+1] + frame.data[down+1])/4;
-				outPut.data[i+2] = (frame.data[left+2] + frame.data[right+2] + frame.data[up+2] + frame.data[down+2])/4;
-				outPut.data[i+3] = 255;
-			}
-		}
-	}
-
-	return outPut;
-};
-
 //TODO: Make work properly
 //Difference detector object
 CLARITY.DifferenceDetector = function(options){
@@ -917,67 +1084,6 @@ CLARITY.DifferenceDetector.prototype.findDifference = function(pix1, pix2){
 		}
 	}
 	return true;
-};
-
-
-//Contourer object
-CLARITY.Contourer = function(options){
-	var options = options || {}
-	this.contours = options.contours || 10;
-
-	this.threshes = [128, 256];
-	this.threshSets = [0, 256];
-	this.difference = 128;
-	this.maxValue = 0;
-	this.minValue = 255;
-
-	CLARITY.Filter.call( this, options );
-};
-
-CLARITY.Contourer.prototype = Object.create( CLARITY.Filter.prototype );
-
-CLARITY.Contourer.prototype.process = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
-
-	for(var i = 0; i < frame.data.length; i+=4){
-		if(frame.data[i] > this.maxValue){
-			this.maxValue = frame.data[i];
-		}
-		else if(frame.data[i] < this.minValue){
-			this.minValue = frame.data[i];
-		}
-	}
-	this.setVar(this.contours);
-
-	for(var i = 0; i < frame.data.length; i++){
-		if(!((i+1)%4 == 0)){
-			for(var j = 0; j < this.threshes.length; j++){
-				if(frame.data[i] < this.threshes[j]){
-					outPut.data[i] = this.threshSets[j];
-					break;
-				}
-			}
-		}
-		else{
-			outPut.data[i] = 255;
-		}
-	}
-
-	return outPut;
-};
-
-CLARITY.Contourer.prototype.setVar = function(newNo){
-	this.threshes = [];
-	this.difference = (this.maxValue-this.minValue)/newNo;
-
-	var index = 0;
-	for(var i = this.difference+this.minValue; i <= 256; i+= this.difference){
-		this.threshes[index] = i;
-		this.threshSets[index] = (i-this.difference-this.minValue)/(this.maxValue-this.minValue)*255;
-		index ++;
-	}
-	this.threshes[index] = i;
-	this.threshSets[index] = 255;
 };
 
 
