@@ -92,6 +92,7 @@ function render(){
 
 	frame = ctx.getImageData(0,0,width,height);
 	normFrame = new CLARITY.NormalGenerator().process(frame);
+	normFrame = new CLARITY.NormalEditor({intensity:1}).process(normFrame);
 
 	for(var i = 0; i < filters.length; i++){
 		if(filters[i].active){
