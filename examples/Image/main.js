@@ -44,6 +44,21 @@ var filters = [
 		id: "puzzler",
 		filter: new CLARITY.Puzzler()
 	},
+	{
+		name: "Translator",
+		id: "trans",
+		filter: new CLARITY.Translator()
+	},
+	{
+		name: "Rotator",
+		id: "rotate1",
+		filter: new CLARITY.Rotator({turns:1})
+	},
+	{
+		name: "Mirror",
+		id: "mirror",
+		filter: new CLARITY.Mirror()
+	},
 ];
 
 var canvas;
