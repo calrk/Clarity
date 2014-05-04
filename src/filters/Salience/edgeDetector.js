@@ -52,6 +52,6 @@ CLARITY.EdgeDetector.prototype.process = function(frame){
 			}
 		}
 	}
-			
+
 	return outPut;
 };

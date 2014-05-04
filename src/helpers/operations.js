@@ -4,44 +4,27 @@ CLARITY.Operations = {
 	RGBtoHSV: function(input){
 		var r, g, b;
 		var h, s, v;
-		var min, max, delta;
 
-		for(var i = 0; i < input.data.length; i+=4){
-			r = input.data[i];
-			g = input.data[i+1];
-			b = input.data[i+2];
-			min = minimum([r, g, b]);
-			max = maximum([r, g, b]);
+		r = input[0]/255;
+		g = input[1]/255;
+		b = input[2]/255;
 
-			// console.log("min: " + min + "   max: " + max);
+		var minRGB = this.minimum([r, g, b]);
+		var maxRGB = this.maximum([r, g, b]);
 
-			v = max;
-			delta = max - min;
-
-			if(max != 0){
-				s = delta / max;
-			}
-			else{
-				s = 0;
-				h = -1;
-				return;
-			}
-
-			if(r == max)
-				h = (g - b) / delta;		// between yellow & magenta
-			else if(g == max)
-				h = 2 + (b - r) / delta;	// between cyan & yellow
-			else
-				h = 4 + (r - g) / delta;	// between magenta & cyan
-			
-			h *= 60;						// degrees
-			if(h < 0)
-				h += 360;
-
-			input.data[i]   = h; 
-			input.data[i+1] = s;
-			input.data[i+2] = v;
+		if(minRGB == maxRGB) {
+			computedV = minRGB;
+			return [0,0,computedV];
 		}
+
+		// Colors other than black-gray-white:
+		var d = (r == minRGB) ? g-b : ((b == minRGB) ? r-g : b-r);
+		var h = (r == minRGB) ? 3 : ((b == minRGB) ? 1 : 5);
+		computedH = 60*(h - d/(maxRGB - minRGB));
+		computedS = (maxRGB - minRGB)/maxRGB;
+		computedV = maxRGB;
+
+		return [computedH, computedS, computedV];
 	},
 
 	HSVtoRGB: function(input){
@@ -50,57 +33,32 @@ CLARITY.Operations = {
 		var h, s, v;
 		var f, p, q, t;
 
-		for(var j = 0; j < input.data.length; j+=4){
-			h = input.data[j];
-			s = input.data[j+1];
-			v = input.data[j+2];
+		h = input[0];
+		s = input[1];
+		v = input[2];
 
-			if(s == 0){
-				// achromatic (grey)
-				r = g = b = v;
-				continue;
-			}
-			h /= 60;			// sector 0 to 5
-			i = Math.floor(h);
-			f = h - i;			// factorial part of h
-			p = v * (1 - s);
-			q = v * (1 - s * f);
-			t = v * (1 - s * (1 - f));
-			switch(i){
-				case 0:
-					r = v;
-					g = t;
-					b = p;
-					break;
-				case 1:
-					r = q;
-					g = v;
-					b = p;
-					break;
-				case 2:
-					r = p;
-					g = v;
-					b = t;
-					break;
-				case 3:
-					r = p;
-					g = q;
-					b = v;
-					break;
-				case 4:
-					r = t;
-					g = p;
-					b = v;
-					break;
-				default:
-					r = v;
-					g = p;
-					b = q;
-					break;
-			}
-			input.data[j]   = r; 
-			input.data[j+1] = g;
-			input.data[j+2] = b;
+		var i = h/60;
+
+		var c = v * s;
+		var x = c * (1- Math.abs(i%2 - 1))
+		var m = v - c;
+
+		i = Math.floor(i);
+
+		switch(i){
+			case 0:
+			case 6:
+				return [(c+m)*255, (x+m)*255, (0+m)*255];
+			case 1:
+				return [(x+m)*255, (c+m)*255, (0+m)*255];
+			case 2:
+				return [(0+m)*255, (c+m)*255, (x+m)*255];
+			case 3:
+				return [(0+m)*255, (x+m)*255, (c+m)*255];
+			case 4:
+				return [(x+m)*255, (0+m)*255, (c+m)*255];
+			default:
+				return [(c+m)*255, (0+m)*255, (x+m)*255];
 		}
 	},
 
@@ -122,6 +80,16 @@ CLARITY.Operations = {
 			}
 		}
 		return out;
+	},
+
+	clamp: function(value, min, max){
+		if(value < min){
+			return min;
+		}
+		if(value > max){
+			return max;
+		}
+		return value;
 	}
 
 };

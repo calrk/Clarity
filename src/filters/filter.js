@@ -11,7 +11,7 @@ CLARITY.Filter.prototype = {
 
 	//gets the pixel value depending on which colour as a parameter
 	getColourValue: function(data, pos, channel){
-		var channel = this.channel || channel || "grey";
+		var channel = channel || this.channel || "grey";
 
 		switch(channel){
 			case 'grey':

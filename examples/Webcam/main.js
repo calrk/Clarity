@@ -1,5 +1,10 @@
 var filters = [
 	{
+		name: "Desaturate",
+		id: "desat",
+		filter: new CLARITY.Desaturate()
+	},
+	{
 		name: "Average Thresholder",
 		id: "avThresh",
 		filter: new CLARITY.AverageThreshold({thresh:64, channel:'red'})
@@ -17,7 +22,12 @@ var filters = [
 	{
 		name: "Edge Detector",
 		id: "edge",
-		filter: new CLARITY.EdgeDetector({efficient:true})
+		filter: new CLARITY.EdgeDetector({fast:false})
+	},
+	{
+		name: "Sharpen",
+		id: "sharpen",
+		filter: new CLARITY.Sharpen({intensity: 0.5})
 	},
 	{
 		name: "Gradient Thresholder",
