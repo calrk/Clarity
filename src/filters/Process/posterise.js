@@ -9,7 +9,7 @@ CLARITY.Posteriser = function(options){
 		this.setThresh(64);
 	}
 	else{
-		this.colourCount = options.colourCount || 5;
+		this.colours = options.colours || 5;
 		this.MCut = new CLARITY.MCut().MCut;
 	}
 
@@ -31,7 +31,7 @@ CLARITY.Posteriser.prototype.process = function(frame){
 	}
 
 	this.MCut.init(data);
-	var palette = this.MCut.get_fixed_size_palette(this.colourCount);
+	var palette = this.MCut.get_fixed_size_palette(this.colours);
 
 	var prevDistance;
 	var prevColour;
