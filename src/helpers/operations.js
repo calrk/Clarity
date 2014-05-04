@@ -63,7 +63,7 @@ CLARITY.Operations = {
 	},
 
 	minimum: function(ins){
-		var out = 256;
+		var out = 10000000;
 		for(var i = 0; i < ins.length; i++){
 			if(ins[i] < out){
 				out = ins[i];
@@ -73,7 +73,7 @@ CLARITY.Operations = {
 	},
 
 	maximum: function(ins){
-		var out = 0;
+		var out = -1000000;
 		for(var i = 0; i < ins.length; i++){
 			if(ins[i] > out){
 				out = ins[i];
