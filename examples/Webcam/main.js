@@ -15,6 +15,11 @@ var filters = [
 		filter: new CLARITY.Smoother()
 	},
 	{
+		name: "HSV Shift",
+		id: "hsvshift",
+		filter: new CLARITY.hsvShifter({hue:60})
+	},
+	{
 		name: "Motion Detector",
 		id: "motion",
 		filter: new CLARITY.MotionDetector()
