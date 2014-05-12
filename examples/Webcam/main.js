@@ -17,7 +17,7 @@ var filters = [
 	{
 		name: "HSV Shift",
 		id: "hsvshift",
-		filter: new CLARITY.hsvShifter({hue:60})
+		filter: new CLARITY.hsvShifter({hue:300})
 	},
 	{
 		name: "Motion Detector",
@@ -47,7 +47,7 @@ var filters = [
 	{
 		name: "Posteriser",
 		id: "posterise",
-		filter: new CLARITY.Posteriser()
+		filter: new CLARITY.Posteriser({colours: 10})
 	},
 	{
 		name: "Dot Remover (Black & White Only)",
@@ -79,6 +79,11 @@ var filters = [
 		id: "mirror",
 		filter: new CLARITY.Mirror()
 	},
+	{
+		name: "Tiler",
+		id: "tiler",
+		filter: new CLARITY.Tiler()
+	},
 ];
 
 var canvas;
@@ -98,6 +103,10 @@ function init(){
 		newLi.innerHTML = filters[i].name;
 		newLi.id = filters[i].id;
 		$("#shuffle")[0].appendChild(newLi);
+
+		if(filters[i].id == "hsvshift"){
+			filters[i].filter.createControls();
+		}
 
 		newLi.onclick = function(e){
 			filters.forEach(function(filter){

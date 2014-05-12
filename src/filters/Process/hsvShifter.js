@@ -2,9 +2,11 @@
 CLARITY.hsvShifter = function(options){
 	var options = options || {};
 
-	this.hue = options.hue || 0;
-	this.saturation = options.saturation || 1;
-	this.value = options.value || options.lightness || 1;
+	this.properties = {
+		hue: options.hue || 0,
+		saturation: options.saturation || 1,
+		value: options.value || options.lightness || 1
+	};
 
 	CLARITY.Filter.call( this, options );
 };
@@ -17,12 +19,12 @@ CLARITY.hsvShifter.prototype.process = function(frame){
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		var col = CLARITY.Operations.RGBtoHSV([frame.data[i], frame.data[i+1], frame.data[i+2]]);
 		
-		col[0] += this.hue;
+		col[0] += this.properties.hue;
 		if(col[0] > 360){
 			col[0] -= 360;
 		}
-		col[1] *= this.saturation;
-		col[2] *= this.value;
+		col[1] *= this.properties.saturation;
+		col[2] *= this.properties.value;
 		
 		col = CLARITY.Operations.HSVtoRGB([col[0], col[1], col[2]]);
 		
@@ -34,3 +36,45 @@ CLARITY.hsvShifter.prototype.process = function(frame){
 
 	return outPut;
 };
+
+CLARITY.hsvShifter.prototype.createControls = function(){
+	var self = this;
+	var controls = document.createElement('div');
+	var slider = document.createElement('input');
+	slider.setAttribute('type', 'range');
+	slider.setAttribute('min', '0');
+	slider.setAttribute('max', '360');
+
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(){
+		self.setField('hue', this.value);
+	});
+
+	slider = document.createElement('input');
+	slider.setAttribute('type', 'range');
+	slider.setAttribute('min', '0');
+	slider.setAttribute('max', '2');
+	slider.setAttribute('step', '0.1');
+
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(){
+		self.setField('saturation', this.value);
+	});
+
+	slider = document.createElement('input');
+	slider.setAttribute('type', 'range');
+	slider.setAttribute('min', '0');
+	slider.setAttribute('max', '2');
+	slider.setAttribute('step', '0.1');
+
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(){
+		self.setField('value', this.value);
+	});
+	
+	document.getElementById('controls').appendChild(controls);
+}
+
+CLARITY.hsvShifter.prototype.setField = function(key, value){
+	this.properties[key] = parseFloat(value);
+}

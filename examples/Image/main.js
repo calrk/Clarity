@@ -27,7 +27,7 @@ var filters = [
 	{
 		name: "Posteriser",
 		id: "posterise",
-		filter: new CLARITY.Posteriser()
+		filter: new CLARITY.Posteriser({colours:10})
 	},
 	{
 		name: "Skin Detector",

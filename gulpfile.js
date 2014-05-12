@@ -22,10 +22,23 @@ gulp.task('js', function(){
 		.pipe(gulp.dest('./build/'));
 });
 
-gulp.task('connect', function() {
+/*gulp.task('connect', function() {
   connect.server({
     root: ['.'],
     port: 3000
+  });
+});*/
+
+gulp.task('connect', function () {
+  var connect = require('connect');
+  var http = require('http');
+
+  var app = connect()
+  .use(connect.static('./'));
+
+  var port = 3000;
+  http.createServer(app).listen(port, function () {
+    // gutil.log('Development web server started on port', gutil.colors.cyan(port));
   });
 });
 
