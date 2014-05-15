@@ -28,5 +28,9 @@ CLARITY.Filter.prototype = {
 			default:
 				return data.data[pos+0]*0.2989+data.data[pos+1]*0.5870+data.data[pos+2]*0.1140;
 		}
+	},
+
+	setFloat: function(key, value){
+		this.properties[key] = parseFloat(value);
 	}
 }

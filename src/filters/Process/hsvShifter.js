@@ -39,42 +39,25 @@ CLARITY.hsvShifter.prototype.process = function(frame){
 
 CLARITY.hsvShifter.prototype.createControls = function(){
 	var self = this;
-	var controls = document.createElement('div');
-	var slider = document.createElement('input');
-	slider.setAttribute('type', 'range');
-	slider.setAttribute('min', '0');
-	slider.setAttribute('max', '360');
-
+	var controls = CLARITY.Interface.createControlGroup();
+	
+	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue');
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(){
-		self.setField('hue', this.value);
+	slider.addEventListener('change', function(e){
+		self.setFloat('hue', e.srcElement.value);
 	});
 
-	slider = document.createElement('input');
-	slider.setAttribute('type', 'range');
-	slider.setAttribute('min', '0');
-	slider.setAttribute('max', '2');
-	slider.setAttribute('step', '0.1');
-
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'saturation');
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(){
-		self.setField('saturation', this.value);
+	slider.addEventListener('change', function(e){
+		self.setFloat('saturation', e.srcElement.value);
 	});
 
-	slider = document.createElement('input');
-	slider.setAttribute('type', 'range');
-	slider.setAttribute('min', '0');
-	slider.setAttribute('max', '2');
-	slider.setAttribute('step', '0.1');
-
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness');
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(){
-		self.setField('value', this.value);
+	slider.addEventListener('change', function(e){
+		self.setFloat('value', e.srcElement.value);
 	});
 	
 	document.getElementById('controls').appendChild(controls);
-}
-
-CLARITY.hsvShifter.prototype.setField = function(key, value){
-	this.properties[key] = parseFloat(value);
 }
