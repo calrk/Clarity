@@ -7,14 +7,16 @@ Current Filters
 ===============
 
 Height Map
-	Contourer
+----------
+	###Contourer
 		Shows the contours in a height map
-	Normal Generator
+	###Normal Generator
 		Generates a normal based on a height map
-	Normal Editor
+	###Normal Editor
 		Edits properties of normal maps
 
 Misc
+----
 	Difference Detector
 		Will detect differences in a scene, based on the first shot (not working)
 	Ghoster
@@ -23,6 +25,7 @@ Misc
 		Scrambles up the image like a puzzle
 
 Process
+-------
 	De-saturate
 		Removes colour from an image
 	Dot Remover
@@ -37,6 +40,7 @@ Process
 		Simple neighbouring blur function
 
 Salience
+--------
 	Edge Detector
 		Detects the edges in a scene
 	Motion Detector
@@ -45,6 +49,7 @@ Salience
 		Detects skin in a scene. Relies on correct lighting.
 
 Thresholders
+------------
 	Average Thresholder
 		Thresholds the image based on a calculated or given pixel value
 	Gradient Thresholder
@@ -53,6 +58,7 @@ Thresholders
 		Colour quantisation over median and quartile pixel values
 
 Transform
+---------
 	Mirror
 		Flips the image in horizontal or vertical axis
 	Rotator
