@@ -104,8 +104,9 @@ function init(){
 		newLi.id = filters[i].id;
 		$("#shuffle")[0].appendChild(newLi);
 
-		if(filters[i].id == "hsvshift"){
-			filters[i].filter.createControls();
+		if(filters[i].id == "hsvshift" || filters[i].id == "trans" || filters[i].id == "mirror"){
+			var controls = filters[i].filter.createControls(filters[i].name);
+			document.getElementById('controls').appendChild(controls);
 		}
 
 		newLi.onclick = function(e){

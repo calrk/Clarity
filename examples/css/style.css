@@ -19,6 +19,33 @@ p{
 	width: 300px; 
 }
 
+#controls{
+	width:300px;
+	float:right;
+	border:5px solid #191a16; 
+}
+.clarity-controlGroup{
+	background-color: white;
+	padding:10px;
+	height: 100px;
+}
+.clarity-control{
+	background-color: white;
+	clear: both;
+	position: relative;
+}
+.clarity-slider, .clarity-checkbox{
+	float: right;
+}
+.clarity-label{
+	float: left;
+	text-transform:capitalize;
+}
+.clarity-title{
+	text-transform:capitalize;
+	margin:0; 
+}
+
 #shuffle { 
 	list-style-type: none; 
 	margin: 0px; 

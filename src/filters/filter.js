@@ -32,5 +32,9 @@ CLARITY.Filter.prototype = {
 
 	setFloat: function(key, value){
 		this.properties[key] = parseFloat(value);
+	},
+
+	toggleBool: function(key){
+		this.properties[key] = !this.properties[key];
 	}
 }

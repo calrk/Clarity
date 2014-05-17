@@ -2,8 +2,13 @@
 //Mirrors the image in x or y
 CLARITY.Mirror = function(options){
 	var options = options || {};
-	this.mirrorX = options.mirrorX || true;
-	this.mirrorY = options.mirrorY || false;
+	this.Horizontal = options.Horizontal || true;
+	this.Vertical = options.Vertical || false;
+
+	this.properties = {
+		Horizontal: options.Horizontal || true,
+		Vertical: options.Vertical || false
+	};
 
 	CLARITY.Filter.call( this, options );
 };
@@ -18,10 +23,10 @@ CLARITY.Mirror.prototype.process = function(frame){
 			var from = (y*frame.width + x)*4;
 			var toX = x;
 			var toY = y;
-			if(this.mirrorX){
+			if(this.properties.Horizontal){
 				toX = frame.width-x;
 			}
-			if(this.mirrorY){
+			if(this.properties.Vertical){
 				toY = frame.height-y;
 			}
 
@@ -37,3 +42,22 @@ CLARITY.Mirror.prototype.process = function(frame){
 
 	return outPut;
 };
+
+CLARITY.Mirror.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	var toggle = CLARITY.Interface.createToggle(this.properties.Vertical, 'Vertical');
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('Vertical');
+	});
+
+	toggle = CLARITY.Interface.createToggle(this.properties.Horizontal, 'Horizontal');
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('Horizontal');
+	});
+
+	return controls;
+}

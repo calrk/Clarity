@@ -1,9 +1,17 @@
 //Creates the user interation elements
 CLARITY.Interface = {
 
-	createControlGroup: function(){
+	createControlGroup: function(titleSet){
 		var controls = document.createElement('div');
 		controls.setAttribute('class', 'clarity-controlGroup');
+
+		if(titleSet){
+			var title = document.createElement('h3');
+			title.setAttribute('class', 'clarity-title');
+			title.innerHTML = titleSet;
+			controls.appendChild(title);
+		}
+
 		return controls;
 	},
 
@@ -26,6 +34,27 @@ CLARITY.Interface = {
 		}
 
 		div.appendChild(slider);
+		return div;
+	},
+
+	createToggle: function(checked, labelSet){
+		var div = document.createElement('div');
+		div.setAttribute('class', 'clarity-control');
+
+		var toggle = document.createElement('input');
+		toggle.setAttribute('class', 'clarity-checkbox');
+		toggle.setAttribute('type', 'checkbox');
+		if(checked){
+			toggle.setAttribute('checked', true);
+		}
+		
+		if(labelSet){
+			var label = document.createElement('label');
+			label.setAttribute('class', 'clarity-label');
+			label.innerHTML = labelSet;
+			div.appendChild(label);
+		}
+		div.appendChild(toggle);
 		return div;
 	},
 
