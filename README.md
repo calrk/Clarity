@@ -8,12 +8,12 @@ Current Filters
 
 Height Map
 ----------
-	###Contourer
-		Shows the contours in a height map
-	###Normal Generator
-		Generates a normal based on a height map
-	###Normal Editor
-		Edits properties of normal maps
+### Contourer
+Shows the contours in a height map
+### Normal Generator
+Generates a normal based on a height map
+### Normal Editor
+Edits properties of normal maps
 
 Misc
 ----
