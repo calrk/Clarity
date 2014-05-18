@@ -2,9 +2,12 @@
 //Motion Detector object
 CLARITY.MotionDetector = function(options){
 	this.frames = [];
-	this.frameNo = 1;
 	this.index = 0;
-	this.preindex = this.frameNo;
+	
+	this.properties = {
+		frameCount: options.frameCount || 1
+	}
+	this.preindex = this.properties.frameCount;
 
 	CLARITY.Filter.call( this, options );
 };
@@ -17,7 +20,7 @@ CLARITY.MotionDetector.prototype.process = function(frame){
 	this.pushFrame(frame);
 	
 	//waits until the buffer is full before trying to do stuff
-	if(this.frames.length < this.frameNo+1){
+	if(this.frames.length < this.properties.frameCount+1){
 		return outPut;
 	}
 
@@ -39,12 +42,29 @@ CLARITY.MotionDetector.prototype.pushFrame = function(frame){
 	}
 	//increments and bounds checks the index
 	this.index ++;
-	if(this.index > this.frameNo){
+	if(this.index > this.properties.frameCount){
 		this.index = 0;
 	}
 	//increments and bounds the preindex
 	this.preindex ++;
-	if(this.preindex > this.frameNo){
+	if(this.preindex > this.properties.frameCount){
 		this.preindex = 0;
 	}
 };
+
+CLARITY.MotionDetector.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	var slider = CLARITY.Interface.createSlider(1, 24, 1, 'Frame Count');
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('frameCount', e.srcElement.value);
+
+		self.index = 0;
+		self.preindex = e.srcElement.value-1;
+		self.frames = [];
+	});
+
+	return controls;
+}

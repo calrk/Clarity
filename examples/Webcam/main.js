@@ -5,9 +5,9 @@ var filters = [
 		filter: new CLARITY.Desaturate()
 	},
 	{
-		name: "Average Thresholder",
-		id: "avThresh",
-		filter: new CLARITY.AverageThreshold({thresh:64, channel:'red'})
+		name: "Value Thresholder",
+		id: "valThresh",
+		filter: new CLARITY.ValueThreshold()
 	},
 	{
 		name: "Smoother",
@@ -71,8 +71,8 @@ var filters = [
 	},
 	{
 		name: "Rotator",
-		id: "rotate1",
-		filter: new CLARITY.Rotator({turns:1})
+		id: "rotate",
+		filter: new CLARITY.Rotator()
 	},
 	{
 		name: "Mirror",
@@ -104,10 +104,10 @@ function init(){
 		newLi.id = filters[i].id;
 		$("#shuffle")[0].appendChild(newLi);
 
-		if(filters[i].id == "hsvshift" || filters[i].id == "trans" || filters[i].id == "mirror"){
+		// if(filters[i].id == "hsvshift" || filters[i].id == "trans" || filters[i].id == "rotate"){
 			var controls = filters[i].filter.createControls(filters[i].name);
 			document.getElementById('controls').appendChild(controls);
-		}
+		// }
 
 		newLi.onclick = function(e){
 			filters.forEach(function(filter){

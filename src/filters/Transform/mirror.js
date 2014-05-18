@@ -2,8 +2,6 @@
 //Mirrors the image in x or y
 CLARITY.Mirror = function(options){
 	var options = options || {};
-	this.Horizontal = options.Horizontal || true;
-	this.Vertical = options.Vertical || false;
 
 	this.properties = {
 		Horizontal: options.Horizontal || true,

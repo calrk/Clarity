@@ -34,7 +34,21 @@ CLARITY.Filter.prototype = {
 		this.properties[key] = parseFloat(value);
 	},
 
+	setInt: function(key, value){
+		this.properties[key] = parseInt(value);
+	},
+
 	toggleBool: function(key){
 		this.properties[key] = !this.properties[key];
 	}
+}
+
+CLARITY.Filter.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	label = CLARITY.Interface.createLabel('No options.');
+	controls.appendChild(label);
+
+	return controls;
 }

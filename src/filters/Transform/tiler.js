@@ -60,3 +60,13 @@ CLARITY.Tiler.prototype.process = function(frame){
 
 	return outPut;
 };
+
+CLARITY.Tiler.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	label = CLARITY.Interface.createLabel('No options.');
+	controls.appendChild(label);
+
+	return controls;
+}

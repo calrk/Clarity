@@ -45,7 +45,7 @@ Detects any motion between a series of frames
 Detects skin in a scene. Relies on correct lighting.
 
 ### Thresholders
-#### Average Thresholder
+#### Value Thresholder
 Thresholds the image based on a calculated or given pixel value
 #### Gradient Thresholder
 Thresholds over changes in gradient in an image, resulting in edge detection
@@ -99,6 +99,8 @@ Make a proper blur filter, with efficiency options
 Makes an image appear to glow
 ####Pixelate
 Pixelates an image
+####Percentage Threshold
+Thresholds a percentage of pixels
 
 Other things to work on
 =======================
@@ -108,3 +110,4 @@ Implement GUI controls for all filters
 Add WebGL function to each filter to improve performance
 Add a flag to each filter to only process the image if the input has changed, controls have changed or is forced to.
 Create a renderer object that holds a canvas and it's filters for ease of use and improved functionality
+Look into HSV for skin detection

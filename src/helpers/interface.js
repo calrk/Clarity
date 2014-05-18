@@ -61,6 +61,18 @@ CLARITY.Interface = {
 	createBreak: function(){
 		var br = document.createElement('br');
 		return br;
-	}
+	},
+
+	createLabel: function(labelSet){
+		var div = document.createElement('div');
+		div.setAttribute('class', 'clarity-control');
+		
+		var label = document.createElement('label');
+		label.setAttribute('class', 'clarity-label');
+		label.innerHTML = labelSet;
+		
+		div.appendChild(label);
+		return div;
+	},
 };
 

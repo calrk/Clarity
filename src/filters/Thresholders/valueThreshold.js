@@ -1,23 +1,26 @@
-//Average Threshold object
-CLARITY.AverageThreshold = function(options){
+//Value Threshold object
+CLARITY.ValueThreshold = function(options){
 	var options = options || {};
-	this.inverted = options.inverted || false;
-	this.thresh = options.thresh || null;
+
+	this.properties = {
+		inverted: options.inverted || false,
+		thresh: options.thresh || null		
+	}
 	
 	CLARITY.Filter.call( this, options );
 };
 
-CLARITY.AverageThreshold.prototype = Object.create( CLARITY.Filter.prototype );
+CLARITY.ValueThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.AverageThreshold.prototype.process = function(frame){
+CLARITY.ValueThreshold.prototype.process = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value
-	var threshold = this.thresh || this.getThresholdValue(frame);
+	var threshold = this.properties.thresh || this.getThresholdValue(frame);
 	//performs the thresholding on the data
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		var colour = this.getColourValue(frame, i, this.channel);
-		if(this.inverted){
+		if(this.properties.inverted){
 			if(colour < threshold){
 				outPut.data[i+0] = 255;
 				outPut.data[i+1] = 255;
@@ -48,7 +51,7 @@ CLARITY.AverageThreshold.prototype.process = function(frame){
 };
 
 //used to get an iterative average threshold value
-CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
+CLARITY.ValueThreshold.prototype.getThresholdValue = function(data){
 	var average;
 	average = this.getColourValue(data, 0);
 	//finds the intial average of all the data
@@ -90,4 +93,23 @@ CLARITY.AverageThreshold.prototype.getThresholdValue = function(data){
 		upper = 0;
 	}
 	return current;
+}
+
+CLARITY.ValueThreshold.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	var toggle = CLARITY.Interface.createToggle(this.properties.inverted, 'Inverted');
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('inverted');
+	});
+
+	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'Threshold');
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('thresh', e.srcElement.value);
+	});
+
+	return controls;
 }

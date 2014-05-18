@@ -1,7 +1,6 @@
 //Sharpen object
 CLARITY.Sharpen = function(options){
 	var options = options || {};
-	this.channel = options.channel || "grey";
 
 	this.intensity = options.intensity || 1;
 
