@@ -2,11 +2,11 @@
 CLARITY.Sharpen = function(options){
 	var options = options || {};
 
-	this.intensity = options.intensity || 1;
+	this.properties = {
+		intensity: options.intensity || 1
+	};
 
-	this.kernel = [ [ -this.intensity, -this.intensity, -this.intensity],
-				    [ -this.intensity,  8*this.intensity+1, -this.intensity],
-				    [ -this.intensity, -this.intensity, -this.intensity]];
+	this.makeKernel(this.properties.intensity);
 
 	CLARITY.Filter.call( this, options );
 };
@@ -45,3 +45,23 @@ CLARITY.Sharpen.prototype.process = function(frame){
 
 	return outPut;
 };
+
+CLARITY.Sharpen.prototype.makeKernel = function(intensity){
+	this.kernel = [ [ -intensity, -intensity, -intensity],
+				    [ -intensity,  8*intensity+1, -intensity],
+				    [ -intensity, -intensity, -intensity]];
+}
+
+CLARITY.Sharpen.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	var slider = CLARITY.Interface.createSlider(0, 3, 0.1, 'Intensity');
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('intensity', e.srcElement.value);
+		self.makeKernel(self.properties.intensity);
+	});
+
+	return controls;
+}

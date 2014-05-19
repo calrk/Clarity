@@ -2,7 +2,9 @@
 //Contourer object
 CLARITY.Contourer = function(options){
 	var options = options || {}
-	this.contours = options.contours || 10;
+	this.properties = {
+		contours: options.contours || 10
+	}
 
 	this.threshes = [128, 256];
 	this.threshSets = [0, 256];
@@ -26,7 +28,7 @@ CLARITY.Contourer.prototype.process = function(frame){
 			this.minValue = frame.data[i];
 		}
 	}
-	this.setVar(this.contours);
+	this.setVar(this.properties.contours);
 
 	for(var i = 0; i < frame.data.length; i++){
 		if(!((i+1)%4 == 0)){
@@ -58,3 +60,16 @@ CLARITY.Contourer.prototype.setVar = function(newNo){
 	this.threshes[index] = i;
 	this.threshSets[index] = 255;
 };
+
+CLARITY.Contourer.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'contours');
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('contours', e.srcElement.value);
+	});
+
+	return controls;
+}

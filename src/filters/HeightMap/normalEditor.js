@@ -2,7 +2,9 @@
 //NormalEditor object
 CLARITY.NormalEditor = function(options){
 	var options = options || {}
-	this.intensity = options.intensity || 0.5;
+	this.properties = {
+		intensity: options.intensity || 0.5
+	};
 
 	CLARITY.Filter.call( this, options );
 };
@@ -22,8 +24,8 @@ CLARITY.NormalEditor.prototype.process = function(frame){
 						 };
 
 			vector = this.normalise(vector);
-			vector.x *= this.intensity;
-			vector.y *= this.intensity;
+			vector.x *= this.properties.intensity;
+			vector.y *= this.properties.intensity;
 			vector = this.normalise(vector);
 
 			outPut.data[i] =   (vector.x+1)*128;
@@ -44,4 +46,17 @@ CLARITY.NormalEditor.prototype.normalise = function(v){
 		y: v.y/mag,
 		z: v.z/mag
 	}
+}
+
+CLARITY.NormalEditor.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	var slider = CLARITY.Interface.createSlider(0, 20, 0.1, 'intensity');
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('intensity', e.srcElement.value);
+	});
+
+	return controls;
 }

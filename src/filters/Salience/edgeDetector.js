@@ -1,8 +1,10 @@
 //Edge detector object
 CLARITY.EdgeDetector = function(options){
 	var options = options || {};
-	this.fast = options.fast || false;
-	this.channel = options.channel || "grey";
+
+	this.properties = {
+		fast: options.fast || false
+	}
 
 	this.kernel = [ [ -1, -1, -1],
 				   [ -1,  8, -1],
@@ -19,7 +21,7 @@ CLARITY.EdgeDetector.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.EdgeDetector.prototype.process = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	if(!this.fast){
+	if(!this.properties.fast){
 		for(var y = 4; y < frame.height*4-4; y+=4){
 			for(var x = 4; x < frame.width*4-4; x+=4){
 				var sum = 0; // Kernel sum for this pixel
@@ -55,3 +57,16 @@ CLARITY.EdgeDetector.prototype.process = function(frame){
 
 	return outPut;
 };
+
+CLARITY.EdgeDetector.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	var toggle = CLARITY.Interface.createToggle(this.properties.fast, 'fast');
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('fast');
+	});
+
+	return controls;
+}

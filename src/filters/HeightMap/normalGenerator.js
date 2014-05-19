@@ -3,7 +3,9 @@
 //Contains a bit of vector maths, which may be pulled out in future if other filters require it
 CLARITY.NormalGenerator = function(options){
 	var options = options || {}
-	this.heightMod = options.heightMod || 0.15;
+	this.properties = {
+		intensity: options.intensity || 0.5
+	};
 
 	CLARITY.Filter.call( this, options );
 };
@@ -21,11 +23,11 @@ CLARITY.NormalGenerator.prototype.process = function(frame){
 			var left  = (y*frame.width + (x-1))*4;
 			var right = (y*frame.width + (x+1))*4;
 
-			var veci =     {x:x, y:y,   z: this.heightMod*frame.data[i]};
-			var vecup =    {x:x, y:y-1, z: this.heightMod*frame.data[up]};
-			var vecdown =  {x:x, y:y+1, z: this.heightMod*frame.data[down]};
-			var vecleft =  {x:x-1, y:y, z: this.heightMod*frame.data[left]};
-			var vecright = {x:x+1, y:y, z: this.heightMod*frame.data[right]};
+			var veci =     {x:x, y:y,   z: this.properties.intensity*frame.data[i]};
+			var vecup =    {x:x, y:y-1, z: this.properties.intensity*frame.data[up]};
+			var vecdown =  {x:x, y:y+1, z: this.properties.intensity*frame.data[down]};
+			var vecleft =  {x:x-1, y:y, z: this.properties.intensity*frame.data[left]};
+			var vecright = {x:x+1, y:y, z: this.properties.intensity*frame.data[right]};
 
 			var res = this.generateNormal(veci, vecleft, vecright, vecup, vecdown)
 
@@ -39,6 +41,20 @@ CLARITY.NormalGenerator.prototype.process = function(frame){
 
 	return outPut;
 };
+
+CLARITY.NormalGenerator.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	var slider = CLARITY.Interface.createSlider(0, 20, 0.1, 'intensity');
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('intensity', e.srcElement.value);
+	});
+
+	return controls;
+}
+
 
 CLARITY.NormalGenerator.prototype.generateNormal = function(centreIn, leftIn, rightIn, upIn, downIn){
 	var left  = this.calcNormal(centreIn, upIn,    leftIn);

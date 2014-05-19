@@ -2,6 +2,8 @@
 CLARITY.Posteriser = function(options){
 	var options = options || {};
 
+	this.properties = {};
+
 	this.method = options.method;
 	if(this.method == 'fast'){
 		this.threshes = [128, 256];
@@ -9,7 +11,7 @@ CLARITY.Posteriser = function(options){
 		this.setThresh(64);
 	}
 	else{
-		this.colours = options.colours || 5;
+		this.properties.colours = options.colours || 5;
 		this.MCut = new CLARITY.MCut().MCut;
 	}
 
@@ -31,7 +33,7 @@ CLARITY.Posteriser.prototype.process = function(frame){
 	}
 
 	this.MCut.init(data);
-	var palette = this.MCut.get_fixed_size_palette(this.colours);
+	var palette = this.MCut.get_fixed_size_palette(this.properties.colours);
 
 	var prevDistance;
 	var prevColour;
@@ -74,6 +76,7 @@ CLARITY.Posteriser.prototype.process = function(frame){
 //The old way i used to posterise, which is not accurate but is fast
 CLARITY.Posteriser.prototype.oldMethod = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	this.setThresh(Math.round(255/this.properties.colours));
 
 	for(var i = 0; i < frame.data.length; i+=4){
 		if(!((i+1)%4 == 0)){
@@ -102,3 +105,16 @@ CLARITY.Posteriser.prototype.setThresh = function(newNo){
 	}
 	this.threshes[index] = i;
 };
+
+CLARITY.Posteriser.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	
+	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'Colours');
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('colours', e.srcElement.value);
+	});
+
+	return controls;
+}

@@ -3,6 +3,7 @@
 CLARITY.MotionDetector = function(options){
 	this.frames = [];
 	this.index = 0;
+	var options = options || {};
 	
 	this.properties = {
 		frameCount: options.frameCount || 1
