@@ -11,27 +11,19 @@ CLARITY.SkinDetector.prototype.process = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 	this.RGBAtoYCbCr(outPut, frame);
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
-		//this code is for looking at the different aspects for tweaking the values
-		if(outPut.data[i] > 30){
+		if(outPut.data[i] > 30 && 
+				80 < outPut.data[i+1] && outPut.data[i+1] < 121 && 
+				133 < outPut.data[i+2] && outPut.data[i+2] < 173){
 			outPut.data[i+0] = 255;
-		}
-		else{
-			outPut.data[i+0] = 0;
-		}
-
-		if(80 < outPut.data[i+1] && outPut.data[i+1] < 121){
 			outPut.data[i+1] = 255;
-		}
-		else{
-			outPut.data[i+1] = 0;
-		}
-
-		if(133 < outPut.data[i+2] && outPut.data[i+2] < 173){
 			outPut.data[i+2] = 255;
 		}
 		else{
+			outPut.data[i+0] = 0;
+			outPut.data[i+1] = 0;
 			outPut.data[i+2] = 0;
 		}
+		
 		outPut.data[i+3] = 255;
 	}
 
