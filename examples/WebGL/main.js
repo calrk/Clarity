@@ -2,7 +2,7 @@ var filters = [
 	{
 		name: "Average Thresholder",
 		id: "avThresh",
-		filter: new CLARITY.AverageThreshold({thresh:64, channel:'red'})
+		filter: new CLARITY.ValueThreshold({thresh:64, channel:'red'})
 	},
 	{
 		name: "Smoother",

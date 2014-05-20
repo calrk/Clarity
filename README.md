@@ -101,6 +101,8 @@ Makes an image appear to glow
 Pixelates an image
 ####Percentage Threshold
 Thresholds a percentage of pixels
+####Normal Inverter/Rotator
+Will flip the x/y axis, or swap the x/y axis
 
 Other things to work on
 =======================

@@ -10,11 +10,6 @@ var filters = [
 		filter: new CLARITY.Smoother()
 	},
 	{
-		name: "Motion Detector",
-		id: "motion",
-		filter: new CLARITY.MotionDetector()
-	},
-	{
 		name: "Edge Detector",
 		id: "edge",
 		filter: new CLARITY.EdgeDetector({efficient:true})
@@ -35,32 +30,48 @@ var filters = [
 		filter: new CLARITY.Posteriser()
 	},
 	{
-		name: "Skin Detector",
-		id: "skin",
-		filter: new CLARITY.SkinDetector()
-	},
-	{
 		name: "Dot Remover (Black & White Only)",
 		id: "dot",
 		filter: new CLARITY.DotRemover()
 	},
 	{
-		name: "Ghoster",
-		id: "ghost",
-		filter: new CLARITY.Ghoster()
+		name: "Translator",
+		id: "trans",
+		filter: new CLARITY.Translator()
 	},
 	{
-		name: "Puzzler",
-		id: "puzzler",
-		filter: new CLARITY.Puzzler()
+		name: "Rotator",
+		id: "rotate1",
+		filter: new CLARITY.Rotator({turns:1})
+	},
+	{
+		name: "Mirror",
+		id: "mirror",
+		filter: new CLARITY.Mirror()
+	},
+	{
+		name: "HSV Shift",
+		id: "hsvshift",
+		filter: new CLARITY.hsvShifter({hue:300})
 	},
 ];
 
-var canvas;
 var ctx;
-var video;
+var canvas;
+var canvas2;
+var ctx2;
 var width;
 var height;
+
+var scene;
+var camera;
+var renderer;
+var clock;
+
+var texture;
+var sphere;
+var cube;
+var needsUpdate = true;
 
 function init(){
 	$("#shuffle").sortable({update:function(event, ui){shuffleChanged()}});
@@ -85,16 +96,18 @@ function init(){
 					}
 				}
 			});
+			// render();
+			needsUpdate = true;
 		}
 
 		filters[i].position = i;
 		filters[i].active = false;
 	}
 
-	video = document.querySelector("#vid");
-	video.volume = 0;
 	canvas = document.querySelector('#canvas');
-	ctx = canvas.getContext('2d');
+	canvas2 = document.querySelector('#canvas2');
+	ctx2 = canvas2.getContext('2d');
+
 	width = canvas.width;
 	height = canvas.height;
 
@@ -103,9 +116,34 @@ function init(){
 			if(typeof filter.setClick === 'function')
 				filter.filter.setClick([e.clientX, e.clientY]);
 		});
+		// render();
 	}
 
-	requestAnimationFrame(render);
+	//THREE.js stuff
+	renderer = new THREE.WebGLRenderer({antialias:true, canvas: canvas});
+	camera = new THREE.PerspectiveCamera(75, width/height, 0.1, 100);
+	scene = new THREE.Scene();
+	light = new THREE.PointLight(0xFFFFFF, 1);
+	clock = new THREE.Clock()
+	clock.start();
+	camera.add(light);
+	scene.add(camera);
+	camera.position.z = 20;
+	renderer.setSize(width, height);
+	renderer.setClearColor(0x999999, 0);
+
+	texture = new THREE.Texture();
+	
+	sphere = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 16), new THREE.MeshLambertMaterial({color: 0xFFFFFF}));
+	sphere.material.map = texture;
+	scene.add(sphere);
+
+	cube = new THREE.Mesh(new THREE.CubeGeometry(8, 8, 8), new THREE.MeshLambertMaterial({color: 0xFFFFFF}));
+	cube.material.map = texture;
+	cube.position.x = 11;
+	scene.add(cube);
+
+	render();
 }
 
 function shuffleChanged(){
@@ -129,18 +167,23 @@ function compareFilters(first, second){
 	return first.position > second.position;
 }
 
-function printFilters(){
-	for(var i = 0; i < filters.length; i++){
-		console.log(filters[i].id);
+function render(){
+	requestAnimationFrame(render);
+
+	renderer.render(scene, camera);
+
+	sphere.rotation.y += 0.01;
+	cube.rotation.y   += 0.01;
+
+	if(needsUpdate){
+		updateTexture();
 	}
 }
 
-function render(){
-	requestAnimationFrame(render);
-	
-	ctx.drawImage(video, 0, 0, width, height);
-
-	var frame = ctx.getImageData(0,0,width,height);
+function updateTexture(){
+	var img = document.getElementById("image");
+	ctx2.drawImage(img, 0, 0, width, height);
+	var frame = ctx2.getImageData(0,0,width,height);
 
 	for(var i = 0; i < filters.length; i++){
 		if(filters[i].active){
@@ -148,11 +191,14 @@ function render(){
 		}
 	}
 
-	ctx.putImageData(frame, 0, 0);
-}
+	ctx2.putImageData(frame, 0, 0);
 
-function onCameraFail(e){
-	console.log("Camera did not work: ", e);
+	var img = canvas2.toDataURL("image/png");
+	var imageOut = document.getElementById("imageOut");
+	imageOut.src = img;
+	texture.image = imageOut;
+	texture.needsUpdate = true;
+	needsUpdate = false;
 }
 
 window.onload = init;
