@@ -1,6 +1,6 @@
 
-//NormalEditor object
-CLARITY.NormalEditor = function(options){
+//NormalIntensity object
+CLARITY.NormalIntensity = function(options){
 	var options = options || {}
 	this.properties = {
 		intensity: options.intensity || 0.5
@@ -9,9 +9,9 @@ CLARITY.NormalEditor = function(options){
 	CLARITY.Filter.call( this, options );
 };
 
-CLARITY.NormalEditor.prototype = Object.create( CLARITY.Filter.prototype );
+CLARITY.NormalIntensity.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.NormalEditor.prototype.process = function(frame){
+CLARITY.NormalIntensity.prototype.process = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 1; y < frame.height-1; y++){
@@ -39,7 +39,7 @@ CLARITY.NormalEditor.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.NormalEditor.prototype.normalise = function(v){
+CLARITY.NormalIntensity.prototype.normalise = function(v){
 	var mag = Math.sqrt(Math.abs(v.x*v.x + v.y*v.y + v.z*v.z));
 	return{
 		x: v.x/mag,
@@ -48,7 +48,7 @@ CLARITY.NormalEditor.prototype.normalise = function(v){
 	}
 }
 
-CLARITY.NormalEditor.prototype.createControls = function(titleSet){
+CLARITY.NormalIntensity.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
 	

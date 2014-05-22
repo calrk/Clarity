@@ -11,8 +11,10 @@ Current Filters
 Shows the contours in a height map
 #### Normal Generator
 Generates a normal based on a height map
-#### Normal Editor
-Edits properties of normal maps
+#### Normal Intensity
+Edits the intensity of a normal map
+####Normal Flip
+Will flip the x/y axis values, or swap the x/y axis with each other
 
 ### Misc
 #### Difference Detector
@@ -21,6 +23,8 @@ Will detect differences in a scene, based on the first shot (not working)
 Adds a ghosting/onion skin effect to a video
 #### Puzzler
 Scrambles up the image like a puzzle
+#### FillRGB
+Will fill a canvas with a blank colour, based on RGB input
 
 ### Process
 #### De-saturate
@@ -61,6 +65,8 @@ Rotates an image in 90 degree increments. Will crop a rectangular image to be sq
 Will tile an image so it's edges all line up
 #### Translator
 Will move an image in horizontal or vertical axis based on a percentage
+#### Noise
+Adds noise to an image, with monochromatic flag
 
 
 Filters to be made
@@ -71,10 +77,6 @@ Will draw the skeleton of the image
 Will output a visual histogram of an image, or just the histogram values
 ####Bloat/Erode
 Will expand/reduce blobs in a binary image
-####Fill
-Will fill a canvas with a blank colour, based on RGB or HSV input
-####Noise
-Adds noise to an image, with monochromatic flag
 ####Brickulate
 Will draw a grid pattern over an image, to turn it into bricks/tiles
 ####Brickulate Normal
@@ -101,8 +103,6 @@ Makes an image appear to glow
 Pixelates an image
 ####Percentage Threshold
 Thresholds a percentage of pixels
-####Normal Inverter/Rotator
-Will flip the x/y axis, or swap the x/y axis
 
 Other things to work on
 =======================
