@@ -56,10 +56,44 @@ var filters = [
 	},
 ];
 
-var ctx;
+var texFilters = [
+	{
+		name: "Filler",
+		id: "filler",
+		filter: new CLARITY.FillRGB({red: 128, green:0, blue:0})
+	},
+	{
+		name: "Noise",
+		id: "noise",
+		filter: new CLARITY.Noise({intensity:50, monochromatic: true})
+	},
+]
+var normalFilters = [
+	{
+		name: "Filler",
+		id: "filler",
+		filter: new CLARITY.FillRGB({red: 128, green:128, blue:255})
+	},
+	{
+		name: "Noise",
+		id: "noise",
+		filter: new CLARITY.Noise({intensity:50, monochromatic: false})
+	},
+	/*{
+		name: "Normal Intensity",
+		id: "intens",
+		filter: new CLARITY.NormalIntensity({intensity: 1})
+	},*/
+	{
+		name: "Smooth",
+		id: "smooth",
+		filter: new CLARITY.Smoother()
+	},
+]
+
 var canvas;
-var canvas2;
-var ctx2;
+var canvasTex;
+var canvasUV;
 var width;
 var height;
 
@@ -105,19 +139,11 @@ function init(){
 	}
 
 	canvas = document.querySelector('#canvas');
-	canvas2 = document.querySelector('#canvas2');
-	ctx2 = canvas2.getContext('2d');
+	canvasTex = document.querySelector('#canvasTex');
+	canvasUV = document.querySelector('#canvasUV');
 
-	width = canvas.width;
-	height = canvas.height;
-
-	canvas.onclick = function(e){
-		filters.forEach(function(filter){
-			if(typeof filter.setClick === 'function')
-				filter.filter.setClick([e.clientX, e.clientY]);
-		});
-		// render();
-	}
+	width = 512;
+	height = 512;
 
 	//THREE.js stuff
 	renderer = new THREE.WebGLRenderer({antialias:true, canvas: canvas});
@@ -133,14 +159,18 @@ function init(){
 	renderer.setClearColor(0x999999, 0);
 
 	texture = new THREE.Texture();
+	textureUV = new THREE.Texture();
 	
-	sphere = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 16), new THREE.MeshLambertMaterial({color: 0xFFFFFF}));
-	sphere.material.map = texture;
+	var material = new THREE.MeshPhongMaterial({color: 0xFFFFFF})
+	material.map = texture;
+	material.normalMap = textureUV;
+
+	sphere = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 16), material);
+	sphere.position.x = -6;
 	scene.add(sphere);
 
-	cube = new THREE.Mesh(new THREE.CubeGeometry(8, 8, 8), new THREE.MeshLambertMaterial({color: 0xFFFFFF}));
-	cube.material.map = texture;
-	cube.position.x = 11;
+	cube = new THREE.Mesh(new THREE.CubeGeometry(8, 8, 8), material);
+	cube.position.x = 6;
 	scene.add(cube);
 
 	render();
@@ -177,28 +207,47 @@ function render(){
 
 	if(needsUpdate){
 		updateTexture();
+		updateUV();
+		needsUpdate = false;
 	}
 }
 
 function updateTexture(){
 	var img = document.getElementById("image");
-	ctx2.drawImage(img, 0, 0, width, height);
-	var frame = ctx2.getImageData(0,0,width,height);
+	var ctx = canvasTex.getContext('2d');
+	// ctx.drawImage(img, 0, 0, width, height);
+	var frame = ctx.getImageData(0,0,width,height);
 
-	for(var i = 0; i < filters.length; i++){
-		if(filters[i].active){
-			frame = filters[i].filter.process(frame);
-		}
+	for(var i = 0; i < texFilters.length; i++){
+		frame = texFilters[i].filter.process(frame);
 	}
 
-	ctx2.putImageData(frame, 0, 0);
+	ctx.putImageData(frame, 0, 0);
 
-	var img = canvas2.toDataURL("image/png");
-	var imageOut = document.getElementById("imageOut");
-	imageOut.src = img;
-	texture.image = imageOut;
+	var img = canvasTex.toDataURL("image/png");
+	var imageTex = document.getElementById("imageTex");
+	imageTex.src = img;
+	texture.image = imageTex;
 	texture.needsUpdate = true;
-	needsUpdate = false;
+}
+
+function updateUV(){
+	var img = document.getElementById("image");
+	var ctx = canvasUV.getContext('2d');
+
+	var frame = ctx.getImageData(0,0,width,height);
+
+	for(var i = 0; i < normalFilters.length; i++){
+		frame = normalFilters[i].filter.process(frame);
+	}
+
+	ctx.putImageData(frame, 0, 0);
+
+	var img = canvasUV.toDataURL("image/png");
+	var imageUV = document.getElementById("imageUV");
+	imageUV.src = img;
+	textureUV.image = imageUV;
+	textureUV.needsUpdate = true;
 }
 
 window.onload = init;
