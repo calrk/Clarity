@@ -3,9 +3,9 @@
 CLARITY.FillRGB = function(options){
 	var options = options || {}
 	this.properties = {
-		red: options.red || 128,
-		green: options.green || 128,
-		blue: options.blue || 128
+		red: options.red || 0,
+		green: options.green || 0,
+		blue: options.blue || 0
 	};
 
 	CLARITY.Filter.call( this, options );
@@ -17,15 +17,11 @@ CLARITY.FillRGB.prototype.process = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
         // color: Math.floor(Math.random()*16777215).toString(16)
 
-	for(var y = 1; y < frame.height-1; y++){
-		for(var x = 1; x < frame.width-1; x++){
-			var i = (y*frame.width + x)*4;
-
-			outPut.data[i  ] = this.properties.red;
-			outPut.data[i+1] = this.properties.green;
-			outPut.data[i+2] = this.properties.blue;
-			outPut.data[i+3] = 255;
-		}
+	for(var i = 0; i < frame.width*frame.height*4; i+=4){
+		outPut.data[i  ] = this.properties.red;
+		outPut.data[i+1] = this.properties.green;
+		outPut.data[i+2] = this.properties.blue;
+		outPut.data[i+3] = 255;
 	}
 
 	return outPut;

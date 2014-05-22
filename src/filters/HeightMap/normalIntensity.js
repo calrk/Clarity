@@ -14,8 +14,8 @@ CLARITY.NormalIntensity.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.NormalIntensity.prototype.process = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	for(var y = 1; y < frame.height-1; y++){
-		for(var x = 1; x < frame.width-1; x++){
+	for(var y = 0; y < frame.height; y++){
+		for(var x = 0; x < frame.width; x++){
 			var i = (y*frame.width + x)*4;
 			
 			var vector = {  x: (frame.data[i  ]-128)/128,

@@ -16,16 +16,19 @@ CLARITY.Noise.prototype.process = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
-		if(monochromatic){
-			//probably unnecessarily slow
-			var col = CLARITY.Operations.RGBtoHSV([frame.data[i], frame.data[i+1], frame.data[i+2]]);
-			col[2] *= this.properties.value + (Math.random()-0.5)*intensity*0.1;
-			col = CLARITY.Operations.HSVtoRGB([col[0], col[1], col[2]]);
+		if(this.properties.monochromatic){
+			var random = 2*(Math.random()-0.5)*this.properties.intensity;
+			// var col = CLARITY.Operations.RGBtoHSV([frame.data[i], frame.data[i+1], frame.data[i+2]]);
+			// col[2] += CLARITY.Operations.clamp((Math.random()-0.5)*2, 0, 1);
+			// col = CLARITY.Operations.HSVtoRGB([col[0], col[1], col[2]]);
+			outPut.data[i  ] = frame.data[i  ] + random;
+			outPut.data[i+1] = frame.data[i+1] + random;
+			outPut.data[i+2] = frame.data[i+2] + random;
 		}
 		else{
-			outPut.data[i  ] = frame.data[i  ] + (Math.random()-0.5)*intensity;
-			outPut.data[i+1] = frame.data[i+1] + (Math.random()-0.5)*intensity;
-			outPut.data[i+2] = frame.data[i+2] + (Math.random()-0.5)*intensity;
+			outPut.data[i  ] = frame.data[i  ] + 2*(Math.random()-0.5)*this.properties.intensity;
+			outPut.data[i+1] = frame.data[i+1] + 2*(Math.random()-0.5)*this.properties.intensity;
+			outPut.data[i+2] = frame.data[i+2] + 2*(Math.random()-0.5)*this.properties.intensity;
 		}
 		
 		outPut.data[i+3] = 255;

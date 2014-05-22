@@ -48,17 +48,17 @@ CLARITY.Operations = {
 		switch(i){
 			case 0:
 			case 6:
-				return [(c+m)*255, (x+m)*255, (0+m)*255];
+				return [(c+m)*255, (x+m)*255, ( m )*255];
 			case 1:
-				return [(x+m)*255, (c+m)*255, (0+m)*255];
+				return [(x+m)*255, (c+m)*255, ( m )*255];
 			case 2:
-				return [(0+m)*255, (c+m)*255, (x+m)*255];
+				return [( m )*255, (c+m)*255, (x+m)*255];
 			case 3:
-				return [(0+m)*255, (x+m)*255, (c+m)*255];
+				return [( m )*255, (x+m)*255, (c+m)*255];
 			case 4:
-				return [(x+m)*255, (0+m)*255, (c+m)*255];
+				return [(x+m)*255, ( m )*255, (c+m)*255];
 			default:
-				return [(c+m)*255, (0+m)*255, (x+m)*255];
+				return [(c+m)*255, ( m )*255, (x+m)*255];
 		}
 	},
 
