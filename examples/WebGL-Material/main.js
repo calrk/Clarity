@@ -57,19 +57,39 @@ var filters = [
 ];
 
 var texFilters = [
-	{
-		name: "Filler",
-		id: "filler",
+	/*{
+		name: "RGB",
+		id: "RGB",
 		filter: new CLARITY.FillRGB({red: 128, green:0, blue:0})
+	},*/
+	{
+		name: "Cloud",
+		id: "cloud",
+		filter: new CLARITY.Cloud()
 	},
 	{
+		name: "hsvShifter",
+		id: "hsvshift",
+		filter: new CLARITY.hsvShifter({value:2})
+	},
+	/*{
+		name: "Translator",
+		id: "trans",
+		filter: new CLARITY.Translator({horizontal: 0.5})
+	},*/
+	{
+		name: "Smooth",
+		id: "smooth",
+		filter: new CLARITY.Smoother()
+	},
+	/*{
 		name: "Noise",
 		id: "noise",
-		filter: new CLARITY.Noise({intensity:50, monochromatic: true})
-	},
+		filter: new CLARITY.Noise({intensity:50, monochromatic: false})
+	},*/
 ]
 var normalFilters = [
-	{
+	/*{
 		name: "Filler",
 		id: "filler",
 		filter: new CLARITY.FillRGB({red: 128, green:128, blue:255})
@@ -79,16 +99,26 @@ var normalFilters = [
 		id: "noise",
 		filter: new CLARITY.Noise({intensity:50, monochromatic: false})
 	},
-	/*{
+	{
 		name: "Normal Intensity",
 		id: "intens",
 		filter: new CLARITY.NormalIntensity({intensity: 1})
 	},*/
 	{
+		name: "Normal Generator",
+		id: "gen",
+		filter: new CLARITY.NormalGenerator()
+	},
+	{
+		name: "Normal Intensity",
+		id: "intens",
+		filter: new CLARITY.NormalIntensity({intensity: 0.5})
+	},
+	/*{
 		name: "Smooth",
 		id: "smooth",
 		filter: new CLARITY.Smoother()
-	},
+	},*/
 ]
 
 var canvas;
@@ -111,7 +141,7 @@ function init(){
 	$("#shuffle").sortable({update:function(event, ui){shuffleChanged()}});
 	$("#shuffle").disableSelection();
 
-	for(var i = 0; i < filters.length; i++){
+	/*for(var i = 0; i < filters.length; i++){
 		var newLi = document.createElement('li');
 		newLi.className = "listRed";
 		newLi.innerHTML = filters[i].name;
@@ -136,7 +166,7 @@ function init(){
 
 		filters[i].position = i;
 		filters[i].active = false;
-	}
+	}*/
 
 	canvas = document.querySelector('#canvas');
 	canvasTex = document.querySelector('#canvasTex');
@@ -235,6 +265,7 @@ function updateUV(){
 	var img = document.getElementById("image");
 	var ctx = canvasUV.getContext('2d');
 
+	ctx.drawImage(canvasTex, 0, 0, width, height);
 	var frame = ctx.getImageData(0,0,width,height);
 
 	for(var i = 0; i < normalFilters.length; i++){

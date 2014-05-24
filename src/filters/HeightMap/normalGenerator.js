@@ -23,20 +23,62 @@ CLARITY.NormalGenerator.prototype.process = function(frame){
 			var left  = (y*frame.width + (x-1))*4;
 			var right = (y*frame.width + (x+1))*4;
 
-			var veci =     {x:x, y:y,   z: this.properties.intensity*frame.data[i]};
-			var vecup =    {x:x, y:y-1, z: this.properties.intensity*frame.data[up]};
-			var vecdown =  {x:x, y:y+1, z: this.properties.intensity*frame.data[down]};
-			var vecleft =  {x:x-1, y:y, z: this.properties.intensity*frame.data[left]};
-			var vecright = {x:x+1, y:y, z: this.properties.intensity*frame.data[right]};
+			var veci =     {x:x, y:y,   z: this.properties.intensity*this.getColourValue(frame, i, 'grey')};
+			var vecleft =  {x:x-1, y:y, z: this.properties.intensity*this.getColourValue(frame, left, 'grey')};
+			var vecright = {x:x+1, y:y, z: this.properties.intensity*this.getColourValue(frame, right, 'grey')};
+			var vecup =    {x:x, y:y-1, z: this.properties.intensity*this.getColourValue(frame, up, 'grey')};
+			var vecdown =  {x:x, y:y+1, z: this.properties.intensity*this.getColourValue(frame, down, 'grey')};
 
 			var res = this.generateNormal(veci, vecleft, vecright, vecup, vecdown)
 
-			outPut.data[i] =   255-(res.x/2+128);
-			outPut.data[i+1] = 255-(res.y/2+128);
-			outPut.data[i+2] = -res.z;
+			outPut.data[i] =   (1-(res.x/2+0.5))*255;
+			outPut.data[i+1] = (1-(res.y/2+0.5))*255;
+			outPut.data[i+2] = -res.z*255;
 
 			outPut.data[i+3] = 255;
 		}
+	}
+
+	//correcting horizontal edges
+	for(var y = 0; y < frame.height; y++){
+		var x = 0;
+		var i = (y*frame.width + x)*4;
+		var j = (y*frame.width + x+1)*4;
+
+		outPut.data[i  ] = outPut.data[j  ];
+		outPut.data[i+1] = outPut.data[j+1];
+		outPut.data[i+2] = outPut.data[j+2];
+		outPut.data[i+3] = 255;
+
+		x = frame.width-1;
+		i = (y*frame.width + x)*4;
+		j = (y*frame.width + x-1)*4;
+
+		outPut.data[i  ] = outPut.data[j  ];
+		outPut.data[i+1] = outPut.data[j+1];
+		outPut.data[i+2] = outPut.data[j+2];
+		outPut.data[i+3] = 255;
+	}
+
+	//correcting vertical edges
+	for(var x = 0; x < frame.width; x++){
+		var y = 0;
+		var i = (y*frame.width + x)*4;
+		var j = ((y+1)*frame.width + x+1)*4;
+
+		outPut.data[i  ] = outPut.data[j  ];
+		outPut.data[i+1] = outPut.data[j+1];
+		outPut.data[i+2] = outPut.data[j+2];
+		outPut.data[i+3] = 255;
+
+		y = frame.height-1;
+		i = (y*frame.width + x)*4;
+		j = ((y-1)*frame.width + x)*4;
+
+		outPut.data[i  ] = outPut.data[j  ];
+		outPut.data[i+1] = outPut.data[j+1];
+		outPut.data[i+2] = outPut.data[j+2];
+		outPut.data[i+3] = 255;
 	}
 
 	return outPut;
@@ -57,12 +99,21 @@ CLARITY.NormalGenerator.prototype.createControls = function(titleSet){
 
 
 CLARITY.NormalGenerator.prototype.generateNormal = function(centreIn, leftIn, rightIn, upIn, downIn){
-	var left  = this.calcNormal(centreIn, upIn,    leftIn);
-    var right = this.calcNormal(centreIn, leftIn,  downIn);
-    var up    = this.calcNormal(centreIn, downIn,  rightIn);
-    var down  = this.calcNormal(centreIn, rightIn, upIn);
+	var vecs = [];
+	if(leftIn && upIn){
+		vecs.push(this.calcNormal(centreIn, upIn, leftIn));
+	}
+	if(leftIn && downIn){
+		vecs.push(this.calcNormal(centreIn, leftIn,  downIn));
+	}
+	if(rightIn && downIn){
+		vecs.push(this.calcNormal(centreIn, downIn,  rightIn));
+	}
+	if(rightIn && upIn){
+		vecs.push(this.calcNormal(centreIn, rightIn, upIn));
+	}
 
-    var avg = this.average(left, right, up, down);
+    var avg = this.average(vecs);
 
     return avg;
 }
@@ -108,15 +159,16 @@ CLARITY.NormalGenerator.prototype.normalise = function(v){
 	}
 }
 
-CLARITY.NormalGenerator.prototype.average = function(v1, v2, v3, v4){
-	var res = this.vectorAdd(v1, v2);
-	res = this.vectorAdd(res, v3);
-	res = this.vectorAdd(res, v4);
+CLARITY.NormalGenerator.prototype.average = function(ins){
+	var res = ins[0];
+	for(var i = 1; i < ins.length; i++){
+		res = this.vectorAdd(res, ins[i]);
+	}
 
 	res = this.normalise(res);
 	return {
-		x: res.x*255,
-		y: res.y*255,
-		z: res.z*255
+		x: res.x,
+		y: res.y,
+		z: res.z
 	}
 }

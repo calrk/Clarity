@@ -23,8 +23,6 @@ Will detect differences in a scene, based on the first shot (not working)
 Adds a ghosting/onion skin effect to a video
 #### Puzzler
 Scrambles up the image like a puzzle
-#### FillRGB
-Will fill a canvas with a blank colour, based on RGB input
 
 ### Process
 #### De-saturate
@@ -47,6 +45,14 @@ Detects the edges in a scene
 Detects any motion between a series of frames
 #### Skin Detection
 Detects skin in a scene. Relies on correct lighting.
+
+### Starters
+#### Cloud
+A filter that fills the canvas with perlin noise, with an RGB input for colour
+#### FillHSV
+Will fill a canvas with a blank colour, based on HSV input
+#### FillRGB
+Will fill a canvas with a blank colour, based on RGB input
 
 ### Thresholders
 #### Value Thresholder
@@ -99,10 +105,19 @@ Applies a sepia effect to an image
 Make a proper blur filter, with efficiency options
 ####Glow/Bloom
 Makes an image appear to glow
-####Pixelate
-Pixelates an image
 ####Percentage Threshold
 Thresholds a percentage of pixels
+####Pixelate
+Pixelates an image
+
+Dual input filters to be made
+=============================
+#### Multiply
+Multiplies an image with a greyscale
+#### Mask
+Simple implementation of multiply, where white is shown and black is not
+#### Blend
+Blends two images together, with optional weighting
 
 Other things to work on
 =======================
