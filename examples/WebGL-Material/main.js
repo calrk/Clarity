@@ -77,10 +77,15 @@ var texFilters = [
 		id: "trans",
 		filter: new CLARITY.Translator({horizontal: 0.5})
 	},*/
-	{
+	/*{
 		name: "Smooth",
 		id: "smooth",
 		filter: new CLARITY.Smoother()
+	},*/
+	{
+		name: "Pixelate",
+		id: "pixelate",
+		filter: new CLARITY.Pixelate()
 	},
 	/*{
 		name: "Noise",

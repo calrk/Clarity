@@ -124,7 +124,6 @@ function init(){
 		}
 
 		filters[i].position = i;
-		filters[i].active = false;
 	}
 
 	video = document.querySelector("#vid");
@@ -185,9 +184,7 @@ function render(){
 	var frame = ctx.getImageData(0,0,width,height);
 
 	for(var i = 0; i < filters.length; i++){
-		if(filters[i].active){
-			frame = filters[i].filter.process(frame);
-		}
+		frame = filters[i].filter.startProcess(frame);
 	}
 
 	ctx.putImageData(frame, 0, 0);

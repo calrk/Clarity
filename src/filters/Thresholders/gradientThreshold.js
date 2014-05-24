@@ -72,6 +72,9 @@ CLARITY.GradientThreshold.prototype.process = function(frame){
 CLARITY.GradientThreshold.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(0, 100, 1, 'Threshold');
 	controls.appendChild(slider);

@@ -44,7 +44,7 @@ CLARITY.Cloud.prototype.process = function(frame){
 				var i = (y*frame.width + x)*3;
 
 				var xpercent = (x%(frame.width/size))/(frame.width/size);
-				var ypercent = (y%(frame.width/size))/(frame.width/size);
+				var ypercent = (y%(frame.height/size))/(frame.height/size);
 				var x1 = Math.floor(x/frame.width*size);
 				var x2 = Math.ceil(x/frame.width*size);
 				if(x2 >= size){
@@ -92,6 +92,9 @@ CLARITY.Cloud.prototype.process = function(frame){
 CLARITY.Cloud.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red');
 	controls.appendChild(slider);

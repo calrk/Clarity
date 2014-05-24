@@ -2,9 +2,17 @@
 CLARITY.Filter = function(options){
 	var options = options || {};
 	this.channel = options.channel || "grey";
+	this.enabled = options.enabled || false;
 };
 
 CLARITY.Filter.prototype = {
+	startProcess: function(frame){
+		if(!this.enabled){
+			return frame;
+		}
+		return this.process(frame);
+	},
+
 	process: function(frame){
 		return frame;
 	},
@@ -40,6 +48,10 @@ CLARITY.Filter.prototype = {
 
 	toggleBool: function(key){
 		this.properties[key] = !this.properties[key];
+	},
+
+	toggleEnabled: function(){
+		this.enabled = !this.enabled;
 	}
 }
 

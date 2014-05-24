@@ -67,6 +67,9 @@ CLARITY.Tiler.prototype.process = function(frame){
 CLARITY.Tiler.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	label = CLARITY.Interface.createLabel('No options.');
 	controls.appendChild(label);

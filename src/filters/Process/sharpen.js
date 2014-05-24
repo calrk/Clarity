@@ -55,6 +55,9 @@ CLARITY.Sharpen.prototype.makeKernel = function(intensity){
 CLARITY.Sharpen.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(0, 3, 0.1, 'Intensity');
 	controls.appendChild(slider);

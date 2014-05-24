@@ -86,6 +86,9 @@ CLARITY.Rotator.prototype.process = function(frame){
 CLARITY.Rotator.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(-3, 3, 1, 'Turns');
 	controls.appendChild(slider);

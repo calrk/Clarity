@@ -31,6 +31,9 @@ CLARITY.FillHSV.prototype.process = function(frame){
 CLARITY.FillHSV.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue');
 	controls.appendChild(slider);

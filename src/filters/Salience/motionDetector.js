@@ -56,6 +56,9 @@ CLARITY.MotionDetector.prototype.pushFrame = function(frame){
 CLARITY.MotionDetector.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(1, 24, 1, 'Frame Count');
 	controls.appendChild(slider);

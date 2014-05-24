@@ -51,6 +51,9 @@ CLARITY.NormalIntensity.prototype.normalise = function(v){
 CLARITY.NormalIntensity.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(0, 20, 0.1, 'intensity');
 	controls.appendChild(slider);

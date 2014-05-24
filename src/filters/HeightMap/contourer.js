@@ -64,6 +64,9 @@ CLARITY.Contourer.prototype.setVar = function(newNo){
 CLARITY.Contourer.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'contours');
 	controls.appendChild(slider);

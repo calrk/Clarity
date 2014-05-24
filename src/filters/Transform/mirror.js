@@ -44,6 +44,9 @@ CLARITY.Mirror.prototype.process = function(frame){
 CLARITY.Mirror.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var toggle = CLARITY.Interface.createToggle(this.properties.Vertical, 'Vertical');
 	controls.appendChild(toggle);

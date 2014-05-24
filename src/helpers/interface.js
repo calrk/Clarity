@@ -1,16 +1,23 @@
 //Creates the user interation elements
 CLARITY.Interface = {
 
-	createControlGroup: function(titleSet){
+	createControlGroup: function(titleSet, enabledFlag){
 		var controls = document.createElement('div');
 		controls.setAttribute('class', 'clarity-controlGroup');
 
-		if(titleSet){
-			var title = document.createElement('h3');
-			title.setAttribute('class', 'clarity-title');
-			title.innerHTML = titleSet;
-			controls.appendChild(title);
+		var title;;
+		title = document.createElement('h3');
+		title.setAttribute('class', 'clarity-title');
+		title.innerHTML = titleSet || 'Clarity Filter';
+		controls.appendChild(title);
+
+		var toggle = document.createElement('input');
+		toggle.setAttribute('class', 'clarity-checkbox');
+		toggle.setAttribute('type', 'checkbox');
+		if(enabledFlag){
+			toggle.setAttribute('checked', enabledFlag || false);
 		}
+		title.appendChild(toggle);
 
 		return controls;
 	},

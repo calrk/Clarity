@@ -61,6 +61,9 @@ CLARITY.EdgeDetector.prototype.process = function(frame){
 CLARITY.EdgeDetector.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var toggle = CLARITY.Interface.createToggle(this.properties.fast, 'fast');
 	controls.appendChild(toggle);

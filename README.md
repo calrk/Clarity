@@ -37,6 +37,8 @@ Reduces an image into a fixed number of colours
 Applies a sharpening mask to an image, to enhance edges/detail
 #### Smoother
 Simple neighbouring blur function
+####Pixelate
+Pixelates an image
 
 ### Salience
 #### Edge Detector
@@ -107,8 +109,6 @@ Make a proper blur filter, with efficiency options
 Makes an image appear to glow
 ####Percentage Threshold
 Thresholds a percentage of pixels
-####Pixelate
-Pixelates an image
 
 Dual input filters to be made
 =============================

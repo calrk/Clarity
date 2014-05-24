@@ -30,6 +30,9 @@ CLARITY.FillRGB.prototype.process = function(frame){
 CLARITY.FillRGB.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red');
 	controls.appendChild(slider);

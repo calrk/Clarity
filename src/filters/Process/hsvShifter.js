@@ -39,23 +39,26 @@ CLARITY.hsvShifter.prototype.process = function(frame){
 
 CLARITY.hsvShifter.prototype.createControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue');
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(e){
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('hue', e.srcElement.value);
 	});
 
 	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'saturation');
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(e){
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('saturation', e.srcElement.value);
 	});
 
 	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness');
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(e){
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('value', e.srcElement.value);
 	});
 

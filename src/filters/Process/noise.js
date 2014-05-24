@@ -40,6 +40,9 @@ CLARITY.Noise.prototype.process = function(frame){
 CLARITY.Noise.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(0, 10, 0.1, 'intensity');
 	controls.appendChild(slider);

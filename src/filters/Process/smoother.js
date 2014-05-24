@@ -67,6 +67,9 @@ CLARITY.Smoother.prototype.process = function(frame){
 CLARITY.Smoother.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(1, 5, 1, 'iterations');
 	controls.appendChild(slider);

@@ -109,6 +109,9 @@ CLARITY.Posteriser.prototype.setThresh = function(newNo){
 CLARITY.Posteriser.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
 	
 	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'Colours');
 	controls.appendChild(slider);

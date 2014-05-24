@@ -1,0 +1,56 @@
+
+//Pixelate object
+CLARITY.Pixelate = function(options){
+	var options = options || {}
+	this.properties = {
+		size: options.size || 64
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Pixelate.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Pixelate.prototype.process = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	var size = this.properties.size;
+	//makes sure the tile size is a multiple of the width/height
+	while(frame.height%size != 0){
+		size --;
+	}
+	var size2 = Math.round(size/2);
+	for(var y = 0; y < frame.height; y += size){
+		for(var x = 0; x < frame.width; x += size){
+
+			var pos = ((y+size2)*frame.width + (x+size2))*4;
+			for(var ypos = 0; ypos < size; ypos++){
+				for(var xpos = 0; xpos < size; xpos++){
+					var i = ((ypos+y)*frame.width + xpos+x)*4;
+					outPut.data[i  ] = frame.data[pos  ];
+					outPut.data[i+1] = frame.data[pos+1];
+					outPut.data[i+2] = frame.data[pos+2];
+					outPut.data[i+3] = 255;
+				}
+			}
+		}
+	}
+
+	return outPut;
+};
+
+CLARITY.Pixelate.prototype.createControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleEnabled();
+	});
+	
+	var slider = CLARITY.Interface.createSlider(0, 256, 1, 'size');
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('size', e.srcElement.value);
+	});
+
+	return controls;
+}
