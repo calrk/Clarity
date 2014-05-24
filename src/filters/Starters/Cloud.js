@@ -7,7 +7,7 @@ CLARITY.Cloud = function(options){
 		green: options.green || 255,
 		blue: options.blue || 255,
 		linear: options.linear || true,
-		iterations: options.iterations || 8,
+		iterations: options.iterations || 4,
 		initialSize: options.initialSize || 4
 	};
 
@@ -26,10 +26,10 @@ CLARITY.Cloud.prototype.process = function(frame){
 	}
 	for(var z = 0; z < this.properties.iterations; z++){
 		size *= (z+1);
-		iterations ++;
 		if(size > frame.width){
 			break;
 		}
+		iterations ++;
 
 		var values = [];
 		for(var i = 0; i < size; i++){
@@ -79,10 +79,11 @@ CLARITY.Cloud.prototype.process = function(frame){
 
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 	for(var k = 0; k < data.length; k ++){
+		var i = k * 3;
 		var j = k * 4;
-		outPut.data[j  ] = data[(k*3)  ]/iterations * this.properties.red/255;
-		outPut.data[j+1] = data[(k*3)+1]/iterations * this.properties.green/255;
-		outPut.data[j+2] = data[(k*3)+2]/iterations * this.properties.blue/255;
+		outPut.data[j  ] = data[i  ]/iterations * this.properties.red/255;
+		outPut.data[j+1] = data[i+1]/iterations * this.properties.green/255;
+		outPut.data[j+2] = data[i+2]/iterations * this.properties.blue/255;
 		outPut.data[j+3] = 255;
 	}
 	return outPut;

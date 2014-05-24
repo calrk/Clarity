@@ -112,7 +112,7 @@ var normalFilters = [
 	{
 		name: "Normal Intensity",
 		id: "intens",
-		filter: new CLARITY.NormalIntensity({intensity: 0.5})
+		filter: new CLARITY.NormalIntensity({intensity: 0.25})
 	},
 	/*{
 		name: "Smooth",
