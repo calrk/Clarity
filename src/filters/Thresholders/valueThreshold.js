@@ -97,7 +97,7 @@ CLARITY.ValueThreshold.prototype.getThresholdValue = function(data){
 
 CLARITY.ValueThreshold.prototype.createControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
 	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.toggleEnabled();
 	});

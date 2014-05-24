@@ -57,7 +57,7 @@ CLARITY.Filter.prototype = {
 
 CLARITY.Filter.prototype.createControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
 	
 	label = CLARITY.Interface.createLabel('No options.');
 	controls.appendChild(label);

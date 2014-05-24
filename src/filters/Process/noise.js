@@ -39,7 +39,7 @@ CLARITY.Noise.prototype.process = function(frame){
 
 CLARITY.Noise.prototype.createControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
 	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.toggleEnabled();
 	});
