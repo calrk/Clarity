@@ -68,6 +68,7 @@ var renderer;
 var texture;
 var sphere;
 var cube;
+var material;
 var needsUpdate = true;
 
 function init(){
@@ -110,7 +111,7 @@ function init(){
 	texture = new THREE.Texture();
 	textureNorm = new THREE.Texture();
 	
-	var material = new THREE.MeshPhongMaterial({color: 0xFFFFFF})
+	material = new THREE.MeshPhongMaterial({color: 0xFFFFFF})
 	material.map = texture;
 	material.normalMap = textureNorm;
 
@@ -123,6 +124,16 @@ function init(){
 	scene.add(cube);
 
 	render();
+}
+
+function slide(elem, field){
+	var val = elem.value;
+	if(field == 'shininess'){
+		material.shininess = val;
+	}
+	else{
+		material.specular[field[0]] = val;
+	}
 }
 
 function render(){

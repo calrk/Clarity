@@ -28,6 +28,25 @@
 		<div id="controlsNorm" class="controls">
 			<h1>Normal Controls</h1>
 		</div>
+		<div class="controls">
+			<h1>Shininess</h1>
+			<div class="clarity-control">
+				<label class="clarity-label">shininess</label>
+				<input class="clarity-slider" type="range" min="0" max="200" step="1" value="30" onchange="slide(this, 'shininess')">
+			</div>
+			<div class="clarity-control">
+				<label class="clarity-label">red</label>
+				<input class="clarity-slider" type="range" min="0" max="1" step="0.05" value="0.05" onchange="slide(this, 'red')">
+			</div>
+			<div class="clarity-control">
+				<label class="clarity-label">green</label>
+				<input class="clarity-slider" type="range" min="0" max="1" step="0.05" value="0.05" onchange="slide(this, 'green')">
+			</div>
+			<div class="clarity-control">
+				<label class="clarity-label">blue</label>
+				<input class="clarity-slider" type="range" min="0" max="1" step="0.05" value="0.05" onchange="slide(this, 'blue')">
+			</div>
+		</div>
 	</div>
 </body>
 </html>
