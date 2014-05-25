@@ -13,7 +13,7 @@ CLARITY.FillHSV = function(options){
 
 CLARITY.FillHSV.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.FillHSV.prototype.process = function(frame){
+CLARITY.FillHSV.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var col = CLARITY.Operations.HSVtoRGB(this.properties.hue, this.properties.saturation, this.properties.value);
@@ -28,26 +28,23 @@ CLARITY.FillHSV.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.FillHSV.prototype.createControls = function(titleSet){
+CLARITY.FillHSV.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue');
+	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue', this.properties.hue);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setFloat('hue', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'saturation');
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'saturation', this.properties.saturation);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setFloat('saturation', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness');
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.lightness);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setFloat('value', e.srcElement.value);

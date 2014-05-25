@@ -12,7 +12,7 @@ CLARITY.Noise = function(options){
 
 CLARITY.Noise.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Noise.prototype.process = function(frame){
+CLARITY.Noise.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
@@ -37,20 +37,17 @@ CLARITY.Noise.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Noise.prototype.createControls = function(titleSet){
+CLARITY.Noise.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 10, 0.1, 'intensity');
+	var slider = CLARITY.Interface.createSlider(0, 10, 0.1, 'intensity', this.properties.intensity);
 	controls.appendChild(slider);
 	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('intensity', e.srcElement.value);
 	});
 
-	var toggle = CLARITY.Interface.createToggle(this.properties.monochromatic, 'monochromatic');
+	var toggle = CLARITY.Interface.createToggle('monochromatic', this.properties.monochromatic);
 	controls.appendChild(toggle);
 	toggle.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.toggleBool('monochromatic');

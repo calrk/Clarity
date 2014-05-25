@@ -22,7 +22,7 @@ CLARITY.Interface = {
 		return controls;
 	},
 
-	createSlider: function(min, max, step, labelSet){
+	createSlider: function(min, max, step, labelSet, valueSet){
 		var div = document.createElement('div');
 		div.setAttribute('class', 'clarity-control');
 
@@ -32,6 +32,9 @@ CLARITY.Interface = {
 		slider.setAttribute('min', min || 0);
 		slider.setAttribute('max', max || 1);
 		slider.setAttribute('step', step || 1);
+		if(valueSet){
+			slider.setAttribute('value', valueSet);
+		}
 
 		if(labelSet){
 			var label = document.createElement('label');
@@ -44,7 +47,7 @@ CLARITY.Interface = {
 		return div;
 	},
 
-	createToggle: function(checked, labelSet){
+	createToggle: function(labelSet, checked){
 		var div = document.createElement('div');
 		div.setAttribute('class', 'clarity-control');
 
@@ -68,6 +71,11 @@ CLARITY.Interface = {
 	createBreak: function(){
 		var br = document.createElement('br');
 		return br;
+	},
+
+	createDiv: function(){
+		var div = document.createElement('div');
+		return div;
 	},
 
 	createLabel: function(labelSet){

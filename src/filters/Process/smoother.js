@@ -12,7 +12,7 @@ CLARITY.Smoother = function(options){
 
 CLARITY.Smoother.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Smoother.prototype.process = function(frame){
+CLARITY.Smoother.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var z = 0; z < this.properties.iterations; z++){
@@ -64,14 +64,11 @@ CLARITY.Smoother.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Smoother.prototype.createControls = function(titleSet){
+CLARITY.Smoother.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(1, 5, 1, 'iterations');
+	var slider = CLARITY.Interface.createSlider(1, 5, 1, 'iterations', this.properties.iterations);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('iterations', e.srcElement.value);

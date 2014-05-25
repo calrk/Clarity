@@ -7,7 +7,7 @@ CLARITY.Desaturate = function(options){
 
 CLARITY.Desaturate.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Desaturate.prototype.process = function(frame){
+CLARITY.Desaturate.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){

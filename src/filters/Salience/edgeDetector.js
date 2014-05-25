@@ -18,7 +18,7 @@ CLARITY.EdgeDetector = function(options){
 
 CLARITY.EdgeDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.EdgeDetector.prototype.process = function(frame){
+CLARITY.EdgeDetector.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	if(!this.properties.fast){
@@ -58,14 +58,11 @@ CLARITY.EdgeDetector.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.EdgeDetector.prototype.createControls = function(titleSet){
+CLARITY.EdgeDetector.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var toggle = CLARITY.Interface.createToggle(this.properties.fast, 'fast');
+	var toggle = CLARITY.Interface.createToggle('fast', this.properties.fast);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('fast');

@@ -9,7 +9,7 @@ CLARITY.DifferenceDetector = function(options){
 
 CLARITY.DifferenceDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.DifferenceDetector.prototype.process = function(frame){
+CLARITY.DifferenceDetector.prototype.doProcess = function(frame){
 		if(!this.original){
 			this.original = frame;
 			return frame;

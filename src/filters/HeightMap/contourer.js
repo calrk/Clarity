@@ -17,7 +17,7 @@ CLARITY.Contourer = function(options){
 
 CLARITY.Contourer.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Contourer.prototype.process = function(frame){
+CLARITY.Contourer.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.data.length; i+=4){
@@ -61,14 +61,11 @@ CLARITY.Contourer.prototype.setVar = function(newNo){
 	this.threshSets[index] = 255;
 };
 
-CLARITY.Contourer.prototype.createControls = function(titleSet){
+CLARITY.Contourer.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'contours');
+	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'contours', this.properties.contours);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('contours', e.srcElement.value);

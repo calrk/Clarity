@@ -13,7 +13,7 @@ CLARITY.hsvShifter = function(options){
 
 CLARITY.hsvShifter.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.hsvShifter.prototype.process = function(frame){
+CLARITY.hsvShifter.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
@@ -37,26 +37,23 @@ CLARITY.hsvShifter.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.hsvShifter.prototype.createControls = function(titleSet){
+CLARITY.hsvShifter.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue');
+	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue', this.properties.hue);
 	controls.appendChild(slider);
 	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('hue', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'saturation');
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'saturation', this.properties.saturation);
 	controls.appendChild(slider);
 	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('saturation', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness');
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.lightness);
 	controls.appendChild(slider);
 	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('value', e.srcElement.value);

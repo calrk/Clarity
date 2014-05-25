@@ -19,7 +19,7 @@ CLARITY.Rotator = function(options){
 
 CLARITY.Rotator.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Rotator.prototype.process = function(frame){
+CLARITY.Rotator.prototype.doProcess = function(frame){
 	if(this.properties.turns == 0){
 		return frame;
 	}
@@ -83,14 +83,11 @@ CLARITY.Rotator.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Rotator.prototype.createControls = function(titleSet){
+CLARITY.Rotator.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(-3, 3, 1, 'Turns');
+	var slider = CLARITY.Interface.createSlider(-3, 3, 1, 'Turns', this.properties.turns);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('turns', e.srcElement.value);

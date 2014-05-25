@@ -8,7 +8,7 @@ CLARITY.Tiler = function(options){
 
 CLARITY.Tiler.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Tiler.prototype.process = function(frame){
+CLARITY.Tiler.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 0; y < frame.height; y+=2){
@@ -63,16 +63,3 @@ CLARITY.Tiler.prototype.process = function(frame){
 
 	return outPut;
 };
-
-CLARITY.Tiler.prototype.createControls = function(titleSet){
-	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
-	
-	label = CLARITY.Interface.createLabel('No options.');
-	controls.appendChild(label);
-
-	return controls;
-}

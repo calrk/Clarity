@@ -13,7 +13,7 @@ CLARITY.FillRGB = function(options){
 
 CLARITY.FillRGB.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.FillRGB.prototype.process = function(frame){
+CLARITY.FillRGB.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
         // color: Math.floor(Math.random()*16777215).toString(16)
 
@@ -27,26 +27,23 @@ CLARITY.FillRGB.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.FillRGB.prototype.createControls = function(titleSet){
+CLARITY.FillRGB.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red');
+	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red', this.properties.red);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('red', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 255, 1, 'green');
+	slider = CLARITY.Interface.createSlider(0, 255, 1, 'green', this.properties.green);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('green', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 255, 1, 'blue');
+	slider = CLARITY.Interface.createSlider(0, 255, 1, 'blue', this.properties.blue);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('blue', e.srcElement.value);

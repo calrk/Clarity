@@ -4,7 +4,7 @@ CLARITY.ValueThreshold = function(options){
 
 	this.properties = {
 		inverted: options.inverted || false,
-		thresh: options.thresh || null		
+		threshold: options.threshold || null		
 	}
 	
 	CLARITY.Filter.call( this, options );
@@ -12,11 +12,11 @@ CLARITY.ValueThreshold = function(options){
 
 CLARITY.ValueThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.ValueThreshold.prototype.process = function(frame){
+CLARITY.ValueThreshold.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value
-	var threshold = this.properties.thresh || this.getThresholdValue(frame);
+	var threshold = this.properties.threshold || this.getThresholdValue(frame);
 	//performs the thresholding on the data
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		var colour = this.getColourValue(frame, i, this.channel);
@@ -95,23 +95,20 @@ CLARITY.ValueThreshold.prototype.getThresholdValue = function(data){
 	return current;
 }
 
-CLARITY.ValueThreshold.prototype.createControls = function(titleSet){
+CLARITY.ValueThreshold.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var toggle = CLARITY.Interface.createToggle(this.properties.inverted, 'Inverted');
+	var toggle = CLARITY.Interface.createToggle('Inverted', this.properties.inverted);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('inverted');
 	});
 
-	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'Threshold');
+	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'Threshold', this.properties.threshold);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
-		self.setFloat('thresh', e.srcElement.value);
+		self.setFloat('threshold', e.srcElement.value);
 	});
 
 	return controls;

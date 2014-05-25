@@ -151,7 +151,7 @@ function updateTexture(){
 	var frame = ctx.getImageData(0,0,width,height);
 
 	for(var i = 0; i < texFilters.length; i++){
-		frame = texFilters[i].filter.startProcess(frame);
+		frame = texFilters[i].filter.process(frame);
 	}
 
 	ctx.putImageData(frame, 0, 0);
@@ -171,7 +171,7 @@ function updateNorm(){
 	var frame = ctx.getImageData(0,0,width,height);
 
 	for(var i = 0; i < normalFilters.length; i++){
-		frame = normalFilters[i].filter.startProcess(frame);
+		frame = normalFilters[i].filter.process(frame);
 	}
 
 	ctx.putImageData(frame, 0, 0);

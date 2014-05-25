@@ -9,7 +9,7 @@ CLARITY.Ghoster = function(options){
 
 CLARITY.Ghoster.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Ghoster.prototype.process = function(frame){
+CLARITY.Ghoster.prototype.doProcess = function(frame){
 	this.frames.unshift(frame);
 	if(this.frames.length > this.length){
 		this.frames.pop();

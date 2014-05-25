@@ -21,7 +21,7 @@ CLARITY.Posteriser = function(options){
 
 CLARITY.Posteriser.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Posteriser.prototype.process = function(frame){
+CLARITY.Posteriser.prototype.doProcess = function(frame){
 	if(this.method == 'fast'){
 		return this.oldMethod(frame);
 	}
@@ -106,14 +106,11 @@ CLARITY.Posteriser.prototype.setThresh = function(newNo){
 	this.threshes[index] = i;
 };
 
-CLARITY.Posteriser.prototype.createControls = function(titleSet){
+CLARITY.Posteriser.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'Colours');
+	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'Colours', this.properties.colours);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('colours', e.srcElement.value);

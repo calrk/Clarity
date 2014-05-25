@@ -4,7 +4,7 @@ CLARITY.GradientThreshold = function(options){
 	var options = options || {};
 
 	this.properties = {
-		thresh: options.thresh || 20,
+		threshold: options.threshold || 20,
 		distance: options.distance || 1
 	};
 
@@ -14,7 +14,7 @@ CLARITY.GradientThreshold = function(options){
 CLARITY.GradientThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 //The main function to do all the thresholding from
-CLARITY.GradientThreshold.prototype.process = function(frame){
+CLARITY.GradientThreshold.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var found = false;
@@ -27,28 +27,28 @@ CLARITY.GradientThreshold.prototype.process = function(frame){
 			var left = (y*frame.width + (x-this.properties.distance))*4;
 			var right = (y*frame.width + (x+this.properties.distance))*4;
 			
-			if(frame.data[i] < frame.data[left] - this.properties.thresh){
+			if(frame.data[i] < frame.data[left] - this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] > frame.data[left] + this.properties.thresh){
+			else if(frame.data[i] > frame.data[left] + this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] < frame.data[right] - this.properties.thresh){
+			else if(frame.data[i] < frame.data[right] - this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] > frame.data[right] + this.properties.thresh){
+			else if(frame.data[i] > frame.data[right] + this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] < frame.data[up] - this.properties.thresh){
+			else if(frame.data[i] < frame.data[up] - this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] > frame.data[up] + this.properties.thresh){
+			else if(frame.data[i] > frame.data[up] + this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] < frame.data[down] - this.properties.thresh){
+			else if(frame.data[i] < frame.data[down] - this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] > frame.data[down] + this.properties.thresh){
+			else if(frame.data[i] > frame.data[down] + this.properties.threshold){
 				found = true;
 			}
 			if(found){
@@ -69,20 +69,17 @@ CLARITY.GradientThreshold.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.GradientThreshold.prototype.createControls = function(titleSet){
+CLARITY.GradientThreshold.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 100, 1, 'Threshold');
+	var slider = CLARITY.Interface.createSlider(0, 100, 1, 'Threshold', this.properties.threshold);
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(e){
-		self.setFloat('thresh', e.srcElement.value);
+		slider.addEventListener('change', function(e){
+		self.setFloat('threshold', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 10, 1, 'Distance');
+	slider = CLARITY.Interface.createSlider(0, 10, 1, 'Distance', this.properties.distance);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setFloat('distance', e.srcElement.value);

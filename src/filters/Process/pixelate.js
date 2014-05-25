@@ -11,7 +11,7 @@ CLARITY.Pixelate = function(options){
 
 CLARITY.Pixelate.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Pixelate.prototype.process = function(frame){
+CLARITY.Pixelate.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var size = this.properties.size;
@@ -39,14 +39,11 @@ CLARITY.Pixelate.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Pixelate.prototype.createControls = function(titleSet){
+CLARITY.Pixelate.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 256, 1, 'size');
+	var slider = CLARITY.Interface.createSlider(0, 256, 1, 'size', this.properties.size);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('size', e.srcElement.value);

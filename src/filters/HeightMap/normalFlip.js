@@ -13,7 +13,7 @@ CLARITY.NormalFlip = function(options){
 
 CLARITY.NormalFlip.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.NormalFlip.prototype.process = function(frame){
+CLARITY.NormalFlip.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 1; y < frame.height-1; y++){
@@ -48,26 +48,23 @@ CLARITY.NormalFlip.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.NormalFlip.prototype.createControls = function(titleSet){
+CLARITY.NormalFlip.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var toggle = CLARITY.Interface.createToggle(this.properties.red, 'Red');
+	var toggle = CLARITY.Interface.createToggle('Red', this.properties.red);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('red');
 	});
 
-	toggle = CLARITY.Interface.createToggle(this.properties.green, 'Green');
+	toggle = CLARITY.Interface.createToggle('Green', this.properties.green);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('green');
 	});
 
-	toggle = CLARITY.Interface.createToggle(this.properties.swap, 'Swap');
+	toggle = CLARITY.Interface.createToggle('Swap', this.properties.swap);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('swap');

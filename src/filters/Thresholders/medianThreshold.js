@@ -8,7 +8,7 @@ CLARITY.MedianThreshold = function(options){
 CLARITY.MedianThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 //The main function to do all the thresholding from
-CLARITY.MedianThreshold.prototype.process = function(frame, thresh){
+CLARITY.MedianThreshold.prototype.doProcess = function(frame, thresh){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value

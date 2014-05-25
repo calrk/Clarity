@@ -7,7 +7,7 @@ CLARITY.SkinDetector = function(options){
 
 CLARITY.SkinDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.SkinDetector.prototype.process = function(frame){
+CLARITY.SkinDetector.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 	this.RGBAtoYCbCr(outPut, frame);
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){

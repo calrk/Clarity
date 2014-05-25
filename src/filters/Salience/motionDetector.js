@@ -15,7 +15,7 @@ CLARITY.MotionDetector = function(options){
 
 CLARITY.MotionDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.MotionDetector.prototype.process = function(frame){
+CLARITY.MotionDetector.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	this.pushFrame(frame);
@@ -53,14 +53,11 @@ CLARITY.MotionDetector.prototype.pushFrame = function(frame){
 	}
 };
 
-CLARITY.MotionDetector.prototype.createControls = function(titleSet){
+CLARITY.MotionDetector.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(1, 24, 1, 'Frame Count');
+	var slider = CLARITY.Interface.createSlider(1, 24, 1, 'Frame Count', this.properties.frameCount);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('frameCount', e.srcElement.value);

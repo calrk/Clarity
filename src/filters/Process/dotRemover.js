@@ -8,7 +8,7 @@ CLARITY.DotRemover = function(options){
 
 CLARITY.DotRemover.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.DotRemover.prototype.process = function(frame){
+CLARITY.DotRemover.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 1; y < frame.height - 1; y++){

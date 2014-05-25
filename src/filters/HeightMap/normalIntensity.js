@@ -11,7 +11,7 @@ CLARITY.NormalIntensity = function(options){
 
 CLARITY.NormalIntensity.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.NormalIntensity.prototype.process = function(frame){
+CLARITY.NormalIntensity.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 0; y < frame.height; y++){
@@ -48,14 +48,11 @@ CLARITY.NormalIntensity.prototype.normalise = function(v){
 	}
 }
 
-CLARITY.NormalIntensity.prototype.createControls = function(titleSet){
+CLARITY.NormalIntensity.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'intensity');
+	var slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'intensity', this.properties.intensity);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setFloat('intensity', e.srcElement.value);

@@ -13,7 +13,7 @@ CLARITY.Mirror = function(options){
 
 CLARITY.Mirror.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Mirror.prototype.process = function(frame){
+CLARITY.Mirror.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 0; y < frame.height; y++){
@@ -41,20 +41,17 @@ CLARITY.Mirror.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Mirror.prototype.createControls = function(titleSet){
+CLARITY.Mirror.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var toggle = CLARITY.Interface.createToggle(this.properties.Vertical, 'Vertical');
+	var toggle = CLARITY.Interface.createToggle('Vertical', this.properties.Vertical);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('Vertical');
 	});
 
-	toggle = CLARITY.Interface.createToggle(this.properties.Horizontal, 'Horizontal');
+	toggle = CLARITY.Interface.createToggle('Horizontal', this.properties.Horizontal);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('Horizontal');

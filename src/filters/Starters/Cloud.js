@@ -16,7 +16,7 @@ CLARITY.Cloud = function(options){
 
 CLARITY.Cloud.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Cloud.prototype.process = function(frame){
+CLARITY.Cloud.prototype.doProcess = function(frame){
 	var size = this.properties.initialSize;
 	var iterations = 0;
 
@@ -89,44 +89,41 @@ CLARITY.Cloud.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Cloud.prototype.createControls = function(titleSet){
+CLARITY.Cloud.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
-	controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
-		self.toggleEnabled();
-	});
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red');
+	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red', this.properties.red);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('red', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 255, 1, 'green');
+	slider = CLARITY.Interface.createSlider(0, 255, 1, 'green', this.properties.green);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('green', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 255, 1, 'blue');
+	slider = CLARITY.Interface.createSlider(0, 255, 1, 'blue', this.properties.blue);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('blue', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 10, 1, 'iterations');
+	slider = CLARITY.Interface.createSlider(0, 10, 1, 'iterations', this.properties.iterations);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('iterations', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 16, 1, 'Initial Size');
+	slider = CLARITY.Interface.createSlider(0, 16, 1, 'Initial Size', this.properties.initialSize);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('initialSize', e.srcElement.value);
 	});
 
-	var toggle = CLARITY.Interface.createToggle(this.properties.linear, 'linear');
+	var toggle = CLARITY.Interface.createToggle('linear', this.properties.linear);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('linear');

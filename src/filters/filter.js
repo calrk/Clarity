@@ -6,14 +6,14 @@ CLARITY.Filter = function(options){
 };
 
 CLARITY.Filter.prototype = {
-	startProcess: function(frame){
+	process: function(frame){
 		if(!this.enabled){
 			return frame;
 		}
-		return this.process(frame);
+		return this.doProcess(frame);
 	},
 
-	process: function(frame){
+	doProcess: function(frame){
 		return frame;
 	},
 
@@ -58,9 +58,21 @@ CLARITY.Filter.prototype = {
 CLARITY.Filter.prototype.createControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
+    controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+        self.toggleEnabled();
+    });
+
 	
-	label = CLARITY.Interface.createLabel('No options.');
-	controls.appendChild(label);
+	var conts = this.doCreateControls();
+	controls.appendChild(conts);
 
 	return controls;
+}
+
+CLARITY.Filter.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	
+	label = CLARITY.Interface.createLabel('No options.');
+
+	return label;
 }
