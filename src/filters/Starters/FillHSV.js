@@ -16,7 +16,7 @@ CLARITY.FillHSV.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.FillHSV.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	var col = CLARITY.Operations.HSVtoRGB(this.properties.hue, this.properties.saturation, this.properties.value);
+	var col = CLARITY.Operations.HSVtoRGB([this.properties.hue, this.properties.saturation, this.properties.value]);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		outPut.data[i  ] = col[0];
@@ -44,7 +44,7 @@ CLARITY.FillHSV.prototype.doCreateControls = function(titleSet){
 		self.setFloat('saturation', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.lightness);
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.value);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setFloat('value', e.srcElement.value);
