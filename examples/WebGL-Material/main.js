@@ -1,30 +1,26 @@
 var texFilters = [
 	{
-		name: "RGB",
+		name: "Fill RGB",
 		filter: new CLARITY.FillRGB({red: 128, green:0, blue:0, enabled:true})
 	},
 	{
-		name: "Cloud",
+		name: "Fill HSV",
+		filter: new CLARITY.FillHSV({hue: 128, saturation:1, lightness:1})
+	},
+	{
+		name: "Fill Cloud",
 		filter: new CLARITY.Cloud()
 	},
 	/*{
-		name: "hsvShifter",
-		filter: new CLARITY.hsvShifter({value:2})
-	},*/
-	/*{
 		name: "Translator",
 		filter: new CLARITY.Translator({horizontal: 0.5})
-	},*/
-	/*{
-		name: "Smooth",
-		filter: new CLARITY.Smoother()
 	},*/
 	{
 		name: "Pixelate",
 		filter: new CLARITY.Pixelate()
 	},
 	{
-		name: "Noise",
+		name: "Add Noise",
 		filter: new CLARITY.Noise({intensity:50, monochromatic: false})
 	},
 	{
@@ -33,24 +29,24 @@ var texFilters = [
 	},
 ]
 var normalFilters = [
-	/*{
-		name: "Filler",
+	{
+		name: "Fill Solid",
 		filter: new CLARITY.FillRGB({red: 128, green:128, blue:255})
 	},
 	{
-		name: "Noise",
-		filter: new CLARITY.Noise({intensity:50, monochromatic: false})
-	},
-	{
-		name: "Normal Intensity",
-		filter: new CLARITY.NormalIntensity({intensity: 1})
-	},*/
-	{
-		name: "Normal Generator",
+		name: "Generate from Texture",
 		filter: new CLARITY.NormalGenerator({enabled: true})
 	},
 	{
-		name: "Normal Intensity",
+		name: "Swap Angles",
+		filter: new CLARITY.NormalFlip()
+	},
+	{
+		name: "Add Noise",
+		filter: new CLARITY.Noise({intensity:50, monochromatic: false})
+	},
+	{
+		name: "Modify Intensity",
 		filter: new CLARITY.NormalIntensity({intensity: 0.25})
 	},
 	{
@@ -138,9 +134,9 @@ function render(){
 	cube.rotation.y   += 0.01;
 
 	if(needsUpdate){
+		needsUpdate = false;
 		updateTexture();
 		updateNorm();
-		needsUpdate = false;
 	}
 }
 

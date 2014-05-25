@@ -9,7 +9,7 @@ canvas{
 	/*position:absolute;*/
 	margin:2px;
 	top:0;
-	float:left;
+	/*float:left;*/
 }
 p{
 	color: #e6db74;
@@ -17,6 +17,9 @@ p{
 	padding-left: 5px;
 	font-weight:bold;
 	width: 300px; 
+}
+h1{
+	padding-left:10px;
 }
 
 .controls{

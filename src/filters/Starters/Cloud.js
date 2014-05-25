@@ -6,7 +6,7 @@ CLARITY.Cloud = function(options){
 		red: options.red || 255,
 		green: options.green || 255,
 		blue: options.blue || 255,
-		linear: options.linear || true,
+		linear: options.linear || false,
 		iterations: options.iterations || 4,
 		initialSize: options.initialSize || 4
 	};
