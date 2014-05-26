@@ -85,8 +85,8 @@ function init(){
 		newLi.onclick = function(e){
 			filters.forEach(function(filter){
 				if(filter.id == e.srcElement.id){
-					filter.active = !filter.active;
-					if(filter.active){
+		        	filter.filter.toggleEnabled();
+					if(filter.filter.enabled){
 						e.srcElement.className = "listGreen";
 					}
 					else{
@@ -94,7 +94,6 @@ function init(){
 					}
 				}
 			});
-			render();
 		}
 
 		filters[i].position = i;
@@ -111,7 +110,6 @@ function init(){
 			if(typeof filter.setClick === 'function')
 				filter.filter.setClick([e.clientX, e.clientY]);
 		});
-		render();
 	}
 
 	//THREE.js stuff
@@ -175,9 +173,7 @@ function render(){
 	var frame = ctx2.getImageData(0,0,width,height);
 
 	for(var i = 0; i < filters.length; i++){
-		if(filters[i].active){
-			frame = filters[i].filter.process(frame);
-		}
+		frame = filters[i].filter.process(frame);
 	}
 
 	ctx2.putImageData(frame, 0, 0);
