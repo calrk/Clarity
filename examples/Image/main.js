@@ -80,8 +80,8 @@ function init(){
 		newLi.onclick = function(e){
 			filters.forEach(function(filter){
 				if(filter.id == e.srcElement.id){
-					filter.active = !filter.active;
-					if(filter.active){
+		        	filter.filter.toggleEnabled();
+					if(filter.filter.active){
 						e.srcElement.className = "listGreen";
 					}
 					else{
@@ -141,9 +141,7 @@ function render(){
 	var frame = ctx.getImageData(0,0,width,height);
 
 	for(var i = 0; i < filters.length; i++){
-		if(filters[i].active){
-			frame = filters[i].filter.process(frame);
-		}
+		frame = filters[i].filter.process(frame);
 	}
 
 	ctx.putImageData(frame, 0, 0);
