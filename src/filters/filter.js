@@ -2,13 +2,16 @@
 CLARITY.Filter = function(options){
 	var options = options || {};
 	this.channel = options.channel || "grey";
-	this.enabled = options.enabled || false;
+	this.enabled = options.enabled || true;
 };
 
 CLARITY.Filter.prototype = {
 	process: function(frame){
 		if(!this.enabled){
 			return frame;
+		}
+		if(frame.length){//if there are multiple frames in an array
+			return this.doProcess(frame[0], frame[1]);
 		}
 		return this.doProcess(frame);
 	},
