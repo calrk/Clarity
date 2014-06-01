@@ -2,12 +2,10 @@
 //Scrambles the canvas scene
 CLARITY.Puzzler = function(options){
 	var options = options || {};
-	this.width = options.width || 640;
-	this.height = options.height || 480;
 
 	this.selected = null;
 
-	this.splits = options.splits || 8;
+	this.splits = options.splits || 4;
 	this.swaps = [];
 	var count = 0;
 	for(var i = 0; i < this.splits; i++){
@@ -35,8 +33,8 @@ CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Puzzler.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	var minHeight = this.height/this.splits;
-	var minWidth = this.width/this.splits;
+	var minHeight = frame.height/this.splits;
+	var minWidth = frame.width/this.splits;
 
 	for(var y = 0; y < this.splits; y++){
 		for(var x = 0; x < this.splits; x++){
