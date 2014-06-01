@@ -5,7 +5,8 @@ CLARITY.Brickulate = function(options){
 	this.properties = {
 		horizontalSegs: options.horizontalSegs || 4,
 		verticalSegs: options.verticalSegs || 4,
-		grooveSize: options.grooveSize || 5
+		grooveSize: options.grooveSize || 5,
+		offset: options.offset || false
 	};
 
 	CLARITY.Filter.call( this, options );
@@ -26,6 +27,14 @@ CLARITY.Brickulate.prototype.doProcess = function(frame){
 
 			var xasd = x%widthSegs;
 			var yasd = y%heightSegs;
+			if(this.properties.offset){
+				if(y%(heightSegs*2) < heightSegs){
+					xasd += widthSegs*0.5;
+					if(xasd > widthSegs){
+						xasd -= widthSegs;
+					}
+				}
+			}
 			if((xasd <= grooveSize || xasd >= widthSegs-5) && (yasd <= grooveSize || yasd >= heightSegs-5)){
 				outPut.data[i  ] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
 				outPut.data[i+1] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);

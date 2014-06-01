@@ -3,9 +3,9 @@
 CLARITY.Cloud = function(options){
 	var options = options || {}
 	this.properties = {
-		red: options.red || 255,
-		green: options.green || 255,
-		blue: options.blue || 255,
+		red: options.red || 0,
+		green: options.green || 0,
+		blue: options.blue || 0,
 		linear: options.linear || false,
 		iterations: options.iterations || 4,
 		initialSize: options.initialSize || 4
