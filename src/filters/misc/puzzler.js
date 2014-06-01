@@ -5,21 +5,25 @@ CLARITY.Puzzler = function(options){
 
 	this.selected = null;
 
-	this.splits = options.splits || 4;
+	this.properties = {
+		horizontalSegs: options.horizontalSegs || 4,
+		verticalSegs: options.verticalSegs || 4
+	};
+
 	this.swaps = [];
 	var count = 0;
-	for(var i = 0; i < this.splits; i++){
+	for(var i = 0; i < this.properties.verticalSegs; i++){
 		this.swaps[i] = [];
-		for(var j = 0; j < this.splits; j++){
+		for(var j = 0; j < this.properties.horizontalSegs; j++){
 			this.swaps[i][j] = count++;
 		}
 	}
 
-	for(var i = 0; i < 10*this.splits; i++){
-		var a = Math.floor(Math.random()*this.splits);
-		var b = Math.floor(Math.random()*this.splits);
-		var c = Math.floor(Math.random()*this.splits);
-		var d = Math.floor(Math.random()*this.splits);
+	for(var i = 0; i < 10*(this.properties.verticalSegs+this.properties.horizontalSegs)/2; i++){
+		var a = Math.floor(Math.random()*this.properties.verticalSegs);
+		var b = Math.floor(Math.random()*this.properties.horizontalSegs);
+		var c = Math.floor(Math.random()*this.properties.verticalSegs);
+		var d = Math.floor(Math.random()*this.properties.horizontalSegs);
 		var temp = this.swaps[a][b];
 		this.swaps[a][b] = this.swaps[c][d];
 		this.swaps[c][d] = temp;
@@ -33,12 +37,12 @@ CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Puzzler.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	var minHeight = frame.height/this.splits;
-	var minWidth = frame.width/this.splits;
+	var minHeight = Math.round(frame.height/this.properties.verticalSegs);
+	var minWidth = Math.round(frame.width/this.properties.horizontalSegs);
 
-	for(var y = 0; y < this.splits; y++){
-		for(var x = 0; x < this.splits; x++){
-			var pos = this.numToPos(this.swaps[x][y]);
+	for(var y = 0; y < this.properties.verticalSegs; y++){
+		for(var x = 0; x < this.properties.horizontalSegs; x++){
+			var pos = this.numToPos(this.swaps[y][x]);
 			for(var newy = 0; newy < minHeight; newy++){
 				for(var newx = 0; newx < minWidth; newx++){
 					var pos1 = ((y*minHeight+newy)*frame.width + (x*minWidth+newx))*4;
@@ -55,9 +59,9 @@ CLARITY.Puzzler.prototype.doProcess = function(frame){
 	}
 
 	if(this.selected != undefined){
-		for(var y = 0; y < this.height/this.splits; y++){
-			for(var x = 0; x < this.width/this.splits; x++){
-				var pos1 = ((this.selected[1]*(this.height/this.splits)+y)*this.width + (this.selected[0]*(this.width/this.splits)+x))*4;
+		for(var y = 0; y < this.height/this.properties.verticalSegs; y++){
+			for(var x = 0; x < this.width/this.properties.horizontalSegs; x++){
+				var pos1 = ((this.selected[1]*(this.height/this.properties.verticalSegs)+y)*this.width + (this.selected[0]*(this.width/this.properties.horizontalSegs)+x))*4;
 				output.data[pos1+2] += 80;
 			}
 		}
@@ -79,8 +83,8 @@ CLARITY.Puzzler.prototype.setPixel = function(picture, xPos, yPos, newCol){
 }
 
 CLARITY.Puzzler.prototype.setClick = function(pos){
-	var x = Math.floor(pos[0]/(this.width/this.splits));
-	var y = Math.floor(pos[1]/(this.height/this.splits));
+	var x = Math.floor(pos[0]/(this.width/this.properties.horizontalSegs));
+	var y = Math.floor(pos[1]/(this.height/this.properties.verticalSegs));
 
 	if(this.selected){
 		var temp = this.swaps[this.selected[0]][this.selected[1]];
@@ -97,8 +101,8 @@ CLARITY.Puzzler.prototype.setClick = function(pos){
 CLARITY.Puzzler.prototype.numToPos = function(num){
 	var x = 0;
 	var y = 0;
-	while(num > this.splits-1){
-		num -= this.splits;
+	while(num > this.properties.horizontalSegs-1){
+		num -= this.properties.horizontalSegs;
 		x++;
 	}
 	y = num;
