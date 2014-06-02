@@ -1,71 +1,71 @@
 var filters = [
 	{
 		name: "Desaturate",
-		filter: new CLARITY.Desaturate()
+		filter: new CLARITY.Desaturate({enabled:false})
 	},
 	{
 		name: "Value Thresholder",
-		filter: new CLARITY.ValueThreshold()
+		filter: new CLARITY.ValueThreshold({enabled:false})
 	},
 	{
 		name: "Smoother",
-		filter: new CLARITY.Smoother()
+		filter: new CLARITY.Smoother({enabled:false})
 	},
 	{
 		name: "HSV Shift",
-		filter: new CLARITY.hsvShifter({hue:300})
+		filter: new CLARITY.hsvShifter({hue:300, enabled:false})
 	},
 	{
 		name: "Motion Detector",
-		filter: new CLARITY.MotionDetector()
+		filter: new CLARITY.MotionDetector({enabled:false})
 	},
 	{
 		name: "Edge Detector",
-		filter: new CLARITY.EdgeDetector({fast:false})
+		filter: new CLARITY.EdgeDetector({fast:false, enabled:false})
 	},
 	{
 		name: "Sharpen",
-		filter: new CLARITY.Sharpen({intensity: 0.5})
+		filter: new CLARITY.Sharpen({intensity: 0.5, enabled:false})
 	},
 	{
 		name: "Gradient Thresholder",
-		filter: new CLARITY.GradientThreshold()
+		filter: new CLARITY.GradientThreshold({enabled:false})
 	},
 	{
 		name: "Median Thresholder",
-		filter: new CLARITY.MedianThreshold()
+		filter: new CLARITY.MedianThreshold({enabled:false})
 	},
 	{
 		name: "Posteriser",
-		filter: new CLARITY.Posteriser({colours: 10})
+		filter: new CLARITY.Posteriser({colours: 10, enabled:false})
 	},
 	{
 		name: "Dot Remover (Black & White Only)",
-		filter: new CLARITY.DotRemover()
+		filter: new CLARITY.DotRemover({enabled:false})
 	},
 	{
 		name: "Ghoster",
-		filter: new CLARITY.Ghoster()
+		filter: new CLARITY.Ghoster({enabled:false})
 	},
 	{
 		name: "Puzzler",
-		filter: new CLARITY.Puzzler()
+		filter: new CLARITY.Puzzler({enabled:false})
 	},
 	{
 		name: "Translator",
-		filter: new CLARITY.Translator()
+		filter: new CLARITY.Translator({enabled:false})
 	},
 	{
 		name: "Rotator",
-		filter: new CLARITY.Rotator()
+		filter: new CLARITY.Rotator({enabled:false})
 	},
 	{
 		name: "Mirror",
-		filter: new CLARITY.Mirror()
+		filter: new CLARITY.Mirror({enabled:false})
 	},
 	{
 		name: "Tiler",
-		filter: new CLARITY.Tiler()
+		filter: new CLARITY.Tiler({enabled:false})
 	},
 ];
 

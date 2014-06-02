@@ -1,15 +1,15 @@
 var texFilters = [
 	{
 		name: "Fill RGB",
-		filter: new CLARITY.FillRGB({red: 128, green:0, blue:0, enabled:true})
+		filter: new CLARITY.FillRGB({red: 128, green:0, blue:0})
 	},
 	{
 		name: "Fill HSV",
-		filter: new CLARITY.FillHSV({hue: 128, saturation:1, lightness:1})
+		filter: new CLARITY.FillHSV({hue: 128, saturation:1, lightness:1, enabled:false})
 	},
 	{
 		name: "Fill Cloud",
-		filter: new CLARITY.Cloud()
+		filter: new CLARITY.Cloud({red: 255, enabled:false})
 	},
 	/*{
 		name: "Translator",
@@ -17,21 +17,21 @@ var texFilters = [
 	},*/
 	{
 		name: "Pixelate",
-		filter: new CLARITY.Pixelate()
+		filter: new CLARITY.Pixelate({enabled:false})
 	},
 	{
 		name: "Add Noise",
-		filter: new CLARITY.Noise({intensity:50, monochromatic: false})
+		filter: new CLARITY.Noise({intensity:50, monochromatic: false, enabled:false})
 	},
 	{
 		name: "Smooth",
-		filter: new CLARITY.Smoother()
+		filter: new CLARITY.Smoother({enabled:false})
 	},
 ]
 var normalFilters = [
 	{
 		name: "Fill Solid",
-		filter: new CLARITY.FillRGB({red: 128, green:128, blue:255})
+		filter: new CLARITY.FillRGB({red: 128, green:128, blue:255, enabled:false})
 	},
 	{
 		name: "Generate from Texture",
@@ -39,19 +39,19 @@ var normalFilters = [
 	},
 	{
 		name: "Swap Angles",
-		filter: new CLARITY.NormalFlip()
+		filter: new CLARITY.NormalFlip({enabled:false})
 	},
 	{
 		name: "Add Noise",
-		filter: new CLARITY.Noise({intensity:50, monochromatic: false})
+		filter: new CLARITY.Noise({intensity:50, monochromatic: false, enabled:false})
 	},
 	{
 		name: "Modify Intensity",
-		filter: new CLARITY.NormalIntensity({intensity: 0.25})
+		filter: new CLARITY.NormalIntensity({intensity: 0.25, enabled:false})
 	},
 	{
 		name: "Smooth",
-		filter: new CLARITY.Smoother()
+		filter: new CLARITY.Smoother({enabled:false})
 	},
 ]
 

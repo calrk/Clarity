@@ -2,7 +2,13 @@
 CLARITY.Filter = function(options){
 	var options = options || {};
 	this.channel = options.channel || "grey";
-	this.enabled = options.enabled || true;
+
+	if(options.enabled === false){
+		this.enabled = false;
+	}
+	else{
+		this.enabled = true;
+	}
 };
 
 CLARITY.Filter.prototype = {

@@ -2,62 +2,62 @@ var filters = [
 	{
 		name: "Average Thresholder",
 		id: "avThresh",
-		filter: new CLARITY.ValueThreshold({thresh:64, channel:'red'})
+		filter: new CLARITY.ValueThreshold({thresh:64, channel:'red', enabled:false})
 	},
 	{
 		name: "Smoother",
 		id: "smooth",
-		filter: new CLARITY.Smoother()
+		filter: new CLARITY.Smoother({enabled:false})
 	},
 	{
 		name: "Edge Detector",
 		id: "edge",
-		filter: new CLARITY.EdgeDetector({efficient:true})
+		filter: new CLARITY.EdgeDetector({efficient:true, enabled:false})
 	},
 	{
 		name: "Gradient Thresholder",
 		id: "gradThresh",
-		filter: new CLARITY.GradientThreshold()
+		filter: new CLARITY.GradientThreshold({enabled:false})
 	},
 	{
 		name: "Median Thresholder",
 		id: "medThresh",
-		filter: new CLARITY.MedianThreshold()
+		filter: new CLARITY.MedianThreshold({enabled:false})
 	},
 	{
 		name: "Posteriser",
 		id: "posterise",
-		filter: new CLARITY.Posteriser({colours:10})
+		filter: new CLARITY.Posteriser({colours:10, enabled:false})
 	},
 	{
 		name: "Skin Detector",
 		id: "skin",
-		filter: new CLARITY.SkinDetector()
+		filter: new CLARITY.SkinDetector({enabled:false})
 	},
 	{
 		name: "Dot Remover (Black & White Only)",
 		id: "dot",
-		filter: new CLARITY.DotRemover()
+		filter: new CLARITY.DotRemover({enabled:false})
 	},
 	{
 		name: "Puzzler",
 		id: "puzzler",
-		filter: new CLARITY.Puzzler()
+		filter: new CLARITY.Puzzler({enabled:false})
 	},
 	{
 		name: "Translator",
 		id: "trans",
-		filter: new CLARITY.Translator()
+		filter: new CLARITY.Translator({enabled:false})
 	},
 	{
 		name: "Rotator",
 		id: "rotate1",
-		filter: new CLARITY.Rotator({turns:1})
+		filter: new CLARITY.Rotator({turns:1, enabled:false})
 	},
 	{
 		name: "Mirror",
 		id: "mirror",
-		filter: new CLARITY.Mirror()
+		filter: new CLARITY.Mirror({enabled:false})
 	},
 ];
 
@@ -81,7 +81,7 @@ function init(){
 			filters.forEach(function(filter){
 				if(filter.id == e.srcElement.id){
 		        	filter.filter.toggleEnabled();
-					if(filter.filter.active){
+					if(filter.filter.enabled){
 						e.srcElement.className = "listGreen";
 					}
 					else{

@@ -2,17 +2,17 @@ var filters = [
 	{
 		name: "Contours",
 		id: "contour",
-		filter: new CLARITY.Contourer()
+		filter: new CLARITY.Contourer({enabled:false})
 	},
 	{
 		name: "Median Threshold",
 		id: "median",
-		filter: new CLARITY.MedianThreshold()
+		filter: new CLARITY.MedianThreshold({enabled:false})
 	},
 	{
 		name: "Edge Detector",
 		id: "edge",
-		filter: new CLARITY.EdgeDetector()
+		filter: new CLARITY.EdgeDetector({enabled:false})
 	},
 ];
 
@@ -41,8 +41,8 @@ function init(){
 		newLi.onclick = function(e){
 			filters.forEach(function(filter){
 				if(filter.id == e.srcElement.id){
-					filter.active = !filter.active;
-					if(filter.active){
+					filter.filter.toggleEnabled();
+					if(filter.filter.enabled){
 						e.srcElement.className = "listGreen";
 					}
 					else{
@@ -92,12 +92,10 @@ function render(){
 
 	frame = ctx.getImageData(0,0,width,height);
 	normFrame = new CLARITY.NormalGenerator().process(frame);
-	normFrame = new CLARITY.NormalEditor({intensity:1.5}).process(normFrame);
+	// normFrame = new CLARITY.NormalIntensity({intensity:1}).process(normFrame);
 
 	for(var i = 0; i < filters.length; i++){
-		if(filters[i].active){
-			frame = filters[i].filter.process(frame);
-		}
+		frame = filters[i].filter.process(frame);
 	}
 
 	// normFrame = new CLARITY.Smoother().process(normFrame);
