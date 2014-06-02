@@ -6,6 +6,16 @@ Canvas image filter library
 Current Filters
 ===============
 
+### Dual Input
+#### Multiply
+Multiplies an image with a greyscale
+#### Mask
+Simple implementation of multiply, where white is shown and black is not
+#### Blend
+Blends two images together, with optional weighting
+#### add/subtract
+adds/subtracts images from each other
+
 ### Height Map
 #### Contourer
 Shows the contours in a height map
@@ -17,6 +27,8 @@ Edits the intensity of a normal map
 Will flip the x/y axis values, or swap the x/y axis with each other
 
 ### Misc
+####Brickulate
+Will draw a grid pattern over an image, to turn it into bricks/tiles
 #### Difference Detector
 Will detect differences in a scene, based on the first shot (not working)
 #### Ghoster
@@ -31,6 +43,8 @@ Removes colour from an image
 Cleans up outlying pixels in a binary image
 #### HSV Shifter
 Allows editing an images hue/saturation/lightness values
+####Invert
+Inverts an image's colour
 #### Posterise
 Reduces an image into a fixed number of colours
 #### Sharpen
@@ -85,10 +99,8 @@ Will draw the skeleton of the image
 Will output a visual histogram of an image, or just the histogram values
 ####Bloat/Erode
 Will expand/reduce blobs in a binary image
-####Brickulate
-Will draw a grid pattern over an image, to turn it into bricks/tiles
-####Brickulate Normal
-Will output a normal map for a brickulated image
+####Crackulate
+Will draw procedural cracks over a texture
 ####Laplace Edge
 Implement edge detection with a faster algorithm
 ####Sobel Edge
@@ -99,8 +111,6 @@ Allow a custom 3x3 kernel to be used over an image.
 Will detect scene changes in a video
 ####Emboss
 Embosses an image
-####Invert
-Inverts an image's colour
 ####Sepia
 Applies a sepia effect to an image
 ####Blur
@@ -110,21 +120,11 @@ Makes an image appear to glow
 ####Percentage Threshold
 Thresholds a percentage of pixels
 
-Dual input filters to be made
-=============================
-#### Multiply
-Multiplies an image with a greyscale
-#### Mask
-Simple implementation of multiply, where white is shown and black is not
-#### Blend
-Blends two images together, with optional weighting
-
 Other things to work on
 =======================
-Update Average threshold to take percentage inputs
-Make the difference detector work more generally
-Implement GUI controls for all filters
-Add WebGL function to each filter to improve performance
-Add a flag to each filter to only process the image if the input has changed, controls have changed or is forced to.
-Create a renderer object that holds a canvas and it's filters for ease of use and improved functionality
-Look into HSV for skin detection
+	Update Average threshold to take percentage inputs
+	Make the difference detector work more generally
+	Add WebGL function to each filter to improve performance
+	Add a flag to each filter to only process the image if the input has changed, controls have changed or is forced to.
+	Create a renderer object that holds a canvas and it's filters for ease of use and improved functionality
+	Look into HSV for skin detection

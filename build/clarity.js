@@ -6,10 +6,27 @@ var CLARITY = {
 CLARITY.Filter = function(options){
 	var options = options || {};
 	this.channel = options.channel || "grey";
+
+	if(options.enabled === false){
+		this.enabled = false;
+	}
+	else{
+		this.enabled = true;
+	}
 };
 
 CLARITY.Filter.prototype = {
 	process: function(frame){
+		if(!this.enabled){
+			return frame;
+		}
+		if(frame.length){//if there are multiple frames in an array
+			return this.doProcess(frame[0], frame[1]);
+		}
+		return this.doProcess(frame);
+	},
+
+	doProcess: function(frame){
 		return frame;
 	},
 
@@ -44,17 +61,33 @@ CLARITY.Filter.prototype = {
 
 	toggleBool: function(key){
 		this.properties[key] = !this.properties[key];
+	},
+
+	toggleEnabled: function(){
+		this.enabled = !this.enabled;
 	}
 }
 
 CLARITY.Filter.prototype.createControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createControlGroup(titleSet, this.enabled);
+    controls.getElementsByTagName('input')[0].addEventListener('change', function(e){
+        self.toggleEnabled();
+    });
+
 	
-	label = CLARITY.Interface.createLabel('No options.');
-	controls.appendChild(label);
+	var conts = this.doCreateControls();
+	controls.appendChild(conts);
 
 	return controls;
+}
+
+CLARITY.Filter.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	
+	label = CLARITY.Interface.createLabel('No options.');
+
+	return label;
 }
 
  /**************************************************************************
@@ -544,21 +577,28 @@ CLARITY.MCut = function(){
 //Creates the user interation elements
 CLARITY.Interface = {
 
-	createControlGroup: function(titleSet){
+	createControlGroup: function(titleSet, enabledFlag){
 		var controls = document.createElement('div');
 		controls.setAttribute('class', 'clarity-controlGroup');
 
-		if(titleSet){
-			var title = document.createElement('h3');
-			title.setAttribute('class', 'clarity-title');
-			title.innerHTML = titleSet;
-			controls.appendChild(title);
+		var title;;
+		title = document.createElement('h3');
+		title.setAttribute('class', 'clarity-title');
+		title.innerHTML = titleSet || 'Clarity Filter';
+		controls.appendChild(title);
+
+		var toggle = document.createElement('input');
+		toggle.setAttribute('class', 'clarity-checkbox');
+		toggle.setAttribute('type', 'checkbox');
+		if(enabledFlag){
+			toggle.setAttribute('checked', enabledFlag || false);
 		}
+		title.appendChild(toggle);
 
 		return controls;
 	},
 
-	createSlider: function(min, max, step, labelSet){
+	createSlider: function(min, max, step, labelSet, valueSet){
 		var div = document.createElement('div');
 		div.setAttribute('class', 'clarity-control');
 
@@ -568,6 +608,9 @@ CLARITY.Interface = {
 		slider.setAttribute('min', min || 0);
 		slider.setAttribute('max', max || 1);
 		slider.setAttribute('step', step || 1);
+		if(valueSet){
+			slider.setAttribute('value', valueSet);
+		}
 
 		if(labelSet){
 			var label = document.createElement('label');
@@ -580,7 +623,7 @@ CLARITY.Interface = {
 		return div;
 	},
 
-	createToggle: function(checked, labelSet){
+	createToggle: function(labelSet, checked){
 		var div = document.createElement('div');
 		div.setAttribute('class', 'clarity-control');
 
@@ -604,6 +647,11 @@ CLARITY.Interface = {
 	createBreak: function(){
 		var br = document.createElement('br');
 		return br;
+	},
+
+	createDiv: function(){
+		var div = document.createElement('div');
+		return div;
 	},
 
 	createLabel: function(labelSet){
@@ -670,17 +718,17 @@ CLARITY.Operations = {
 		switch(i){
 			case 0:
 			case 6:
-				return [(c+m)*255, (x+m)*255, (0+m)*255];
+				return [(c+m)*255, (x+m)*255, ( m )*255];
 			case 1:
-				return [(x+m)*255, (c+m)*255, (0+m)*255];
+				return [(x+m)*255, (c+m)*255, ( m )*255];
 			case 2:
-				return [(0+m)*255, (c+m)*255, (x+m)*255];
+				return [( m )*255, (c+m)*255, (x+m)*255];
 			case 3:
-				return [(0+m)*255, (x+m)*255, (c+m)*255];
+				return [( m )*255, (x+m)*255, (c+m)*255];
 			case 4:
-				return [(x+m)*255, (0+m)*255, (c+m)*255];
+				return [(x+m)*255, ( m )*255, (c+m)*255];
 			default:
-				return [(c+m)*255, (0+m)*255, (x+m)*255];
+				return [(c+m)*255, ( m )*255, (x+m)*255];
 		}
 	},
 
@@ -855,11 +903,183 @@ CLARITY.Pixel.prototype = {
 	}
 }
 
+//AddSub object
+CLARITY.AddSub = function(options){
+	var options = options || {};
+
+	this.properties = {
+		subtractive: options.subtractive || false
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.AddSub.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.AddSub.prototype.doProcess = function(frame1, frame2){
+	var outPut = CLARITY.ctx.createImageData(frame1.width, frame1.height);
+
+	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
+		if(this.properties.subtractive){
+			outPut.data[i  ] = frame1.data[i  ] - frame2.data[i  ];
+			outPut.data[i+1] = frame1.data[i+1] - frame2.data[i+1];
+			outPut.data[i+2] = frame1.data[i+2] - frame2.data[i+2];	
+		}
+		else{
+			outPut.data[i  ] = frame1.data[i  ] + frame2.data[i  ];
+			outPut.data[i+1] = frame1.data[i+1] + frame2.data[i+1];
+			outPut.data[i+2] = frame1.data[i+2] + frame2.data[i+2];
+		}
+		outPut.data[i+3] = 255;
+	}
+
+	return outPut;
+};
+
+
+CLARITY.AddSub.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var toggle = CLARITY.Interface.createToggle('subtractive', this.properties.subtractive);
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('subtractive');
+	});
+
+	return controls;
+}
+
+//Blend object
+CLARITY.Blend = function(options){
+	var options = options || {};
+
+	this.properties = {
+		ratio: CLARITY.Operations.clamp(options.ratio, 0, 1) || 0.5
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Blend.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Blend.prototype.doProcess = function(frame1, frame2){
+	var outPut = CLARITY.ctx.createImageData(frame1.width, frame1.height);
+
+	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
+		outPut.data[i+0] = frame1.data[i  ]*this.properties.ratio + frame2.data[i  ]*(1-this.properties.ratio);
+		outPut.data[i+1] = frame1.data[i+1]*this.properties.ratio + frame2.data[i+1]*(1-this.properties.ratio);
+		outPut.data[i+2] = frame1.data[i+2]*this.properties.ratio + frame2.data[i+2]*(1-this.properties.ratio);
+		outPut.data[i+3] = 255;
+	}
+
+	return outPut;
+};
+
+
+CLARITY.Blend.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 1, 0.01, 'ratio', this.properties.ratio);
+	controls.appendChild(slider);
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.setFloat('ratio', e.srcElement.value);
+	});
+
+	return controls;
+}
+
+//Mask object
+CLARITY.Mask = function(options){
+	var options = options || {};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Mask.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Mask.prototype.doProcess = function(frame1, frame2){
+	var outPut = CLARITY.ctx.createImageData(frame1.width, frame1.height);
+
+	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
+		if(frame2[i].data < 128){
+			outPut.data[i+0] = frame1.data[i  ];
+			outPut.data[i+1] = frame1.data[i+1];
+			outPut.data[i+2] = frame1.data[i+2];
+		}
+		else{
+			outPut.data[i+0] = 0;
+			outPut.data[i+1] = 0;
+			outPut.data[i+2] = 0;
+		}
+		outPut.data[i+3] = 255;
+	}
+
+	return outPut;
+};
+
+
+/*CLARITY.Mask.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 1, 0.01, 'ratio', this.properties.ratio);
+	controls.appendChild(slider);
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.setFloat('ratio', e.srcElement.value);
+	});
+
+	return controls;
+}
+*/
+//Multiply object
+CLARITY.Multiply = function(options){
+	var options = options || {};
+
+	/*this.properties = {
+		ratio: CLARITY.Operations.clamp(options.ratio, 0, 1) || 0.5
+	};*/
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Multiply.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Multiply.prototype.doProcess = function(frame1, frame2){
+	var outPut = CLARITY.ctx.createImageData(frame1.width, frame2.height);
+
+	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
+		outPut.data[i+0] = ((frame1.data[i  ]/255) * (frame2.data[i  ])/255)*255;
+		outPut.data[i+1] = ((frame1.data[i+1]/255) * (frame2.data[i+1])/255)*255;
+		outPut.data[i+2] = ((frame1.data[i+2]/255) * (frame2.data[i+2])/255)*255;
+		outPut.data[i+3] = 255;
+	}
+
+	return outPut;
+};
+
+
+/*CLARITY.Multiply.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 1, 0.01, 'ratio', this.properties.ratio);
+	controls.appendChild(slider);
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.setFloat('ratio', e.srcElement.value);
+	});
+
+	return controls;
+}
+*/
 
 //Contourer object
 CLARITY.Contourer = function(options){
 	var options = options || {}
-	this.contours = options.contours || 10;
+	this.properties = {
+		contours: options.contours || 10
+	}
 
 	this.threshes = [128, 256];
 	this.threshSets = [0, 256];
@@ -872,7 +1092,7 @@ CLARITY.Contourer = function(options){
 
 CLARITY.Contourer.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Contourer.prototype.process = function(frame){
+CLARITY.Contourer.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.data.length; i+=4){
@@ -883,7 +1103,7 @@ CLARITY.Contourer.prototype.process = function(frame){
 			this.minValue = frame.data[i];
 		}
 	}
-	this.setVar(this.contours);
+	this.setVar(this.properties.contours);
 
 	for(var i = 0; i < frame.data.length; i++){
 		if(!((i+1)%4 == 0)){
@@ -916,66 +1136,105 @@ CLARITY.Contourer.prototype.setVar = function(newNo){
 	this.threshSets[index] = 255;
 };
 
+CLARITY.Contourer.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'contours', this.properties.contours);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('contours', e.srcElement.value);
+	});
 
-//NormalEditor object
-CLARITY.NormalEditor = function(options){
+	return controls;
+}
+
+
+//NormalFlip object
+CLARITY.NormalFlip = function(options){
 	var options = options || {}
-	this.intensity = options.intensity || 0.5;
+	this.properties = {
+		red: options.red || false,
+		green: options.green || false,
+		swap: options.swap || false
+	};
 
 	CLARITY.Filter.call( this, options );
 };
 
-CLARITY.NormalEditor.prototype = Object.create( CLARITY.Filter.prototype );
+CLARITY.NormalFlip.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.NormalEditor.prototype.process = function(frame){
+CLARITY.NormalFlip.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	for(var y = 1; y < frame.height-1; y++){
-		for(var x = 1; x < frame.width-1; x++){
-			var i = (y*frame.width + x)*4;
-			
-			var vector = {  x: (frame.data[i  ]-128)/128,
-							y: (frame.data[i+1]-128)/128,
-							z:  frame.data[i+2]/255
-						 };
-
-			vector = this.normalise(vector);
-			vector.x *= this.intensity;
-			vector.y *= this.intensity;
-			vector = this.normalise(vector);
-
-			outPut.data[i] =   (vector.x+1)*128;
-			outPut.data[i+1] = (vector.y+1)*128;
-			outPut.data[i+2] = vector.z*255;
-
-			outPut.data[i+3] = 255;
+	for(var i = 0; i < frame.width*frame.height*4; i+=4){
+		if(this.properties.red){
+			outPut.data[i] = 255-frame.data[i];
 		}
+		else{
+			outPut.data[i] = frame.data[i];
+		}
+
+		if(this.properties.green){
+			outPut.data[i+1] = 255-frame.data[i+1];
+		}
+		else{
+			outPut.data[i+1] = frame.data[i+1];
+		}
+
+		if(this.properties.swap){
+			var temp = outPut.data[i];
+			outPut.data[i] = outPut.data[i+1];
+			outPut.data[i+1] = temp;
+		}
+
+		outPut.data[i+2] = frame.data[i+2];
+		outPut.data[i+3] = 255;
 	}
 
 	return outPut;
 };
 
-CLARITY.NormalEditor.prototype.normalise = function(v){
-	var mag = Math.sqrt(Math.abs(v.x*v.x + v.y*v.y + v.z*v.z));
-	return{
-		x: v.x/mag,
-		y: v.y/mag,
-		z: v.z/mag
-	}
+CLARITY.NormalFlip.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var toggle = CLARITY.Interface.createToggle('Red', this.properties.red);
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('red');
+	});
+
+	toggle = CLARITY.Interface.createToggle('Green', this.properties.green);
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('green');
+	});
+
+	toggle = CLARITY.Interface.createToggle('Swap', this.properties.swap);
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('swap');
+	});
+
+	return controls;
 }
+
 
 //NormalGenerator object
 //Contains a bit of vector maths, which may be pulled out in future if other filters require it
 CLARITY.NormalGenerator = function(options){
 	var options = options || {}
-	this.heightMod = options.heightMod || 0.15;
+	this.properties = {
+		intensity: options.intensity || 0.5
+	};
 
 	CLARITY.Filter.call( this, options );
 };
 
 CLARITY.NormalGenerator.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.NormalGenerator.prototype.process = function(frame){
+CLARITY.NormalGenerator.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 1; y < frame.height-1; y++){
@@ -986,32 +1245,97 @@ CLARITY.NormalGenerator.prototype.process = function(frame){
 			var left  = (y*frame.width + (x-1))*4;
 			var right = (y*frame.width + (x+1))*4;
 
-			var veci =     {x:x, y:y,   z: this.heightMod*frame.data[i]};
-			var vecup =    {x:x, y:y-1, z: this.heightMod*frame.data[up]};
-			var vecdown =  {x:x, y:y+1, z: this.heightMod*frame.data[down]};
-			var vecleft =  {x:x-1, y:y, z: this.heightMod*frame.data[left]};
-			var vecright = {x:x+1, y:y, z: this.heightMod*frame.data[right]};
+			var veci =     {x:x, y:y,   z: this.properties.intensity*this.getColourValue(frame, i, 'grey')};
+			var vecleft =  {x:x-1, y:y, z: this.properties.intensity*this.getColourValue(frame, left, 'grey')};
+			var vecright = {x:x+1, y:y, z: this.properties.intensity*this.getColourValue(frame, right, 'grey')};
+			var vecup =    {x:x, y:y-1, z: this.properties.intensity*this.getColourValue(frame, up, 'grey')};
+			var vecdown =  {x:x, y:y+1, z: this.properties.intensity*this.getColourValue(frame, down, 'grey')};
 
 			var res = this.generateNormal(veci, vecleft, vecright, vecup, vecdown)
 
-			outPut.data[i] =   255-(res.x/2+128);
-			outPut.data[i+1] = 255-(res.y/2+128);
-			outPut.data[i+2] = -res.z;
+			outPut.data[i] =   (1-(res.x/2+0.5))*255;
+			outPut.data[i+1] = (1-(res.y/2+0.5))*255;
+			outPut.data[i+2] = -res.z*255;
 
 			outPut.data[i+3] = 255;
 		}
 	}
 
+	//correcting horizontal edges
+	for(var y = 0; y < frame.height; y++){
+		var x = 0;
+		var i = (y*frame.width + x)*4;
+		var j = (y*frame.width + x+1)*4;
+
+		outPut.data[i  ] = outPut.data[j  ];
+		outPut.data[i+1] = outPut.data[j+1];
+		outPut.data[i+2] = outPut.data[j+2];
+		outPut.data[i+3] = 255;
+
+		x = frame.width-1;
+		i = (y*frame.width + x)*4;
+		j = (y*frame.width + x-1)*4;
+
+		outPut.data[i  ] = outPut.data[j  ];
+		outPut.data[i+1] = outPut.data[j+1];
+		outPut.data[i+2] = outPut.data[j+2];
+		outPut.data[i+3] = 255;
+	}
+
+	//correcting vertical edges
+	for(var x = 0; x < frame.width; x++){
+		var y = 0;
+		var i = (y*frame.width + x)*4;
+		var j = ((y+1)*frame.width + x+1)*4;
+
+		outPut.data[i  ] = outPut.data[j  ];
+		outPut.data[i+1] = outPut.data[j+1];
+		outPut.data[i+2] = outPut.data[j+2];
+		outPut.data[i+3] = 255;
+
+		y = frame.height-1;
+		i = (y*frame.width + x)*4;
+		j = ((y-1)*frame.width + x)*4;
+
+		outPut.data[i  ] = outPut.data[j  ];
+		outPut.data[i+1] = outPut.data[j+1];
+		outPut.data[i+2] = outPut.data[j+2];
+		outPut.data[i+3] = 255;
+	}
+
 	return outPut;
 };
 
-CLARITY.NormalGenerator.prototype.generateNormal = function(centreIn, leftIn, rightIn, upIn, downIn){
-	var left  = this.calcNormal(centreIn, upIn,    leftIn);
-    var right = this.calcNormal(centreIn, leftIn,  downIn);
-    var up    = this.calcNormal(centreIn, downIn,  rightIn);
-    var down  = this.calcNormal(centreIn, rightIn, upIn);
+CLARITY.NormalGenerator.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 3, 0.1, 'intensity', this.properties.intensity);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('intensity', e.srcElement.value);
+	});
 
-    var avg = this.average(left, right, up, down);
+	return controls;
+}
+
+
+CLARITY.NormalGenerator.prototype.generateNormal = function(centreIn, leftIn, rightIn, upIn, downIn){
+	var vecs = [];
+	if(leftIn && upIn){
+		vecs.push(this.calcNormal(centreIn, upIn, leftIn));
+	}
+	if(leftIn && downIn){
+		vecs.push(this.calcNormal(centreIn, leftIn,  downIn));
+	}
+	if(rightIn && downIn){
+		vecs.push(this.calcNormal(centreIn, downIn,  rightIn));
+	}
+	if(rightIn && upIn){
+		vecs.push(this.calcNormal(centreIn, rightIn, upIn));
+	}
+
+    var avg = this.average(vecs);
 
     return avg;
 }
@@ -1057,18 +1381,167 @@ CLARITY.NormalGenerator.prototype.normalise = function(v){
 	}
 }
 
-CLARITY.NormalGenerator.prototype.average = function(v1, v2, v3, v4){
-	var res = this.vectorAdd(v1, v2);
-	res = this.vectorAdd(res, v3);
-	res = this.vectorAdd(res, v4);
+CLARITY.NormalGenerator.prototype.average = function(ins){
+	var res = ins[0];
+	for(var i = 1; i < ins.length; i++){
+		res = this.vectorAdd(res, ins[i]);
+	}
 
 	res = this.normalise(res);
 	return {
-		x: res.x*255,
-		y: res.y*255,
-		z: res.z*255
+		x: res.x,
+		y: res.y,
+		z: res.z
 	}
 }
+
+//NormalIntensity object
+CLARITY.NormalIntensity = function(options){
+	var options = options || {}
+	this.properties = {
+		intensity: options.intensity || 0.5
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.NormalIntensity.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.NormalIntensity.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var y = 0; y < frame.height; y++){
+		for(var x = 0; x < frame.width; x++){
+			var i = (y*frame.width + x)*4;
+			
+			var vector = {  x: (frame.data[i  ]-128)/128,
+							y: (frame.data[i+1]-128)/128,
+							z:  frame.data[i+2]/255
+						 };
+
+			vector = this.normalise(vector);
+			vector.x *= this.properties.intensity;
+			vector.y *= this.properties.intensity;
+			vector = this.normalise(vector);
+
+			outPut.data[i] =   (vector.x+1)*128;
+			outPut.data[i+1] = (vector.y+1)*128;
+			outPut.data[i+2] = vector.z*255;
+
+			outPut.data[i+3] = 255;
+		}
+	}
+
+	return outPut;
+};
+
+CLARITY.NormalIntensity.prototype.normalise = function(v){
+	var mag = Math.sqrt(Math.abs(v.x*v.x + v.y*v.y + v.z*v.z));
+	return{
+		x: v.x/mag,
+		y: v.y/mag,
+		z: v.z/mag
+	}
+}
+
+CLARITY.NormalIntensity.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'intensity', this.properties.intensity);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('intensity', e.srcElement.value);
+	});
+
+	return controls;
+}
+
+//Brickulate object
+CLARITY.Brickulate = function(options){
+	var options = options || {};
+
+	this.properties = {
+		horizontalSegs: options.horizontalSegs || 4,
+		verticalSegs: options.verticalSegs || 4,
+		grooveSize: options.grooveSize || 5,
+		offset: options.offset || false
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Brickulate.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Brickulate.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	var widthSegs = Math.round(frame.width/this.properties.horizontalSegs);
+	var heightSegs = Math.round(frame.height/this.properties.verticalSegs);
+
+	var grooveSize = this.properties.grooveSize;
+	for(var y = 0; y < frame.height*4; y++){
+		for(var x = 0; x < frame.width*4; x++){
+			var i = (y*frame.width + x)*4;
+
+			var xasd = x%widthSegs;
+			var yasd = y%heightSegs;
+			if(this.properties.offset){
+				if(y%(heightSegs*2) < heightSegs){
+					xasd += widthSegs*0.5;
+					if(xasd > widthSegs){
+						xasd -= widthSegs;
+					}
+				}
+			}
+			if((xasd <= grooveSize || xasd >= widthSegs-5) && (yasd <= grooveSize || yasd >= heightSegs-5)){
+				outPut.data[i  ] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
+				outPut.data[i+1] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
+				outPut.data[i+2] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
+			}
+			else if(xasd <= grooveSize){
+				outPut.data[i  ] = 255*(grooveSize-xasd)/grooveSize;
+				outPut.data[i+1] = 255*(grooveSize-xasd)/grooveSize;
+				outPut.data[i+2] = 255*(grooveSize-xasd)/grooveSize;
+			}
+			else if(xasd >= widthSegs-5){
+				outPut.data[i  ] = 255*(xasd-widthSegs+grooveSize)/grooveSize;
+				outPut.data[i+1] = 255*(xasd-widthSegs+grooveSize)/grooveSize;
+				outPut.data[i+2] = 255*(xasd-widthSegs+grooveSize)/grooveSize;
+			}
+			else if(yasd <= grooveSize){
+				outPut.data[i  ] = 255*(grooveSize-yasd)/grooveSize;
+				outPut.data[i+1] = 255*(grooveSize-yasd)/grooveSize;
+				outPut.data[i+2] = 255*(grooveSize-yasd)/grooveSize;
+			}
+			else if(yasd >= heightSegs-5){
+				outPut.data[i  ] = 255*(yasd-heightSegs+grooveSize)/grooveSize;
+				outPut.data[i+1] = 255*(yasd-heightSegs+grooveSize)/grooveSize;
+				outPut.data[i+2] = 255*(yasd-heightSegs+grooveSize)/grooveSize;
+			}
+			else{
+				outPut.data[i  ] = 0;
+				outPut.data[i+1] = 0;
+				outPut.data[i+2] = 0;
+			}
+
+			outPut.data[i+3] = 255;
+		}
+	}
+
+	return outPut;
+};
+
+
+CLARITY.Brickulate.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	
+
+	return controls;
+}
+
 //TODO: Make work properly
 //Difference detector object
 CLARITY.DifferenceDetector = function(options){
@@ -1080,7 +1553,7 @@ CLARITY.DifferenceDetector = function(options){
 
 CLARITY.DifferenceDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.DifferenceDetector.prototype.process = function(frame){
+CLARITY.DifferenceDetector.prototype.doProcess = function(frame){
 		if(!this.original){
 			this.original = frame;
 			return frame;
@@ -1137,7 +1610,7 @@ CLARITY.Ghoster = function(options){
 
 CLARITY.Ghoster.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Ghoster.prototype.process = function(frame){
+CLARITY.Ghoster.prototype.doProcess = function(frame){
 	this.frames.unshift(frame);
 	if(this.frames.length > this.length){
 		this.frames.pop();
@@ -1160,26 +1633,28 @@ CLARITY.Ghoster.prototype.process = function(frame){
 //Scrambles the canvas scene
 CLARITY.Puzzler = function(options){
 	var options = options || {};
-	this.width = options.width || 640;
-	this.height = options.height || 480;
 
 	this.selected = null;
 
-	this.splits = options.splits || 8;
+	this.properties = {
+		horizontalSegs: options.horizontalSegs || 4,
+		verticalSegs: options.verticalSegs || 4
+	};
+
 	this.swaps = [];
 	var count = 0;
-	for(var i = 0; i < this.splits; i++){
+	for(var i = 0; i < this.properties.verticalSegs; i++){
 		this.swaps[i] = [];
-		for(var j = 0; j < this.splits; j++){
+		for(var j = 0; j < this.properties.horizontalSegs; j++){
 			this.swaps[i][j] = count++;
 		}
 	}
 
-	for(var i = 0; i < 10*this.splits; i++){
-		var a = Math.floor(Math.random()*this.splits);
-		var b = Math.floor(Math.random()*this.splits);
-		var c = Math.floor(Math.random()*this.splits);
-		var d = Math.floor(Math.random()*this.splits);
+	for(var i = 0; i < 10*(this.properties.verticalSegs+this.properties.horizontalSegs)/2; i++){
+		var a = Math.floor(Math.random()*this.properties.verticalSegs);
+		var b = Math.floor(Math.random()*this.properties.horizontalSegs);
+		var c = Math.floor(Math.random()*this.properties.verticalSegs);
+		var d = Math.floor(Math.random()*this.properties.horizontalSegs);
 		var temp = this.swaps[a][b];
 		this.swaps[a][b] = this.swaps[c][d];
 		this.swaps[c][d] = temp;
@@ -1190,15 +1665,15 @@ CLARITY.Puzzler = function(options){
 
 CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Puzzler.prototype.process = function(frame){
+CLARITY.Puzzler.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	var minHeight = this.height/this.splits;
-	var minWidth = this.width/this.splits;
+	var minHeight = Math.round(frame.height/this.properties.verticalSegs);
+	var minWidth = Math.round(frame.width/this.properties.horizontalSegs);
 
-	for(var y = 0; y < this.splits; y++){
-		for(var x = 0; x < this.splits; x++){
-			var pos = this.numToPos(this.swaps[x][y]);
+	for(var y = 0; y < this.properties.verticalSegs; y++){
+		for(var x = 0; x < this.properties.horizontalSegs; x++){
+			var pos = this.numToPos(this.swaps[y][x]);
 			for(var newy = 0; newy < minHeight; newy++){
 				for(var newx = 0; newx < minWidth; newx++){
 					var pos1 = ((y*minHeight+newy)*frame.width + (x*minWidth+newx))*4;
@@ -1215,9 +1690,9 @@ CLARITY.Puzzler.prototype.process = function(frame){
 	}
 
 	if(this.selected != undefined){
-		for(var y = 0; y < this.height/this.splits; y++){
-			for(var x = 0; x < this.width/this.splits; x++){
-				var pos1 = ((this.selected[1]*(this.height/this.splits)+y)*this.width + (this.selected[0]*(this.width/this.splits)+x))*4;
+		for(var y = 0; y < this.height/this.properties.verticalSegs; y++){
+			for(var x = 0; x < this.width/this.properties.horizontalSegs; x++){
+				var pos1 = ((this.selected[1]*(this.height/this.properties.verticalSegs)+y)*this.width + (this.selected[0]*(this.width/this.properties.horizontalSegs)+x))*4;
 				output.data[pos1+2] += 80;
 			}
 		}
@@ -1239,8 +1714,8 @@ CLARITY.Puzzler.prototype.setPixel = function(picture, xPos, yPos, newCol){
 }
 
 CLARITY.Puzzler.prototype.setClick = function(pos){
-	var x = Math.floor(pos[0]/(this.width/this.splits));
-	var y = Math.floor(pos[1]/(this.height/this.splits));
+	var x = Math.floor(pos[0]/(this.width/this.properties.horizontalSegs));
+	var y = Math.floor(pos[1]/(this.height/this.properties.verticalSegs));
 
 	if(this.selected){
 		var temp = this.swaps[this.selected[0]][this.selected[1]];
@@ -1257,8 +1732,8 @@ CLARITY.Puzzler.prototype.setClick = function(pos){
 CLARITY.Puzzler.prototype.numToPos = function(num){
 	var x = 0;
 	var y = 0;
-	while(num > this.splits-1){
-		num -= this.splits;
+	while(num > this.properties.horizontalSegs-1){
+		num -= this.properties.horizontalSegs;
 		x++;
 	}
 	y = num;
@@ -1279,9 +1754,9 @@ CLARITY.ShotDetector = function(options){
 	CLARITY.Filter.call( this, options );
 };
 
-CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
+CLARITY.ShotDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Puzzler.prototype.process = function(frame){
+CLARITY.ShotDetector.prototype.doProcess = function(frame){
 	var outPut = cxt.createImageData(frame.width, frame.height);
 	cxt2.putImageData(outPut, 0, 0);
 	
@@ -1423,7 +1898,7 @@ CLARITY.Desaturate = function(options){
 
 CLARITY.Desaturate.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Desaturate.prototype.process = function(frame){
+CLARITY.Desaturate.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
@@ -1448,7 +1923,7 @@ CLARITY.DotRemover = function(options){
 
 CLARITY.DotRemover.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.DotRemover.prototype.process = function(frame){
+CLARITY.DotRemover.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 1; y < frame.height - 1; y++){
@@ -1506,7 +1981,7 @@ CLARITY.hsvShifter = function(options){
 
 CLARITY.hsvShifter.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.hsvShifter.prototype.process = function(frame){
+CLARITY.hsvShifter.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
@@ -1530,26 +2005,188 @@ CLARITY.hsvShifter.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.hsvShifter.prototype.createControls = function(titleSet){
+CLARITY.hsvShifter.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue');
+	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue', this.properties.hue);
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(e){
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('hue', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'saturation');
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'saturation', this.properties.saturation);
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(e){
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('saturation', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness');
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.lightness);
+	controls.appendChild(slider);
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.setFloat('value', e.srcElement.value);
+	});
+
+	return controls;
+}
+
+//Invert object
+CLARITY.Invert = function(options){
+	var options = options || {};
+
+	this.properties = {
+		dynamic: options.dynamic || false,
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Invert.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Invert.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	if(!this.properties.dynamic){
+		for(var i = 0; i < frame.width*frame.height*4; i+=4){
+			outPut.data[i  ] = 255-frame.data[i  ];
+			outPut.data[i+1] = 255-frame.data[i+1];
+			outPut.data[i+2] = 255-frame.data[i+2];
+			outPut.data[i+3] = 255;
+		}
+	}
+	else{
+		var min = 255;
+		var max = 0;
+
+		for(var i = 0; i < frame.width*frame.height*4; i+=4){
+			var colour = this.getColourValue(frame, i, this.channel);
+
+			if(colour < min){
+				min = colour;
+			}
+			if(colour > max){
+				max = colour;
+			}
+		}
+
+		for(var i = 0; i < frame.width*frame.height*4; i+=4){
+			outPut.data[i  ] = max-min-(frame.data[i  ])+min;
+			outPut.data[i+1] = max-min-(frame.data[i+1])+min;
+			outPut.data[i+2] = max-min-(frame.data[i+2])+min;
+			outPut.data[i+3] = 255;
+		}
+	}
+
+	return outPut;
+};
+
+//Noise object
+CLARITY.Noise = function(options){
+	var options = options || {};
+
+	this.properties = {
+		intensity: options.intensity || 1,
+		monochromatic: options.monochromatic || false
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Noise.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Noise.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	for(var i = 0; i < frame.width*frame.height*4; i+=4){
+		if(this.properties.monochromatic){
+			var random = 2*(Math.random()-0.5)*this.properties.intensity;
+			// var col = CLARITY.Operations.RGBtoHSV([frame.data[i], frame.data[i+1], frame.data[i+2]]);
+			// col[2] += CLARITY.Operations.clamp((Math.random()-0.5)*2, 0, 1);
+			// col = CLARITY.Operations.HSVtoRGB([col[0], col[1], col[2]]);
+			outPut.data[i  ] = frame.data[i  ] + random;
+			outPut.data[i+1] = frame.data[i+1] + random;
+			outPut.data[i+2] = frame.data[i+2] + random;
+		}
+		else{
+			outPut.data[i  ] = frame.data[i  ] + 2*(Math.random()-0.5)*this.properties.intensity;
+			outPut.data[i+1] = frame.data[i+1] + 2*(Math.random()-0.5)*this.properties.intensity;
+			outPut.data[i+2] = frame.data[i+2] + 2*(Math.random()-0.5)*this.properties.intensity;
+		}
+		
+		outPut.data[i+3] = 255;
+	}
+
+	return outPut;
+};
+
+CLARITY.Noise.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 10, 0.1, 'intensity', this.properties.intensity);
+	controls.appendChild(slider);
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.setFloat('intensity', e.srcElement.value);
+	});
+
+	var toggle = CLARITY.Interface.createToggle('monochromatic', this.properties.monochromatic);
+	controls.appendChild(toggle);
+	toggle.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.toggleBool('monochromatic');
+	});
+
+	return controls;
+}
+
+
+//Pixelate object
+CLARITY.Pixelate = function(options){
+	var options = options || {}
+	this.properties = {
+		size: options.size || 64
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Pixelate.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Pixelate.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	var size = this.properties.size;
+	//makes sure the tile size is a multiple of the width/height
+	while(frame.height%size != 0){
+		size --;
+	}
+	var size2 = Math.round(size/2);
+	for(var y = 0; y < frame.height; y += size){
+		for(var x = 0; x < frame.width; x += size){
+
+			var pos = ((y+size2)*frame.width + (x+size2))*4;
+			for(var ypos = 0; ypos < size; ypos++){
+				for(var xpos = 0; xpos < size; xpos++){
+					var i = ((ypos+y)*frame.width + xpos+x)*4;
+					outPut.data[i  ] = frame.data[pos  ];
+					outPut.data[i+1] = frame.data[pos+1];
+					outPut.data[i+2] = frame.data[pos+2];
+					outPut.data[i+3] = 255;
+				}
+			}
+		}
+	}
+
+	return outPut;
+};
+
+CLARITY.Pixelate.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 256, 1, 'size', this.properties.size);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
-		self.setFloat('value', e.srcElement.value);
+		self.setInt('size', e.srcElement.value);
 	});
 
 	return controls;
@@ -1559,6 +2196,8 @@ CLARITY.hsvShifter.prototype.createControls = function(titleSet){
 CLARITY.Posteriser = function(options){
 	var options = options || {};
 
+	this.properties = {};
+
 	this.method = options.method;
 	if(this.method == 'fast'){
 		this.threshes = [128, 256];
@@ -1566,7 +2205,7 @@ CLARITY.Posteriser = function(options){
 		this.setThresh(64);
 	}
 	else{
-		this.colours = options.colours || 5;
+		this.properties.colours = options.colours || 5;
 		this.MCut = new CLARITY.MCut().MCut;
 	}
 
@@ -1576,7 +2215,7 @@ CLARITY.Posteriser = function(options){
 
 CLARITY.Posteriser.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Posteriser.prototype.process = function(frame){
+CLARITY.Posteriser.prototype.doProcess = function(frame){
 	if(this.method == 'fast'){
 		return this.oldMethod(frame);
 	}
@@ -1588,7 +2227,7 @@ CLARITY.Posteriser.prototype.process = function(frame){
 	}
 
 	this.MCut.init(data);
-	var palette = this.MCut.get_fixed_size_palette(this.colours);
+	var palette = this.MCut.get_fixed_size_palette(this.properties.colours);
 
 	var prevDistance;
 	var prevColour;
@@ -1631,6 +2270,7 @@ CLARITY.Posteriser.prototype.process = function(frame){
 //The old way i used to posterise, which is not accurate but is fast
 CLARITY.Posteriser.prototype.oldMethod = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	this.setThresh(Math.round(255/this.properties.colours));
 
 	for(var i = 0; i < frame.data.length; i+=4){
 		if(!((i+1)%4 == 0)){
@@ -1660,22 +2300,35 @@ CLARITY.Posteriser.prototype.setThresh = function(newNo){
 	this.threshes[index] = i;
 };
 
+CLARITY.Posteriser.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(1, 20, 1, 'Colours', this.properties.colours);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('colours', e.srcElement.value);
+	});
+
+	return controls;
+}
+
 //Sharpen object
 CLARITY.Sharpen = function(options){
 	var options = options || {};
 
-	this.intensity = options.intensity || 1;
+	this.properties = {
+		intensity: options.intensity || 1
+	};
 
-	this.kernel = [ [ -this.intensity, -this.intensity, -this.intensity],
-				    [ -this.intensity,  8*this.intensity+1, -this.intensity],
-				    [ -this.intensity, -this.intensity, -this.intensity]];
+	this.makeKernel(this.properties.intensity);
 
 	CLARITY.Filter.call( this, options );
 };
 
 CLARITY.Sharpen.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Sharpen.prototype.process = function(frame){
+CLARITY.Sharpen.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	// for(var y = frame.height*4-4; y > 4; y -= 4){
@@ -1708,33 +2361,84 @@ CLARITY.Sharpen.prototype.process = function(frame){
 	return outPut;
 };
 
+CLARITY.Sharpen.prototype.makeKernel = function(intensity){
+	this.kernel = [ [ -intensity, -intensity, -intensity],
+				    [ -intensity,  8*intensity+1, -intensity],
+				    [ -intensity, -intensity, -intensity]];
+}
+
+CLARITY.Sharpen.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 3, 0.1, 'Intensity', this.properties.intensity);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('intensity', e.srcElement.value);
+		self.makeKernel(self.properties.intensity);
+	});
+
+	return controls;
+}
+
 //Smoother object
 CLARITY.Smoother = function(options){
 	var options = options || {};
-	this.distance = options.distance || 1;
+	// this.distance = options.distance || 1;
 	this.iterations = options.iterations || 1;
+	this.properties = {
+		iterations: options.iterations || 1
+	};
 
 	CLARITY.Filter.call( this, options );
 }
 
 CLARITY.Smoother.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Smoother.prototype.process = function(frame){
+CLARITY.Smoother.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	for(var z = 0; z < this.iterations; z++){
-		for(var y = this.distance; y < frame.height - this.distance; y++){
-			for(var x = this.distance; x < frame.width - this.distance; x++){
+	for(var z = 0; z < this.properties.iterations; z++){
+		for(var y = 0; y < frame.height; y++){
+			for(var x = 0; x < frame.width; x++){
 				var i = (y*frame.width + x)*4;
-				
-				var up = ((y-this.distance)*frame.width + x)*4;
-				var down = ((y+this.distance)*frame.width + x)*4;
-				var left = (y*frame.width + (x-this.distance))*4;
-				var right = (y*frame.width + (x+this.distance))*4;
-				
-				outPut.data[i+0] = (frame.data[left+0] + frame.data[right+0] + frame.data[up+0] + frame.data[down+0])/4;
-				outPut.data[i+1] = (frame.data[left+1] + frame.data[right+1] + frame.data[up+1] + frame.data[down+1])/4;
-				outPut.data[i+2] = (frame.data[left+2] + frame.data[right+2] + frame.data[up+2] + frame.data[down+2])/4;
+
+				var up = ((y-1)*frame.width + x)*4;
+				var down = ((y+1)*frame.width + x)*4;
+				var left = (y*frame.width + (x-1))*4;
+				var right = (y*frame.width + (x+1))*4;
+
+				var count = 0;
+				var col = [0, 0, 0];
+
+				if(x != 0){
+					col[0] += frame.data[left];
+					col[1] += frame.data[left+1];
+					col[2] += frame.data[left+2];
+					count ++;
+				}
+				if(x != frame.width-1){
+					col[0] += frame.data[right];
+					col[1] += frame.data[right+1];
+					col[2] += frame.data[right+2];
+					count ++;
+				}
+				if(y != 0){
+					col[0] += frame.data[up];
+					col[1] += frame.data[up+1];
+					col[2] += frame.data[up+2];
+					count ++;
+				}
+				if(y != frame.height-1){
+					col[0] += frame.data[down];
+					col[1] += frame.data[down+1];
+					col[2] += frame.data[down+2];
+					count ++;
+				}
+
+				outPut.data[i  ] = col[0]/count;
+				outPut.data[i+1] = col[1]/count;
+				outPut.data[i+2] = col[2]/count;
 				outPut.data[i+3] = 255;
 			}
 		}
@@ -1743,13 +2447,473 @@ CLARITY.Smoother.prototype.process = function(frame){
 	return outPut;
 };
 
+CLARITY.Smoother.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(1, 5, 1, 'iterations', this.properties.iterations);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('iterations', e.srcElement.value);
+	});
+
+	return controls;
+}
+
+//Edge detector object
+CLARITY.EdgeDetector = function(options){
+	var options = options || {};
+
+	this.properties = {
+		fast: options.fast || false
+	}
+
+	this.kernel = [ [ -1, -1, -1],
+				   [ -1,  8, -1],
+				   [ -1, -1, -1]];
+	/*this.kernel = [ [ 0, 0, 0],
+				   [ 0, 3, 0],
+				   [ 0, 0, -3]];*/
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.EdgeDetector.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.EdgeDetector.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	if(!this.properties.fast){
+		for(var y = 4; y < frame.height*4-4; y+=4){
+			for(var x = 4; x < frame.width*4-4; x+=4){
+				var sum = 0; // Kernel sum for this pixel
+				for(var ky = -1; ky <= 1; ky++){
+					for(var kx = -1; kx <= 1; kx++){
+						// Calculate the adjacent pixel for this kernel point
+						var pos = (y + ky*4)*frame.width + (x + kx*4);
+						// Image is grayscale, red/green/blue are identical
+						var val = this.getColourValue(frame, pos);
+						// Multiply adjacent pixels based on the kernel values
+						sum += this.kernel[ky+1][kx+1] * val;
+					}
+				}
+				outPut.data[y*frame.width + x] = sum;
+				outPut.data[y*frame.width + x+1] = sum;
+				outPut.data[y*frame.width + x+2] = sum;
+				outPut.data[y*frame.width + x+3] = 255;
+			}
+		}
+	}
+	else{//a more fast edge detection, between 2 points only
+		for(var y = 4; y < frame.height*4-4; y+=4){
+			for(var x = 4; x < frame.width*4-4; x+=4){
+				var i = y*frame.width + x;
+				outPut.data[i]   = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
+				outPut.data[i+1] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
+				outPut.data[i+2] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
+			
+				outPut.data[i+3] = 255;
+			}
+		}
+	}
+
+	return outPut;
+};
+
+CLARITY.EdgeDetector.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var toggle = CLARITY.Interface.createToggle('fast', this.properties.fast);
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('fast');
+	});
+
+	return controls;
+}
+
+
+//Motion Detector object
+CLARITY.MotionDetector = function(options){
+	this.frames = [];
+	this.index = 0;
+	var options = options || {};
+	
+	this.properties = {
+		frameCount: options.frameCount || 1
+	}
+	this.preindex = this.properties.frameCount;
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.MotionDetector.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.MotionDetector.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	this.pushFrame(frame);
+	
+	//waits until the buffer is full before trying to do stuff
+	if(this.frames.length < this.properties.frameCount+1){
+		return outPut;
+	}
+
+	//does motion detecting
+	for(var i = 0; i < frame.width*frame.height*4; i+=4){
+		outPut.data[i+0] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
+		outPut.data[i+1] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
+		outPut.data[i+2] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
+		outPut.data[i+3] = 255;
+	}
+	return outPut;
+};
+
+CLARITY.MotionDetector.prototype.pushFrame = function(frame){
+	//makes a new frame, then copies current frame data into it
+	this.frames[this.index] = CLARITY.ctx.createImageData(frame.width, frame.height);
+	for(var i = 0; i < frame.data.length; i++){
+		this.frames[this.index].data[i] = frame.data[i];
+	}
+	//increments and bounds checks the index
+	this.index ++;
+	if(this.index > this.properties.frameCount){
+		this.index = 0;
+	}
+	//increments and bounds the preindex
+	this.preindex ++;
+	if(this.preindex > this.properties.frameCount){
+		this.preindex = 0;
+	}
+};
+
+CLARITY.MotionDetector.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(1, 24, 1, 'Frame Count', this.properties.frameCount);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('frameCount', e.srcElement.value);
+
+		self.index = 0;
+		self.preindex = e.srcElement.value-1;
+		self.frames = [];
+	});
+
+	return controls;
+}
+
+//Skin Detector object
+CLARITY.SkinDetector = function(options){
+	var options = options || {};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.SkinDetector.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.SkinDetector.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	this.RGBAtoYCbCr(outPut, frame);
+	for(var i = 0; i < frame.width*frame.height*4; i+=4){
+		if(outPut.data[i] > 30 && 
+				80 < outPut.data[i+1] && outPut.data[i+1] < 121 && 
+				133 < outPut.data[i+2] && outPut.data[i+2] < 173){
+			outPut.data[i+0] = 255;
+			outPut.data[i+1] = 255;
+			outPut.data[i+2] = 255;
+		}
+		else{
+			outPut.data[i+0] = 0;
+			outPut.data[i+1] = 0;
+			outPut.data[i+2] = 0;
+		}
+		
+		outPut.data[i+3] = 255;
+	}
+
+	return outPut;
+};
+
+//converts RGBA into YCbCr values for skin detection
+//conversion functions sourced from lecture notes
+CLARITY.SkinDetector.prototype.RGBAtoYCbCr = function(outPut, frame){
+	var Y, Cb, Cr;
+	for(var i = 0; i < frame.width*frame.height*4; i+=4){
+		Y = 16 + (66*frame.data[i] + 129*frame.data[i+1] + 25*frame.data[i+2])/256;
+		Cb = 128 + (-38*frame.data[i] - 74*frame.data[i+1] + 112*frame.data[i+2])/256;
+		Cr = 128 + (112*frame.data[i] - 94*frame.data[i+1] - 18*frame.data[i+2])/256;
+
+		outPut.data[i] = Y;
+		outPut.data[i+1] = Cb;
+		outPut.data[i+2] = Cr;
+	}
+};
+
+
+//Cloud object
+CLARITY.Cloud = function(options){
+	var options = options || {}
+	this.properties = {
+		red: options.red || 0,
+		green: options.green || 0,
+		blue: options.blue || 0,
+		linear: options.linear || false,
+		iterations: options.iterations || 4,
+		initialSize: options.initialSize || 4
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.Cloud.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.Cloud.prototype.doProcess = function(frame){
+	var size = this.properties.initialSize;
+	var iterations = 0;
+
+	var data = [];
+	for(var i = 0; i < frame.height*frame.width*3; i++){
+		data[i] = 0;
+	}
+	for(var z = 0; z < this.properties.iterations; z++){
+		size *= (z+1);
+		if(size > frame.width){
+			break;
+		}
+		iterations ++;
+
+		var values = [];
+		for(var i = 0; i < size; i++){
+			values[i] = [];
+			for(var j = 0; j < size; j++){
+				values[i][j] = Math.round(Math.random()*255);
+			}
+		}
+
+		for(var y = 0; y < frame.height; y++){
+			for(var x = 0; x < frame.width; x++){
+				var i = (y*frame.width + x)*3;
+
+				var xpercent = (x%(frame.width/size))/(frame.width/size);
+				var ypercent = (y%(frame.height/size))/(frame.height/size);
+				var x1 = Math.floor(x/frame.width*size);
+				var x2 = Math.ceil(x/frame.width*size);
+				if(x2 >= size){
+					x2 = 0;
+				}
+
+				var y1 = Math.floor(y/frame.height*size);
+				var y2 = Math.ceil(y/frame.height*size);
+				if(y2 >= size){
+					y2 = 0;
+				}
+
+				var xval1; //interpolate in x(top) first
+				var xval2; //interpolate in x(bottom) second
+				var yval2; //interpolate between x(top) and x(bottom) using y
+
+				if(!this.properties.linear){
+					xpercent = this.smoothStep(xpercent);
+					ypercent = this.smoothStep(ypercent);
+				}
+				
+				xval1 = this.linearInterpolate(values[y1][x1], values[y1][x2], xpercent);
+				xval2 = this.linearInterpolate(values[y2][x1], values[y2][x2], xpercent);
+				yval2 = this.linearInterpolate(xval1, xval2, ypercent);
+
+				data[i  ] += yval2/(z+1);
+				data[i+1] += yval2/(z+1);
+				data[i+2] += yval2/(z+1);
+			}
+		}
+	}
+
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	for(var k = 0; k < data.length; k ++){
+		var i = k * 3;
+		var j = k * 4;
+		outPut.data[j  ] = data[i  ]/iterations * this.properties.red/255;
+		outPut.data[j+1] = data[i+1]/iterations * this.properties.green/255;
+		outPut.data[j+2] = data[i+2]/iterations * this.properties.blue/255;
+		outPut.data[j+3] = 255;
+	}
+	return outPut;
+};
+
+CLARITY.Cloud.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red', this.properties.red);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('red', e.srcElement.value);
+	});
+
+	slider = CLARITY.Interface.createSlider(0, 255, 1, 'green', this.properties.green);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('green', e.srcElement.value);
+	});
+
+	slider = CLARITY.Interface.createSlider(0, 255, 1, 'blue', this.properties.blue);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('blue', e.srcElement.value);
+	});
+
+	slider = CLARITY.Interface.createSlider(0, 10, 1, 'iterations', this.properties.iterations);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('iterations', e.srcElement.value);
+	});
+
+	slider = CLARITY.Interface.createSlider(0, 16, 1, 'Initial Size', this.properties.initialSize);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('initialSize', e.srcElement.value);
+	});
+
+	var toggle = CLARITY.Interface.createToggle('linear', this.properties.linear);
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('linear');
+	});
+
+	return controls;
+}
+
+CLARITY.Cloud.prototype.linearInterpolate = function(min, max, x){
+	return min+(max-min)*x;
+}
+
+CLARITY.Cloud.prototype.smoothStep = function(x){
+	return x*x*(3 - 2*x);
+}
+
+CLARITY.Cloud.prototype.smootherStep = function(x){
+	return x*x*x*(x*(x*6 - 15) + 10);
+}
+
+
+//FillHSV object
+CLARITY.FillHSV = function(options){
+	var options = options || {}
+	this.properties = {
+		hue: options.hue || 0,
+		saturation: options.saturation || 0,
+		value: options.value || options.lightness || 0
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.FillHSV.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.FillHSV.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	var col = CLARITY.Operations.HSVtoRGB([this.properties.hue, this.properties.saturation, this.properties.value]);
+
+	for(var i = 0; i < frame.width*frame.height*4; i+=4){
+		outPut.data[i  ] = col[0];
+		outPut.data[i+1] = col[1];
+		outPut.data[i+2] = col[2];
+		outPut.data[i+3] = 255;
+	}
+
+	return outPut;
+};
+
+CLARITY.FillHSV.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 360, 1, 'hue', this.properties.hue);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('hue', e.srcElement.value);
+	});
+
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'saturation', this.properties.saturation);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('saturation', e.srcElement.value);
+	});
+
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.value);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setFloat('value', e.srcElement.value);
+	});
+
+	return controls;
+}
+
+
+//FillRGB object
+CLARITY.FillRGB = function(options){
+	var options = options || {}
+	this.properties = {
+		red: options.red || 0,
+		green: options.green || 0,
+		blue: options.blue || 0
+	};
+
+	CLARITY.Filter.call( this, options );
+};
+
+CLARITY.FillRGB.prototype = Object.create( CLARITY.Filter.prototype );
+
+CLARITY.FillRGB.prototype.doProcess = function(frame){
+	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+        // color: Math.floor(Math.random()*16777215).toString(16)
+
+	for(var i = 0; i < frame.width*frame.height*4; i+=4){
+		outPut.data[i  ] = this.properties.red;
+		outPut.data[i+1] = this.properties.green;
+		outPut.data[i+2] = this.properties.blue;
+		outPut.data[i+3] = 255;
+	}
+
+	return outPut;
+};
+
+CLARITY.FillRGB.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+	
+	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red', this.properties.red);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('red', e.srcElement.value);
+	});
+
+	slider = CLARITY.Interface.createSlider(0, 255, 1, 'green', this.properties.green);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('green', e.srcElement.value);
+	});
+
+	slider = CLARITY.Interface.createSlider(0, 255, 1, 'blue', this.properties.blue);
+	controls.appendChild(slider);
+	slider.addEventListener('change', function(e){
+		self.setInt('blue', e.srcElement.value);
+	});
+
+	return controls;
+}
+
 
 //Gradient Threshold object
 CLARITY.GradientThreshold = function(options){
 	var options = options || {};
 
 	this.properties = {
-		thresh: options.thresh || 20,
+		threshold: options.threshold || 20,
 		distance: options.distance || 1
 	};
 
@@ -1759,7 +2923,7 @@ CLARITY.GradientThreshold = function(options){
 CLARITY.GradientThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 //The main function to do all the thresholding from
-CLARITY.GradientThreshold.prototype.process = function(frame){
+CLARITY.GradientThreshold.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var found = false;
@@ -1772,28 +2936,28 @@ CLARITY.GradientThreshold.prototype.process = function(frame){
 			var left = (y*frame.width + (x-this.properties.distance))*4;
 			var right = (y*frame.width + (x+this.properties.distance))*4;
 			
-			if(frame.data[i] < frame.data[left] - this.properties.thresh){
+			if(frame.data[i] < frame.data[left] - this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] > frame.data[left] + this.properties.thresh){
+			else if(frame.data[i] > frame.data[left] + this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] < frame.data[right] - this.properties.thresh){
+			else if(frame.data[i] < frame.data[right] - this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] > frame.data[right] + this.properties.thresh){
+			else if(frame.data[i] > frame.data[right] + this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] < frame.data[up] - this.properties.thresh){
+			else if(frame.data[i] < frame.data[up] - this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] > frame.data[up] + this.properties.thresh){
+			else if(frame.data[i] > frame.data[up] + this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] < frame.data[down] - this.properties.thresh){
+			else if(frame.data[i] < frame.data[down] - this.properties.threshold){
 				found = true;
 			}
-			else if(frame.data[i] > frame.data[down] + this.properties.thresh){
+			else if(frame.data[i] > frame.data[down] + this.properties.threshold){
 				found = true;
 			}
 			if(found){
@@ -1814,17 +2978,17 @@ CLARITY.GradientThreshold.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.GradientThreshold.prototype.createControls = function(titleSet){
+CLARITY.GradientThreshold.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 100, 1, 'Threshold');
+	var slider = CLARITY.Interface.createSlider(0, 100, 1, 'Threshold', this.properties.threshold);
 	controls.appendChild(slider);
-	slider.addEventListener('change', function(e){
-		self.setFloat('thresh', e.srcElement.value);
+		slider.addEventListener('change', function(e){
+		self.setFloat('threshold', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 10, 1, 'Distance');
+	slider = CLARITY.Interface.createSlider(0, 10, 1, 'Distance', this.properties.distance);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setFloat('distance', e.srcElement.value);
@@ -1843,7 +3007,7 @@ CLARITY.MedianThreshold = function(options){
 CLARITY.MedianThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 //The main function to do all the thresholding from
-CLARITY.MedianThreshold.prototype.process = function(frame, thresh){
+CLARITY.MedianThreshold.prototype.doProcess = function(frame, thresh){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value
@@ -1902,7 +3066,7 @@ CLARITY.ValueThreshold = function(options){
 
 	this.properties = {
 		inverted: options.inverted || false,
-		thresh: options.thresh || null		
+		threshold: options.threshold || null		
 	}
 	
 	CLARITY.Filter.call( this, options );
@@ -1910,11 +3074,11 @@ CLARITY.ValueThreshold = function(options){
 
 CLARITY.ValueThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.ValueThreshold.prototype.process = function(frame){
+CLARITY.ValueThreshold.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value
-	var threshold = this.properties.thresh || this.getThresholdValue(frame);
+	var threshold = this.properties.threshold || this.getThresholdValue(frame);
 	//performs the thresholding on the data
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		var colour = this.getColourValue(frame, i, this.channel);
@@ -1993,20 +3157,20 @@ CLARITY.ValueThreshold.prototype.getThresholdValue = function(data){
 	return current;
 }
 
-CLARITY.ValueThreshold.prototype.createControls = function(titleSet){
+CLARITY.ValueThreshold.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createDiv();
 	
-	var toggle = CLARITY.Interface.createToggle(this.properties.inverted, 'Inverted');
+	var toggle = CLARITY.Interface.createToggle('Inverted', this.properties.inverted);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('inverted');
 	});
 
-	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'Threshold');
+	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'Threshold', this.properties.threshold);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
-		self.setFloat('thresh', e.srcElement.value);
+		self.setFloat('threshold', e.srcElement.value);
 	});
 
 	return controls;
@@ -2026,7 +3190,7 @@ CLARITY.Mirror = function(options){
 
 CLARITY.Mirror.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Mirror.prototype.process = function(frame){
+CLARITY.Mirror.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 0; y < frame.height; y++){
@@ -2054,17 +3218,17 @@ CLARITY.Mirror.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Mirror.prototype.createControls = function(titleSet){
+CLARITY.Mirror.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createDiv();
 	
-	var toggle = CLARITY.Interface.createToggle(this.properties.Vertical, 'Vertical');
+	var toggle = CLARITY.Interface.createToggle('Vertical', this.properties.Vertical);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('Vertical');
 	});
 
-	toggle = CLARITY.Interface.createToggle(this.properties.Horizontal, 'Horizontal');
+	toggle = CLARITY.Interface.createToggle('Horizontal', this.properties.Horizontal);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
 		self.toggleBool('Horizontal');
@@ -2093,7 +3257,7 @@ CLARITY.Rotator = function(options){
 
 CLARITY.Rotator.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Rotator.prototype.process = function(frame){
+CLARITY.Rotator.prototype.doProcess = function(frame){
 	if(this.properties.turns == 0){
 		return frame;
 	}
@@ -2157,11 +3321,11 @@ CLARITY.Rotator.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Rotator.prototype.createControls = function(titleSet){
+CLARITY.Rotator.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(-3, 3, 1, 'Turns');
+	var slider = CLARITY.Interface.createSlider(-3, 3, 1, 'Turns', this.properties.turns);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('turns', e.srcElement.value);
@@ -2179,12 +3343,15 @@ CLARITY.Tiler = function(options){
 
 CLARITY.Tiler.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Tiler.prototype.process = function(frame){
+CLARITY.Tiler.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 0; y < frame.height; y+=2){
 		for(var x = 0; x < frame.width; x+=2){
-			var from = (y*frame.width + x)*4;
+			var from1 = (y*frame.width + x)*4;
+			var from2 = (y*frame.width + x+1)*4;
+			var from3 = ((y+1)*frame.width + x)*4;
+			var from4 = ((y+1)*frame.width + x+1)*4;
 
 			//Top Left
 			var toX = x/2;
@@ -2192,9 +3359,9 @@ CLARITY.Tiler.prototype.process = function(frame){
 
 			var to = (toY*frame.width + toX)*4;
 			
-			outPut.data[to] = frame.data[from];
-			outPut.data[to+1] = frame.data[from+1];
-			outPut.data[to+2] = frame.data[from+2];
+			outPut.data[to] = frame.data[from1];
+			outPut.data[to+1] = frame.data[from1+1];
+			outPut.data[to+2] = frame.data[from1+2];
 			outPut.data[to+3] = 255;
 
 			//Top Right
@@ -2202,9 +3369,9 @@ CLARITY.Tiler.prototype.process = function(frame){
 			toY = y/2;
 			to = (toY*frame.width + toX)*4;
 			
-			outPut.data[to] = frame.data[from];
-			outPut.data[to+1] = frame.data[from+1];
-			outPut.data[to+2] = frame.data[from+2];
+			outPut.data[to] = frame.data[from2];
+			outPut.data[to+1] = frame.data[from2+1];
+			outPut.data[to+2] = frame.data[from2+2];
 			outPut.data[to+3] = 255;
 
 			//Bottom Left
@@ -2212,9 +3379,9 @@ CLARITY.Tiler.prototype.process = function(frame){
 			toY = frame.height - y/2-1;
 			to = (toY*frame.width + toX)*4;
 			
-			outPut.data[to] = frame.data[from];
-			outPut.data[to+1] = frame.data[from+1];
-			outPut.data[to+2] = frame.data[from+2];
+			outPut.data[to] = frame.data[from3];
+			outPut.data[to+1] = frame.data[from3+1];
+			outPut.data[to+2] = frame.data[from3+2];
 			outPut.data[to+3] = 255;
 
 			//Bottom Right
@@ -2222,9 +3389,9 @@ CLARITY.Tiler.prototype.process = function(frame){
 			toY = frame.height - y/2-1;
 			to = (toY*frame.width + toX)*4;
 			
-			outPut.data[to] = frame.data[from];
-			outPut.data[to+1] = frame.data[from+1];
-			outPut.data[to+2] = frame.data[from+2];
+			outPut.data[to] = frame.data[from4];
+			outPut.data[to+1] = frame.data[from4+1];
+			outPut.data[to+2] = frame.data[from4+2];
 			outPut.data[to+3] = 255;
 		}
 	}
@@ -2232,23 +3399,14 @@ CLARITY.Tiler.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Tiler.prototype.createControls = function(titleSet){
-	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
-	
-	label = CLARITY.Interface.createLabel('No options.');
-	controls.appendChild(label);
-
-	return controls;
-}
 //Translator
 //Translates the image by the percentages specified
 CLARITY.Translator = function(options){
 	var options = options || {};
 
 	this.properties = {
-		xTrans: CLARITY.Operations.clamp(options.xTrans || 0.5, -1, 1),
-		yTrans: CLARITY.Operations.clamp(options.yTrans || 0.5, -1, 1)
+		horizontal: CLARITY.Operations.clamp(options.horizontal || 0.5, -1, 1),
+		verticle: CLARITY.Operations.clamp(options.verticle || 0.5, -1, 1)
 	};
 
 	CLARITY.Filter.call( this, options );
@@ -2256,10 +3414,10 @@ CLARITY.Translator = function(options){
 
 CLARITY.Translator.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Translator.prototype.process = function(frame){
+CLARITY.Translator.prototype.doProcess = function(frame){
 	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
-	var xTranslate = Math.ceil(frame.width * this.properties.xTrans);
-	var yTranslate = Math.ceil(frame.height * this.properties.yTrans);
+	var xTranslate = Math.ceil(frame.width * this.properties.horizontal);
+	var yTranslate = Math.ceil(frame.height * this.properties.verticle);
 
 	for(var y = 0; y < frame.height; y++){
 		for(var x = 0; x < frame.width; x++){
@@ -2291,205 +3449,21 @@ CLARITY.Translator.prototype.process = function(frame){
 	return outPut;
 };
 
-CLARITY.Translator.prototype.createControls = function(titleSet){
+CLARITY.Translator.prototype.doCreateControls = function(titleSet){
 	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
+	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 1, 0.01, 'Vertical');
+	var slider = CLARITY.Interface.createSlider(0, 1, 0.01, 'Vertical', this.properties.vertical);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
-		self.setFloat('yTrans', e.srcElement.value);
+		self.setFloat('verticle', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 1, 0.01, 'Horizontal');
+	slider = CLARITY.Interface.createSlider(0, 1, 0.01, 'Horizontal', this.properties.horizontal);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
-		self.setFloat('xTrans', e.srcElement.value);
+		self.setFloat('horizontal', e.srcElement.value);
 	});
 
 	return controls;
 }
-
-//Edge detector object
-CLARITY.EdgeDetector = function(options){
-	var options = options || {};
-	this.fast = options.fast || false;
-	this.channel = options.channel || "grey";
-
-	this.kernel = [ [ -1, -1, -1],
-				   [ -1,  8, -1],
-				   [ -1, -1, -1]];
-	/*this.kernel = [ [ 0, 0, 0],
-				   [ 0, 3, 0],
-				   [ 0, 0, -3]];*/
-
-	CLARITY.Filter.call( this, options );
-};
-
-CLARITY.EdgeDetector.prototype = Object.create( CLARITY.Filter.prototype );
-
-CLARITY.EdgeDetector.prototype.process = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
-
-	if(!this.fast){
-		for(var y = 4; y < frame.height*4-4; y+=4){
-			for(var x = 4; x < frame.width*4-4; x+=4){
-				var sum = 0; // Kernel sum for this pixel
-				for(var ky = -1; ky <= 1; ky++){
-					for(var kx = -1; kx <= 1; kx++){
-						// Calculate the adjacent pixel for this kernel point
-						var pos = (y + ky*4)*frame.width + (x + kx*4);
-						// Image is grayscale, red/green/blue are identical
-						var val = this.getColourValue(frame, pos);
-						// Multiply adjacent pixels based on the kernel values
-						sum += this.kernel[ky+1][kx+1] * val;
-					}
-				}
-				outPut.data[y*frame.width + x] = sum;
-				outPut.data[y*frame.width + x+1] = sum;
-				outPut.data[y*frame.width + x+2] = sum;
-				outPut.data[y*frame.width + x+3] = 255;
-			}
-		}
-	}
-	else{//a more fast edge detection, between 2 points only
-		for(var y = 4; y < frame.height*4-4; y+=4){
-			for(var x = 4; x < frame.width*4-4; x+=4){
-				var i = y*frame.width + x;
-				outPut.data[i]   = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-				outPut.data[i+1] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-				outPut.data[i+2] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-			
-				outPut.data[i+3] = 255;
-			}
-		}
-	}
-
-	return outPut;
-};
-
-
-//Motion Detector object
-CLARITY.MotionDetector = function(options){
-	this.frames = [];
-	this.index = 0;
-	
-	this.properties = {
-		frameCount: options.frameCount || 1
-	}
-	this.preindex = this.properties.frameCount;
-
-	CLARITY.Filter.call( this, options );
-};
-
-CLARITY.MotionDetector.prototype = Object.create( CLARITY.Filter.prototype );
-
-CLARITY.MotionDetector.prototype.process = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
-
-	this.pushFrame(frame);
-	
-	//waits until the buffer is full before trying to do stuff
-	if(this.frames.length < this.properties.frameCount+1){
-		return outPut;
-	}
-
-	//does motion detecting
-	for(var i = 0; i < frame.width*frame.height*4; i+=4){
-		outPut.data[i+0] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
-		outPut.data[i+1] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
-		outPut.data[i+2] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
-		outPut.data[i+3] = 255;
-	}
-	return outPut;
-};
-
-CLARITY.MotionDetector.prototype.pushFrame = function(frame){
-	//makes a new frame, then copies current frame data into it
-	this.frames[this.index] = CLARITY.ctx.createImageData(frame.width, frame.height);
-	for(var i = 0; i < frame.data.length; i++){
-		this.frames[this.index].data[i] = frame.data[i];
-	}
-	//increments and bounds checks the index
-	this.index ++;
-	if(this.index > this.properties.frameCount){
-		this.index = 0;
-	}
-	//increments and bounds the preindex
-	this.preindex ++;
-	if(this.preindex > this.properties.frameCount){
-		this.preindex = 0;
-	}
-};
-
-CLARITY.MotionDetector.prototype.createControls = function(titleSet){
-	var self = this;
-	var controls = CLARITY.Interface.createControlGroup(titleSet);
-	
-	var slider = CLARITY.Interface.createSlider(1, 24, 1, 'Frame Count');
-	controls.appendChild(slider);
-	slider.addEventListener('change', function(e){
-		self.setInt('frameCount', e.srcElement.value);
-
-		self.index = 0;
-		self.preindex = e.srcElement.value-1;
-		self.frames = [];
-	});
-
-	return controls;
-}
-
-//Skin Detector object
-CLARITY.SkinDetector = function(options){
-	var options = options || {};
-
-	CLARITY.Filter.call( this, options );
-};
-
-CLARITY.SkinDetector.prototype = Object.create( CLARITY.Filter.prototype );
-
-CLARITY.SkinDetector.prototype.process = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
-	this.RGBAtoYCbCr(outPut, frame);
-	for(var i = 0; i < frame.width*frame.height*4; i+=4){
-		//this code is for looking at the different aspects for tweaking the values
-		if(outPut.data[i] > 30){
-			outPut.data[i+0] = 255;
-		}
-		else{
-			outPut.data[i+0] = 0;
-		}
-
-		if(80 < outPut.data[i+1] && outPut.data[i+1] < 121){
-			outPut.data[i+1] = 255;
-		}
-		else{
-			outPut.data[i+1] = 0;
-		}
-
-		if(133 < outPut.data[i+2] && outPut.data[i+2] < 173){
-			outPut.data[i+2] = 255;
-		}
-		else{
-			outPut.data[i+2] = 0;
-		}
-		outPut.data[i+3] = 255;
-	}
-
-	return outPut;
-};
-
-//converts RGBA into YCbCr values for skin detection
-//conversion functions sourced from lecture notes
-CLARITY.SkinDetector.prototype.RGBAtoYCbCr = function(outPut, frame){
-	var Y, Cb, Cr;
-	for(var i = 0; i < frame.width*frame.height*4; i+=4){
-		Y = 16 + (66*frame.data[i] + 129*frame.data[i+1] + 25*frame.data[i+2])/256;
-		Cb = 128 + (-38*frame.data[i] - 74*frame.data[i+1] + 112*frame.data[i+2])/256;
-		Cr = 128 + (112*frame.data[i] - 94*frame.data[i+1] - 18*frame.data[i+2])/256;
-
-		outPut.data[i] = Y;
-		outPut.data[i+1] = Cb;
-		outPut.data[i+2] = Cr;
-	}
-};
