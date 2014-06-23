@@ -4,6 +4,10 @@ var filters = [
 		filter: new CLARITY.Desaturate({enabled:false})
 	},
 	{
+		name: "Stack Blur",
+		filter: new CLARITY.StackBlur({enabled:false})
+	},
+	{
 		name: "Value Thresholder",
 		filter: new CLARITY.ValueThreshold({enabled:false})
 	},
