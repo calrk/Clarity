@@ -23,20 +23,18 @@ CLARITY.Translator.prototype.doProcess = function(frame){
 			var from = (y*frame.width + x)*4;
 			var toX = x + xTranslate;
 			var toY = y + yTranslate;
-			if(toX > frame.width){
+			if(toX >= frame.width){
 				toX -= frame.width;
 			}
 			else if(toX < 0){
 				toX += frame.width;
 			}
-			if(toY > frame.height){
+			if(toY >= frame.height){
 				toY -= frame.height;
 			}
 			else if(toY < 0){
 				toY += frame.height;
 			}
-			toX --;
-			toY --;
 			var to = ((toY)*frame.width + toX)*4;
 			
 			output.data[to] = frame.data[from];
