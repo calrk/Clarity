@@ -14,17 +14,17 @@ CLARITY.FillRGB = function(options){
 CLARITY.FillRGB.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.FillRGB.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
         // color: Math.floor(Math.random()*16777215).toString(16)
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
-		outPut.data[i  ] = this.properties.red;
-		outPut.data[i+1] = this.properties.green;
-		outPut.data[i+2] = this.properties.blue;
-		outPut.data[i+3] = 255;
+		output.data[i  ] = this.properties.red;
+		output.data[i+1] = this.properties.green;
+		output.data[i+2] = this.properties.blue;
+		output.data[i+3] = 255;
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.FillRGB.prototype.doCreateControls = function(titleSet){

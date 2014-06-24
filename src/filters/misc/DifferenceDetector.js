@@ -15,7 +15,7 @@ CLARITY.DifferenceDetector.prototype.doProcess = function(frame){
 			return frame;
 		}
 
-		var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+		var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 		for(var i = 0; i < frame.width*frame.height*4; i+=4){
 			/*if(frame.data[i] != this.original.data[i] &&
@@ -24,20 +24,20 @@ CLARITY.DifferenceDetector.prototype.doProcess = function(frame){
 			var colour1 = [this.original.data[i], this.original.data[i+1], this.original.data[i+2]];
 			var colour2 = [frame.data[i], frame.data[i+1], frame.data[i+2]];
 			if(findDifference(colour2, colour1)){
-				outPut.data[i]   = frame.data[i];
-				outPut.data[i+1] = frame.data[i+1];
-				outPut.data[i+2] = frame.data[i+2];
-				outPut.data[i+3] = 255;
+				output.data[i]   = frame.data[i];
+				output.data[i+1] = frame.data[i+1];
+				output.data[i+2] = frame.data[i+2];
+				output.data[i+3] = 255;
 			}
 			else{
-				outPut.data[i]   = 0;
-				outPut.data[i+1] = 0;
-				outPut.data[i+2] = 0;
-				outPut.data[i+3] = 255;
+				output.data[i]   = 0;
+				output.data[i+1] = 0;
+				output.data[i+2] = 0;
+				output.data[i+3] = 255;
 			}
 		}
 
-		return outPut;
+		return output;
 	};
 
 CLARITY.DifferenceDetector.prototype.resetOriginal = function(){

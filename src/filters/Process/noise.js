@@ -13,7 +13,7 @@ CLARITY.Noise = function(options){
 CLARITY.Noise.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Noise.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		if(this.properties.monochromatic){
@@ -21,20 +21,20 @@ CLARITY.Noise.prototype.doProcess = function(frame){
 			// var col = CLARITY.Operations.RGBtoHSV([frame.data[i], frame.data[i+1], frame.data[i+2]]);
 			// col[2] += CLARITY.Operations.clamp((Math.random()-0.5)*2, 0, 1);
 			// col = CLARITY.Operations.HSVtoRGB([col[0], col[1], col[2]]);
-			outPut.data[i  ] = frame.data[i  ] + random;
-			outPut.data[i+1] = frame.data[i+1] + random;
-			outPut.data[i+2] = frame.data[i+2] + random;
+			output.data[i  ] = frame.data[i  ] + random;
+			output.data[i+1] = frame.data[i+1] + random;
+			output.data[i+2] = frame.data[i+2] + random;
 		}
 		else{
-			outPut.data[i  ] = frame.data[i  ] + 2*(Math.random()-0.5)*this.properties.intensity;
-			outPut.data[i+1] = frame.data[i+1] + 2*(Math.random()-0.5)*this.properties.intensity;
-			outPut.data[i+2] = frame.data[i+2] + 2*(Math.random()-0.5)*this.properties.intensity;
+			output.data[i  ] = frame.data[i  ] + 2*(Math.random()-0.5)*this.properties.intensity;
+			output.data[i+1] = frame.data[i+1] + 2*(Math.random()-0.5)*this.properties.intensity;
+			output.data[i+2] = frame.data[i+2] + 2*(Math.random()-0.5)*this.properties.intensity;
 		}
 		
-		outPut.data[i+3] = 255;
+		output.data[i+3] = 255;
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.Noise.prototype.doCreateControls = function(titleSet){

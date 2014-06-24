@@ -12,7 +12,7 @@ CLARITY.NormalIntensity = function(options){
 CLARITY.NormalIntensity.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.NormalIntensity.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 0; y < frame.height; y++){
 		for(var x = 0; x < frame.width; x++){
@@ -28,15 +28,15 @@ CLARITY.NormalIntensity.prototype.doProcess = function(frame){
 			vector.y *= this.properties.intensity;
 			vector = this.normalise(vector);
 
-			outPut.data[i] =   (vector.x+1)*128;
-			outPut.data[i+1] = (vector.y+1)*128;
-			outPut.data[i+2] = vector.z*255;
+			output.data[i] =   (vector.x+1)*128;
+			output.data[i+1] = (vector.y+1)*128;
+			output.data[i+2] = vector.z*255;
 
-			outPut.data[i+3] = 255;
+			output.data[i+3] = 255;
 		}
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.NormalIntensity.prototype.normalise = function(v){

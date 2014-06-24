@@ -18,7 +18,7 @@ CLARITY.Contourer = function(options){
 CLARITY.Contourer.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Contourer.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.data.length; i+=4){
 		if(frame.data[i] > this.maxValue){
@@ -34,17 +34,17 @@ CLARITY.Contourer.prototype.doProcess = function(frame){
 		if(!((i+1)%4 == 0)){
 			for(var j = 0; j < this.threshes.length; j++){
 				if(frame.data[i] < this.threshes[j]){
-					outPut.data[i] = this.threshSets[j];
+					output.data[i] = this.threshSets[j];
 					break;
 				}
 			}
 		}
 		else{
-			outPut.data[i] = 255;
+			output.data[i] = 255;
 		}
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.Contourer.prototype.setVar = function(newNo){

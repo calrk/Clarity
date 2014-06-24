@@ -14,18 +14,18 @@ CLARITY.FillHSV = function(options){
 CLARITY.FillHSV.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.FillHSV.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var col = CLARITY.Operations.HSVtoRGB([this.properties.hue, this.properties.saturation, this.properties.value]);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
-		outPut.data[i  ] = col[0];
-		outPut.data[i+1] = col[1];
-		outPut.data[i+2] = col[2];
-		outPut.data[i+3] = 255;
+		output.data[i  ] = col[0];
+		output.data[i+1] = col[1];
+		output.data[i+2] = col[2];
+		output.data[i+3] = 255;
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.FillHSV.prototype.doCreateControls = function(titleSet){

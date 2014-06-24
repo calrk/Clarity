@@ -16,23 +16,23 @@ CLARITY.MotionDetector = function(options){
 CLARITY.MotionDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.MotionDetector.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	this.pushFrame(frame);
 	
 	//waits until the buffer is full before trying to do stuff
 	if(this.frames.length < this.properties.frameCount+1){
-		return outPut;
+		return output;
 	}
 
 	//does motion detecting
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
-		outPut.data[i+0] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
-		outPut.data[i+1] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
-		outPut.data[i+2] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
-		outPut.data[i+3] = 255;
+		output.data[i+0] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
+		output.data[i+1] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
+		output.data[i+2] = Math.abs(this.getColourValue(this.frames[this.preindex], i) - this.getColourValue(this.frames[this.index], i));
+		output.data[i+3] = 255;
 	}
-	return outPut;
+	return output;
 };
 
 CLARITY.MotionDetector.prototype.pushFrame = function(frame){

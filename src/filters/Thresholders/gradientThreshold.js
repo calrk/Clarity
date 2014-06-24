@@ -15,7 +15,7 @@ CLARITY.GradientThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 //The main function to do all the thresholding from
 CLARITY.GradientThreshold.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var found = false;
 	for(var y = this.properties.distance; y < frame.height - this.properties.distance; y++){
@@ -52,21 +52,21 @@ CLARITY.GradientThreshold.prototype.doProcess = function(frame){
 				found = true;
 			}
 			if(found){
-				outPut.data[i+0] = 255;
-				outPut.data[i+1] = 255;
-				outPut.data[i+2] = 255;
-				outPut.data[i+3] = 255;
+				output.data[i+0] = 255;
+				output.data[i+1] = 255;
+				output.data[i+2] = 255;
+				output.data[i+3] = 255;
 			}
 			else{
-				outPut.data[i+0] = 0;
-				outPut.data[i+1] = 0;
-				outPut.data[i+2] = 0;
-				outPut.data[i+3] = 255;	
+				output.data[i+0] = 0;
+				output.data[i+1] = 0;
+				output.data[i+2] = 0;
+				output.data[i+3] = 255;	
 			}
 			
 		}
 	}
-	return outPut;
+	return output;
 };
 
 CLARITY.GradientThreshold.prototype.doCreateControls = function(titleSet){

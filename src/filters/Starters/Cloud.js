@@ -77,16 +77,16 @@ CLARITY.Cloud.prototype.doProcess = function(frame){
 		}
 	}
 
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 	for(var k = 0; k < data.length; k ++){
 		var i = k * 3;
 		var j = k * 4;
-		outPut.data[j  ] = data[i  ]/iterations * this.properties.red/255;
-		outPut.data[j+1] = data[i+1]/iterations * this.properties.green/255;
-		outPut.data[j+2] = data[i+2]/iterations * this.properties.blue/255;
-		outPut.data[j+3] = 255;
+		output.data[j  ] = data[i  ]/iterations * this.properties.red/255;
+		output.data[j+1] = data[i+1]/iterations * this.properties.green/255;
+		output.data[j+2] = data[i+2]/iterations * this.properties.blue/255;
+		output.data[j+3] = 255;
 	}
-	return outPut;
+	return output;
 };
 
 CLARITY.Cloud.prototype.doCreateControls = function(titleSet){

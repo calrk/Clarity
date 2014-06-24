@@ -12,16 +12,16 @@ CLARITY.Blend = function(options){
 CLARITY.Blend.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Blend.prototype.doProcess = function(frame1, frame2){
-	var outPut = CLARITY.ctx.createImageData(frame1.width, frame1.height);
+	var output = CLARITY.ctx.createImageData(frame1.width, frame1.height);
 
 	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
-		outPut.data[i+0] = frame1.data[i  ]*this.properties.ratio + frame2.data[i  ]*(1-this.properties.ratio);
-		outPut.data[i+1] = frame1.data[i+1]*this.properties.ratio + frame2.data[i+1]*(1-this.properties.ratio);
-		outPut.data[i+2] = frame1.data[i+2]*this.properties.ratio + frame2.data[i+2]*(1-this.properties.ratio);
-		outPut.data[i+3] = 255;
+		output.data[i+0] = frame1.data[i  ]*this.properties.ratio + frame2.data[i  ]*(1-this.properties.ratio);
+		output.data[i+1] = frame1.data[i+1]*this.properties.ratio + frame2.data[i+1]*(1-this.properties.ratio);
+		output.data[i+2] = frame1.data[i+2]*this.properties.ratio + frame2.data[i+2]*(1-this.properties.ratio);
+		output.data[i+3] = 255;
 	}
 
-	return outPut;
+	return output;
 };
 
 

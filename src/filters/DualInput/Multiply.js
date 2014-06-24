@@ -12,16 +12,16 @@ CLARITY.Multiply = function(options){
 CLARITY.Multiply.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Multiply.prototype.doProcess = function(frame1, frame2){
-	var outPut = CLARITY.ctx.createImageData(frame1.width, frame2.height);
+	var output = CLARITY.ctx.createImageData(frame1.width, frame2.height);
 
 	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
-		outPut.data[i+0] = ((frame1.data[i  ]/255) * (frame2.data[i  ])/255)*255;
-		outPut.data[i+1] = ((frame1.data[i+1]/255) * (frame2.data[i+1])/255)*255;
-		outPut.data[i+2] = ((frame1.data[i+2]/255) * (frame2.data[i+2])/255)*255;
-		outPut.data[i+3] = 255;
+		output.data[i+0] = ((frame1.data[i  ]/255) * (frame2.data[i  ])/255)*255;
+		output.data[i+1] = ((frame1.data[i+1]/255) * (frame2.data[i+1])/255)*255;
+		output.data[i+2] = ((frame1.data[i+2]/255) * (frame2.data[i+2])/255)*255;
+		output.data[i+3] = 255;
 	}
 
-	return outPut;
+	return output;
 };
 
 

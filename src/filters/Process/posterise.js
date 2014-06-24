@@ -25,7 +25,7 @@ CLARITY.Posteriser.prototype.doProcess = function(frame){
 	if(this.method == 'fast'){
 		return this.oldMethod(frame);
 	}
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var data = [];
 	for(var i = 0; i < frame.data.length; i+=4){
@@ -64,35 +64,35 @@ CLARITY.Posteriser.prototype.doProcess = function(frame){
 			prevDistance = dist;
 		}
 
-		outPut.data[i]   = col[0];
-		outPut.data[i+1] = col[1];
-		outPut.data[i+2] = col[2];
-		outPut.data[i+3] = 255;
+		output.data[i]   = col[0];
+		output.data[i+1] = col[1];
+		output.data[i+2] = col[2];
+		output.data[i+3] = 255;
 	}
 
-	return outPut;
+	return output;
 };
 
 //The old way i used to posterise, which is not accurate but is fast
 CLARITY.Posteriser.prototype.oldMethod = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 	this.setThresh(Math.round(255/this.properties.colours));
 
 	for(var i = 0; i < frame.data.length; i+=4){
 		if(!((i+1)%4 == 0)){
 			for(var j = 0; j < this.threshes.length; j++){
 				if(frame.data[i] < this.threshes[j]){
-					outPut.data[i] = this.threshes[j] - this.difference/2;
+					output.data[i] = this.threshes[j] - this.difference/2;
 					break;
 				}
 			}
 		}
 		else{
-			outPut.data[i] = 255;
+			output.data[i] = 255;
 		}
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.Posteriser.prototype.setThresh = function(newNo){

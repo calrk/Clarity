@@ -1,3 +1,4 @@
+
 //Dot Remover object
 CLARITY.DotRemover = function(options){
 	var options = options || {};
@@ -9,7 +10,7 @@ CLARITY.DotRemover = function(options){
 CLARITY.DotRemover.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.DotRemover.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 1; y < frame.height - 1; y++){
 		for(var x = 1; x < frame.width - 1; x++){
@@ -29,24 +30,24 @@ CLARITY.DotRemover.prototype.doProcess = function(frame){
 
 			if(count <= this.neighboursReq){
 				if(col > 138){
-					outPut.data[i] = 0;
-					outPut.data[i+1] = 0;
-					outPut.data[i+2] = 0;
+					output.data[i] = 0;
+					output.data[i+1] = 0;
+					output.data[i+2] = 0;
 				}
 				else{
-					outPut.data[i] = 255;
-					outPut.data[i+1] = 255;
-					outPut.data[i+2] = 255;
+					output.data[i] = 255;
+					output.data[i+1] = 255;
+					output.data[i+2] = 255;
 				}
 			}
 			else{
-				outPut.data[i] = col;
-				outPut.data[i+1] = col;
-				outPut.data[i+2] = col;
+				output.data[i] = col;
+				output.data[i+1] = col;
+				output.data[i+2] = col;
 			}
-			outPut.data[i+3] = 255;
+			output.data[i+3] = 255;
 		}
 	}
 
-	return outPut;
+	return output;
 };

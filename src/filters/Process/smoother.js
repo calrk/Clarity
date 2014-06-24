@@ -13,7 +13,7 @@ CLARITY.Smoother = function(options){
 CLARITY.Smoother.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Smoother.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var z = 0; z < this.properties.iterations; z++){
 		for(var y = 0; y < frame.height; y++){
@@ -53,15 +53,15 @@ CLARITY.Smoother.prototype.doProcess = function(frame){
 					count ++;
 				}
 
-				outPut.data[i  ] = col[0]/count;
-				outPut.data[i+1] = col[1]/count;
-				outPut.data[i+2] = col[2]/count;
-				outPut.data[i+3] = 255;
+				output.data[i  ] = col[0]/count;
+				output.data[i+1] = col[1]/count;
+				output.data[i+2] = col[2]/count;
+				output.data[i+3] = 255;
 			}
 		}
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.Smoother.prototype.doCreateControls = function(titleSet){

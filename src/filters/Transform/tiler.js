@@ -9,7 +9,7 @@ CLARITY.Tiler = function(options){
 CLARITY.Tiler.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Tiler.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 0; y < frame.height; y+=2){
 		for(var x = 0; x < frame.width; x+=2){
@@ -24,42 +24,42 @@ CLARITY.Tiler.prototype.doProcess = function(frame){
 
 			var to = (toY*frame.width + toX)*4;
 			
-			outPut.data[to] = frame.data[from1];
-			outPut.data[to+1] = frame.data[from1+1];
-			outPut.data[to+2] = frame.data[from1+2];
-			outPut.data[to+3] = 255;
+			output.data[to] = frame.data[from1];
+			output.data[to+1] = frame.data[from1+1];
+			output.data[to+2] = frame.data[from1+2];
+			output.data[to+3] = 255;
 
 			//Top Right
 			toX = frame.width - x/2-1;
 			toY = y/2;
 			to = (toY*frame.width + toX)*4;
 			
-			outPut.data[to] = frame.data[from2];
-			outPut.data[to+1] = frame.data[from2+1];
-			outPut.data[to+2] = frame.data[from2+2];
-			outPut.data[to+3] = 255;
+			output.data[to] = frame.data[from2];
+			output.data[to+1] = frame.data[from2+1];
+			output.data[to+2] = frame.data[from2+2];
+			output.data[to+3] = 255;
 
 			//Bottom Left
 			toX = x/2;
 			toY = frame.height - y/2-1;
 			to = (toY*frame.width + toX)*4;
 			
-			outPut.data[to] = frame.data[from3];
-			outPut.data[to+1] = frame.data[from3+1];
-			outPut.data[to+2] = frame.data[from3+2];
-			outPut.data[to+3] = 255;
+			output.data[to] = frame.data[from3];
+			output.data[to+1] = frame.data[from3+1];
+			output.data[to+2] = frame.data[from3+2];
+			output.data[to+3] = 255;
 
 			//Bottom Right
 			toX = frame.width - x/2-1;
 			toY = frame.height - y/2-1;
 			to = (toY*frame.width + toX)*4;
 			
-			outPut.data[to] = frame.data[from4];
-			outPut.data[to+1] = frame.data[from4+1];
-			outPut.data[to+2] = frame.data[from4+2];
-			outPut.data[to+3] = 255;
+			output.data[to] = frame.data[from4];
+			output.data[to+1] = frame.data[from4+1];
+			output.data[to+2] = frame.data[from4+2];
+			output.data[to+3] = 255;
 		}
 	}
 
-	return outPut;
+	return output;
 };

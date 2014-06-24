@@ -9,7 +9,7 @@ CLARITY.MedianThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 //The main function to do all the thresholding from
 CLARITY.MedianThreshold.prototype.doProcess = function(frame, thresh){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value
 	this.threshes = this.getThresholdValues(frame);
@@ -19,17 +19,17 @@ CLARITY.MedianThreshold.prototype.doProcess = function(frame, thresh){
 		if(!((i+1)%4 == 0)){
 			for(var j = 0; j < this.threshes.length; j++){
 				if(frame.data[i] < this.threshes[j]){
-					outPut.data[i] = this.threshes[j];
+					output.data[i] = this.threshes[j];
 					break;
 				}
 			}
 		}
 		else{
-			outPut.data[i] = 255;
+			output.data[i] = 255;
 		}
 	}
 
-	return outPut;
+	return output;
 };
 
 //gets the threshold values

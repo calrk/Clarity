@@ -12,7 +12,7 @@ CLARITY.Pixelate = function(options){
 CLARITY.Pixelate.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Pixelate.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var size = this.properties.size;
 	//makes sure the tile size is a multiple of the width/height
@@ -27,16 +27,16 @@ CLARITY.Pixelate.prototype.doProcess = function(frame){
 			for(var ypos = 0; ypos < size; ypos++){
 				for(var xpos = 0; xpos < size; xpos++){
 					var i = ((ypos+y)*frame.width + xpos+x)*4;
-					outPut.data[i  ] = frame.data[pos  ];
-					outPut.data[i+1] = frame.data[pos+1];
-					outPut.data[i+2] = frame.data[pos+2];
-					outPut.data[i+3] = 255;
+					output.data[i  ] = frame.data[pos  ];
+					output.data[i+1] = frame.data[pos+1];
+					output.data[i+2] = frame.data[pos+2];
+					output.data[i+3] = 255;
 				}
 			}
 		}
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.Pixelate.prototype.doCreateControls = function(titleSet){

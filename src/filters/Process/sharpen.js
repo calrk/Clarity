@@ -14,7 +14,7 @@ CLARITY.Sharpen = function(options){
 CLARITY.Sharpen.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Sharpen.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	// for(var y = frame.height*4-4; y > 4; y -= 4){
 		// for(var x = frame.width*4-4; x > 4; x -= 4){
@@ -36,14 +36,14 @@ CLARITY.Sharpen.prototype.doProcess = function(frame){
 					sumb += this.kernel[ky+1][kx+1] * valb;
 				}
 			}
-			outPut.data[y*frame.width + x]   = sumr;
-			outPut.data[y*frame.width + x+1] = sumg;
-			outPut.data[y*frame.width + x+2] = sumb;
-			outPut.data[y*frame.width + x+3] = 255;
+			output.data[y*frame.width + x]   = sumr;
+			output.data[y*frame.width + x+1] = sumg;
+			output.data[y*frame.width + x+2] = sumb;
+			output.data[y*frame.width + x+3] = 255;
 		}
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.Sharpen.prototype.makeKernel = function(intensity){

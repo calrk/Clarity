@@ -14,7 +14,7 @@ CLARITY.hsvShifter = function(options){
 CLARITY.hsvShifter.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.hsvShifter.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		var col = CLARITY.Operations.RGBtoHSV([frame.data[i], frame.data[i+1], frame.data[i+2]]);
@@ -28,13 +28,13 @@ CLARITY.hsvShifter.prototype.doProcess = function(frame){
 		
 		col = CLARITY.Operations.HSVtoRGB([col[0], col[1], col[2]]);
 		
-		outPut.data[i+0] = col[0];
-		outPut.data[i+1] = col[1];
-		outPut.data[i+2] = col[2];
-		outPut.data[i+3] = 255;
+		output.data[i+0] = col[0];
+		output.data[i+1] = col[1];
+		output.data[i+2] = col[2];
+		output.data[i+3] = 255;
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.hsvShifter.prototype.doCreateControls = function(titleSet){

@@ -13,7 +13,7 @@ CLARITY.ValueThreshold = function(options){
 CLARITY.ValueThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.ValueThreshold.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	//gets the threshold value
 	var threshold = this.properties.threshold || this.getThresholdValue(frame);
@@ -22,32 +22,32 @@ CLARITY.ValueThreshold.prototype.doProcess = function(frame){
 		var colour = this.getColourValue(frame, i, this.channel);
 		if(this.properties.inverted){
 			if(colour < threshold){
-				outPut.data[i+0] = 255;
-				outPut.data[i+1] = 255;
-				outPut.data[i+2] = 255;
+				output.data[i+0] = 255;
+				output.data[i+1] = 255;
+				output.data[i+2] = 255;
 			}
 			else{
-				outPut.data[i+0] = 0;
-				outPut.data[i+1] = 0;
-				outPut.data[i+2] = 0;
+				output.data[i+0] = 0;
+				output.data[i+1] = 0;
+				output.data[i+2] = 0;
 			}
 		}
 		else{
 			if(colour > threshold){
-				outPut.data[i+0] = 255;
-				outPut.data[i+1] = 255;
-				outPut.data[i+2] = 255;
+				output.data[i+0] = 255;
+				output.data[i+1] = 255;
+				output.data[i+2] = 255;
 			}
 			else{
-				outPut.data[i+0] = 0;
-				outPut.data[i+1] = 0;
-				outPut.data[i+2] = 0;
+				output.data[i+0] = 0;
+				output.data[i+1] = 0;
+				output.data[i+2] = 0;
 			}
 		}
-		outPut.data[i+3] = 255;
+		output.data[i+3] = 255;
 	}
 
-	return outPut;
+	return output;
 };
 
 //used to get an iterative average threshold value

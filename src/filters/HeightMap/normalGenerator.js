@@ -13,7 +13,7 @@ CLARITY.NormalGenerator = function(options){
 CLARITY.NormalGenerator.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.NormalGenerator.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 1; y < frame.height-1; y++){
 		for(var x = 1; x < frame.width-1; x++){
@@ -31,11 +31,11 @@ CLARITY.NormalGenerator.prototype.doProcess = function(frame){
 
 			var res = this.generateNormal(veci, vecleft, vecright, vecup, vecdown)
 
-			outPut.data[i] =   (1-(res.x/2+0.5))*255;
-			outPut.data[i+1] = (1-(res.y/2+0.5))*255;
-			outPut.data[i+2] = -res.z*255;
+			output.data[i] =   (1-(res.x/2+0.5))*255;
+			output.data[i+1] = (1-(res.y/2+0.5))*255;
+			output.data[i+2] = -res.z*255;
 
-			outPut.data[i+3] = 255;
+			output.data[i+3] = 255;
 		}
 	}
 
@@ -45,19 +45,19 @@ CLARITY.NormalGenerator.prototype.doProcess = function(frame){
 		var i = (y*frame.width + x)*4;
 		var j = (y*frame.width + x+1)*4;
 
-		outPut.data[i  ] = outPut.data[j  ];
-		outPut.data[i+1] = outPut.data[j+1];
-		outPut.data[i+2] = outPut.data[j+2];
-		outPut.data[i+3] = 255;
+		output.data[i  ] = output.data[j  ];
+		output.data[i+1] = output.data[j+1];
+		output.data[i+2] = output.data[j+2];
+		output.data[i+3] = 255;
 
 		x = frame.width-1;
 		i = (y*frame.width + x)*4;
 		j = (y*frame.width + x-1)*4;
 
-		outPut.data[i  ] = outPut.data[j  ];
-		outPut.data[i+1] = outPut.data[j+1];
-		outPut.data[i+2] = outPut.data[j+2];
-		outPut.data[i+3] = 255;
+		output.data[i  ] = output.data[j  ];
+		output.data[i+1] = output.data[j+1];
+		output.data[i+2] = output.data[j+2];
+		output.data[i+3] = 255;
 	}
 
 	//correcting vertical edges
@@ -66,22 +66,22 @@ CLARITY.NormalGenerator.prototype.doProcess = function(frame){
 		var i = (y*frame.width + x)*4;
 		var j = ((y+1)*frame.width + x+1)*4;
 
-		outPut.data[i  ] = outPut.data[j  ];
-		outPut.data[i+1] = outPut.data[j+1];
-		outPut.data[i+2] = outPut.data[j+2];
-		outPut.data[i+3] = 255;
+		output.data[i  ] = output.data[j  ];
+		output.data[i+1] = output.data[j+1];
+		output.data[i+2] = output.data[j+2];
+		output.data[i+3] = 255;
 
 		y = frame.height-1;
 		i = (y*frame.width + x)*4;
 		j = ((y-1)*frame.width + x)*4;
 
-		outPut.data[i  ] = outPut.data[j  ];
-		outPut.data[i+1] = outPut.data[j+1];
-		outPut.data[i+2] = outPut.data[j+2];
-		outPut.data[i+3] = 255;
+		output.data[i  ] = output.data[j  ];
+		output.data[i+1] = output.data[j+1];
+		output.data[i+2] = output.data[j+2];
+		output.data[i+3] = 255;
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.NormalGenerator.prototype.doCreateControls = function(titleSet){

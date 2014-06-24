@@ -19,7 +19,7 @@ CLARITY.EdgeDetector = function(options){
 CLARITY.EdgeDetector.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.EdgeDetector.prototype.doProcess = function(frame){
-	var outPut = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	if(!this.properties.fast){
 		for(var y = 4; y < frame.height*4-4; y+=4){
@@ -35,10 +35,10 @@ CLARITY.EdgeDetector.prototype.doProcess = function(frame){
 						sum += this.kernel[ky+1][kx+1] * val;
 					}
 				}
-				outPut.data[y*frame.width + x] = sum;
-				outPut.data[y*frame.width + x+1] = sum;
-				outPut.data[y*frame.width + x+2] = sum;
-				outPut.data[y*frame.width + x+3] = 255;
+				output.data[y*frame.width + x] = sum;
+				output.data[y*frame.width + x+1] = sum;
+				output.data[y*frame.width + x+2] = sum;
+				output.data[y*frame.width + x+3] = 255;
 			}
 		}
 	}
@@ -46,16 +46,16 @@ CLARITY.EdgeDetector.prototype.doProcess = function(frame){
 		for(var y = 4; y < frame.height*4-4; y+=4){
 			for(var x = 4; x < frame.width*4-4; x+=4){
 				var i = y*frame.width + x;
-				outPut.data[i]   = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-				outPut.data[i+1] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-				outPut.data[i+2] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
+				output.data[i]   = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
+				output.data[i+1] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
+				output.data[i+2] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
 			
-				outPut.data[i+3] = 255;
+				output.data[i+3] = 255;
 			}
 		}
 	}
 
-	return outPut;
+	return output;
 };
 
 CLARITY.EdgeDetector.prototype.doCreateControls = function(titleSet){
