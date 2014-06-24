@@ -4,8 +4,12 @@ var filters = [
 		filter: new CLARITY.Desaturate({enabled:false})
 	},
 	{
+		name: "Glow",
+		filter: new CLARITY.Glow({enabled:false})
+	},
+	{
 		name: "Stack Blur",
-		filter: new CLARITY.StackBlur({enabled:false})
+		filter: new CLARITY.Blur({enabled:false})
 	},
 	{
 		name: "Value Thresholder",

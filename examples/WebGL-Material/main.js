@@ -29,7 +29,7 @@ var texFilters = [
 	},
 	{
 		name: "Stack Blur",
-		filter: new CLARITY.StackBlur({enabled:false})
+		filter: new CLARITY.Blur({enabled:false})
 	},
 ]
 var normalFilters = [

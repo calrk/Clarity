@@ -1,4 +1,4 @@
-var texType = 'brick';
+var texType = 'sandstone';
 
 var canvas;
 var canvasTex;
@@ -98,6 +98,11 @@ function updateTexture(){
 	imageTex.src = img;
 	texture.image = imageTex;
 	texture.needsUpdate = true;
+
+	var gdf = canvasTex.toDataURL('image/png');
+	var asd = document.createElement('img');
+	asd.src = gdf;
+	document.body.appendChild(asd);
 }
 
 
@@ -109,7 +114,7 @@ function updateNorm(){
 	var frame = ctx.getImageData(0,0,width,height);
 
 	if(texType == 'sandstone' || texType == 'brick'){
-		frame = new CLARITY.Brickulate({verticalSegs: 8}).process(frame);
+		frame = new CLARITY.Brickulate({verticalSegs: 8, offset: true}).process(frame);
 		frame = new CLARITY.Invert().process(frame);
 
 		frame = new CLARITY.NormalGenerator({intensity: 0.15}).process(frame);
@@ -163,7 +168,7 @@ function sandstone(ctx){
 	frame1 = blender.process([frame1, frame2]);
 	frame1 = new CLARITY.hsvShifter({value:3}).process(frame1);
 
-	frame1 = new CLARITY.Puzzler().process(frame1);
+	// frame1 = new CLARITY.Puzzler().process(frame1);
 
 	return frame1;
 }
@@ -186,7 +191,7 @@ function brick(ctx){
 	frame1 = new CLARITY.hsvShifter({value:2}).process(frame1);
 
 	var mortarfill = new CLARITY.FillRGB({red: 208, green: 186, blue: 137}).process(frame2);
-	mortar = new CLARITY.Brickulate({verticalSegs: 8}).process(frame2);
+	mortar = new CLARITY.Brickulate({verticalSegs: 8, offset: true}).process(frame2);
 	mortar = multiplier.process([mortarfill, mortar]);
 
 	frame1 = new CLARITY.AddSub().process([frame1, mortar]);
