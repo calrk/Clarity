@@ -9,9 +9,21 @@ var filters = [
 	},
 	{
 		name: "Stack Blur",
-		filter: new CLARITY.Blur({enabled:false})
+		filter: new CLARITY.Blur({enabled:true})
 	},
 	{
+		name: "Noise",
+		filter: new CLARITY.Noise({enabled:true, intensity: 10})
+	},
+	{
+		name: "Bleed",
+		filter: new CLARITY.Bleed({enabled:true})
+	},
+	{
+		name: "Waver",
+		filter: new CLARITY.Wave({enabled:false})
+	},
+	/*{
 		name: "Value Thresholder",
 		filter: new CLARITY.ValueThreshold({enabled:false})
 	},
@@ -74,7 +86,7 @@ var filters = [
 	{
 		name: "Tiler",
 		filter: new CLARITY.Tiler({enabled:false})
-	},
+	},*/
 ];
 
 var canvas;

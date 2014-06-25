@@ -25,7 +25,7 @@ gulp.task('connect', function () {
   var connect = require('connect');
   var app = connect()
   .use(connect.static('./'))
-  .listen(3000);
+  .listen(80);
 });
 
 gulp.task('watch', function () {

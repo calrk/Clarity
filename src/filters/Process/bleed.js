@@ -1,7 +1,6 @@
 
-//Blur object
-//Currently uses StackBlur, maybe add more in future.
-CLARITY.Blur = function(options){
+//Bleed object
+CLARITY.Bleed = function(options){
 	var options = options || {}
 
 	this.processor = new CLARITY.StackBlurProcess();
@@ -13,18 +12,18 @@ CLARITY.Blur = function(options){
 	CLARITY.Filter.call( this, options );
 };
 
-CLARITY.Blur.prototype = Object.create( CLARITY.Filter.prototype );
+CLARITY.Bleed.prototype = Object.create( CLARITY.Filter.prototype );
 
-CLARITY.Blur.prototype.doProcess = function(frame){
+CLARITY.Bleed.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	var output = ctx.createImageData(frame.width, frame.height);
     output.data.set(frame.data);
 
-	return this.processor.stackBlurCanvasRGB(output, this.properties.radius);
+	return this.processor.stackBlurCanvasSingle(output, this.properties.radius);
 };
 
-CLARITY.Blur.prototype.doCreateControls = function(titleSet){
+CLARITY.Bleed.prototype.doCreateControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createDiv();
 	

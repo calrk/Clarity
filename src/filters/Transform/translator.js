@@ -5,7 +5,7 @@ CLARITY.Translator = function(options){
 
 	this.properties = {
 		horizontal: CLARITY.Operations.clamp(options.horizontal || 0.5, -1, 1),
-		verticle: CLARITY.Operations.clamp(options.verticle || 0.5, -1, 1)
+		vertical: CLARITY.Operations.clamp(options.vertical || 0.5, -1, 1)
 	};
 
 	CLARITY.Filter.call( this, options );
@@ -16,7 +16,7 @@ CLARITY.Translator.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Translator.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 	var xTranslate = Math.ceil(frame.width * this.properties.horizontal);
-	var yTranslate = Math.ceil(frame.height * this.properties.verticle);
+	var yTranslate = Math.ceil(frame.height * this.properties.vertical);
 
 	for(var y = 0; y < frame.height; y++){
 		for(var x = 0; x < frame.width; x++){
@@ -55,7 +55,7 @@ CLARITY.Translator.prototype.doCreateControls = function(titleSet){
 	var slider = CLARITY.Interface.createSlider(0, 1, 0.01, 'Vertical', this.properties.vertical);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
-		self.setFloat('verticle', e.srcElement.value);
+		self.setFloat('vertical', e.srcElement.value);
 	});
 
 	slider = CLARITY.Interface.createSlider(0, 1, 0.01, 'Horizontal', this.properties.horizontal);
