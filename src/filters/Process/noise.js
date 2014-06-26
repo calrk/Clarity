@@ -17,7 +17,7 @@ CLARITY.Noise.prototype.doProcess = function(frame){
 
 	for(var i = 0; i < frame.width*frame.height*4; i+=4){
 		if(this.properties.monochromatic){
-			var random = 2*(Math.random()-0.5)*this.properties.intensity;
+			var random = Math.round(2*(Math.random()-0.5)*this.properties.intensity);
 			// var col = CLARITY.Operations.RGBtoHSV([frame.data[i], frame.data[i+1], frame.data[i+2]]);
 			// col[2] += CLARITY.Operations.clamp((Math.random()-0.5)*2, 0, 1);
 			// col = CLARITY.Operations.HSVtoRGB([col[0], col[1], col[2]]);
@@ -41,7 +41,7 @@ CLARITY.Noise.prototype.doCreateControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 10, 0.1, 'intensity', this.properties.intensity);
+	var slider = CLARITY.Interface.createSlider(0, 50, 0.1, 'intensity', this.properties.intensity);
 	controls.appendChild(slider);
 	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('intensity', e.srcElement.value);

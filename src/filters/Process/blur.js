@@ -18,6 +18,10 @@ CLARITY.Blur.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Blur.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	if(this.propeties.radius < 1){
+		return frame;
+	}
+
 	var output = ctx.createImageData(frame.width, frame.height);
     output.data.set(frame.data);
 
@@ -28,7 +32,7 @@ CLARITY.Blur.prototype.doCreateControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 180, 1, 'radius', this.properties.radius);
+	var slider = CLARITY.Interface.createSlider(1, 180, 1, 'radius', this.properties.radius);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
 		self.setInt('radius', e.srcElement.value);
