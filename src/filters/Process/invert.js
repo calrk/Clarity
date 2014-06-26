@@ -47,3 +47,16 @@ CLARITY.Invert.prototype.doProcess = function(frame){
 
 	return output;
 };
+
+CLARITY.Invert.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+
+	var toggle = CLARITY.Interface.createToggle('dynamic', this.properties.dynamic);
+	controls.appendChild(toggle);
+	toggle.addEventListener('change', function(e){
+		self.toggleBool('dynamic');
+	});
+
+	return controls;
+}
