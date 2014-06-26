@@ -1,5 +1,9 @@
 var filters = [
 	{
+		name: "Channel Separate",
+		filter: new CLARITY.ChannelSeparate({enabled:true})
+	},
+	{
 		name: "Desaturate",
 		filter: new CLARITY.Desaturate({enabled:false})
 	},
@@ -9,19 +13,19 @@ var filters = [
 	},
 	{
 		name: "Stack Blur",
-		filter: new CLARITY.Blur({enabled:true})
+		filter: new CLARITY.Blur({enabled:false})
 	},
 	{
 		name: "Noise",
-		filter: new CLARITY.Noise({enabled:true, intensity: 10})
+		filter: new CLARITY.Noise({enabled:false, intensity: 10})
 	},
 	{
 		name: "Bleed",
-		filter: new CLARITY.Bleed({enabled:true})
+		filter: new CLARITY.Bleed({enabled:false})
 	},
 	{
 		name: "Waver",
-		filter: new CLARITY.Wave({enabled:false})
+		filter: new CLARITY.Wave({vertical: true, enabled:false})
 	},
 	/*{
 		name: "Value Thresholder",
