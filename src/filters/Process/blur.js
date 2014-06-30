@@ -18,7 +18,7 @@ CLARITY.Blur.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Blur.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	if(this.propeties.radius < 1){
+	if(this.properties.radius < 1){
 		return frame;
 	}
 

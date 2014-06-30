@@ -1,5 +1,10 @@
 var filters = [
 	{
+		name: "Hanover",
+		id: "hanover",
+		filter: new CLARITY.HanoverBars({enabled:true})
+	},
+	{
 		name: "Average Thresholder",
 		id: "avThresh",
 		filter: new CLARITY.ValueThreshold({thresh:64, channel:'red', enabled:false})
