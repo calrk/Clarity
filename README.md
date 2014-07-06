@@ -7,24 +7,24 @@ Current Filters
 ===============
 
 ### Dual Input
-#### Multiply
-Multiplies an image with a greyscale
-#### Mask
-Simple implementation of multiply, where white is shown and black is not
+#### Add/Subtract
+Adds/Subtracts images from each other
 #### Blend
 Blends two images together, with optional weighting
-#### add/subtract
-adds/subtracts images from each other
+#### Mask
+Simple implementation of multiply, where white is shown and black is not
+#### Multiply
+Multiplies an image with a greyscale
 
 ### Height Map
 #### Contourer
 Shows the contours in a height map
+####Normal Flip
+Will flip the x/y axis values, or swap the x/y axis with each other
 #### Normal Generator
 Generates a normal based on a height map
 #### Normal Intensity
 Edits the intensity of a normal map
-####Normal Flip
-Will flip the x/y axis values, or swap the x/y axis with each other
 
 ### Misc
 ####Brickulate
@@ -37,22 +37,32 @@ Adds a ghosting/onion skin effect to a video
 Scrambles up the image like a puzzle
 
 ### Process
+#### Bleed
+Adds a small colour bleed effect to an image
+#### Blur
+Blurs an image
 #### De-saturate
 Removes colour from an image
 #### Dot Remover
 Cleans up outlying pixels in a binary image
+#### Glow
+Blurs an image, and then adds this to the original, to create a glowing effect
+#### Hanover Bars
+Applies Hanover Bars or Scan lines over an image
 #### HSV Shifter
 Allows editing an images hue/saturation/lightness values
 ####Invert
 Inverts an image's colour
+#### Noise
+Adds variable noise to an image, can be monochromatic
+#### Pixelate
+Pixelates the image to a fixed size per pixel
 #### Posterise
 Reduces an image into a fixed number of colours
 #### Sharpen
 Applies a sharpening mask to an image, to enhance edges/detail
 #### Smoother
 Simple neighbouring blur function
-####Pixelate
-Pixelates an image
 
 ### Salience
 #### Edge Detector
@@ -64,21 +74,23 @@ Detects skin in a scene. Relies on correct lighting.
 
 ### Starters
 #### Cloud
-A filter that fills the canvas with perlin noise, with an RGB input for colour
+A filter that fills the canvas with Perlin Noise, with an RGB input for colour
 #### FillHSV
 Will fill a canvas with a blank colour, based on HSV input
 #### FillRGB
 Will fill a canvas with a blank colour, based on RGB input
 
 ### Thresholders
-#### Value Thresholder
-Thresholds the image based on a calculated or given pixel value
 #### Gradient Thresholder
 Thresholds over changes in gradient in an image, resulting in edge detection
 #### Median Thresholder
 Colour quantisation over median and quartile pixel values
+#### Value Thresholder
+Thresholds the image based on a calculated or given pixel value
 
 ### Transform
+#### Channel Separate
+Translates the RGB channels of an image individually
 #### Mirror
 Flips the image in horizontal or vertical axis
 #### Rotator
@@ -87,8 +99,8 @@ Rotates an image in 90 degree increments. Will crop a rectangular image to be sq
 Will tile an image so it's edges all line up
 #### Translator
 Will move an image in horizontal or vertical axis based on a percentage
-#### Noise
-Adds noise to an image, with monochromatic flag
+#### Wave
+Translates the pixels of an image according to a mathematical function
 
 
 Filters to be made
@@ -113,12 +125,12 @@ Will detect scene changes in a video
 Embosses an image
 ####Sepia
 Applies a sepia effect to an image
-####Blur
-Make a proper blur filter, with efficiency options
-####Glow/Bloom
-Makes an image appear to glow
-####Percentage Threshold
-Thresholds a percentage of pixels
+####Target finder
+Highlights a particular point of interest in an image
+####Screen burn
+Adds screen burn effect to a video, similar to ghosting
+####Dot crawl
+Adds a dot crawl effect
 
 Other things to work on
 =======================
