@@ -1,7 +1,15 @@
 var filters = [
 	{
 		name: "Channel Separate",
-		filter: new CLARITY.ChannelSeparate({enabled:true})
+		filter: new CLARITY.ChannelSeparate({enabled:false})
+	},
+	{
+		name: "Hanover Bars",
+		filter: new CLARITY.HanoverBars({enabled:false})
+	},
+	{
+		name: "Invert",
+		filter: new CLARITY.Invert({dynamic: true, enabled:false})
 	},
 	{
 		name: "Desaturate",
@@ -27,7 +35,7 @@ var filters = [
 		name: "Waver",
 		filter: new CLARITY.Wave({vertical: true, enabled:false})
 	},
-	/*{
+	{
 		name: "Value Thresholder",
 		filter: new CLARITY.ValueThreshold({enabled:false})
 	},
@@ -90,7 +98,7 @@ var filters = [
 	{
 		name: "Tiler",
 		filter: new CLARITY.Tiler({enabled:false})
-	},*/
+	},
 ];
 
 var canvas;

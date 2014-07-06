@@ -26,6 +26,8 @@ h1{
 	width:300px;
 	float:right;
 	border:5px solid #191a16; 
+	height: 500px;
+	overflow-y: auto;
 }
 .clarity-controlGroup{
 	background-color: white;
