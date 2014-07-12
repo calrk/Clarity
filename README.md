@@ -134,7 +134,6 @@ Adds a dot crawl effect
 
 Other things to work on
 =======================
-	Update Average threshold to take percentage inputs
 	Make the difference detector work more generally
 	Add WebGL function to each filter to improve performance
 	Add a flag to each filter to only process the image if the input has changed, controls have changed or is forced to.

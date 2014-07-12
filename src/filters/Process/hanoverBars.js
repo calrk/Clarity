@@ -3,7 +3,7 @@ CLARITY.HanoverBars = function(options){
 	var options = options || {};
 
 	this.properties = {
-		// dynamic: options.dynamic || false,
+		offset: options.offset || false,
 	};
 
 	CLARITY.Filter.call( this, options );
@@ -15,11 +15,11 @@ CLARITY.HanoverBars.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
 	for(var y = 0; y < frame.height; y++){
-		var asd = y%4;
+		var line = y%4;
 		for(var x = 0; x < frame.width; x++){
 			var i = (y*frame.width + x)*4;
 			
-			if(asd == 0 || asd == 1){
+			if(line == 0 || line == 1){
 				output.data[i  ] = frame.data[i];
 				output.data[i+1] = frame.data[i+1];
 				output.data[i+2] = frame.data[i+2];
@@ -31,9 +31,11 @@ CLARITY.HanoverBars.prototype.doProcess = function(frame){
 					g: frame.data[i+1]/255,
 					b: frame.data[i+2]/255
 				};
-				pix = RGBtoYUV(pix);
-				pix = calcPair(pix);
-				pix = YUVtoRGB(pix);
+				pix = CLARITY.Operations.RGBtoYUV(pix);
+				if(this.properties.offset){
+					pix = this.calcPair(pix);
+				}
+				pix = CLARITY.Operations.YUVtoRGB(pix);
 				output.data[i  ] = pix.r*255;
 				output.data[i+1] = pix.g*255;
 				output.data[i+2] = pix.b*255;
@@ -49,16 +51,29 @@ CLARITY.HanoverBars.prototype.doCreateControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createDiv();
 
-	var toggle = CLARITY.Interface.createToggle('dynamic', this.properties.dynamic);
+	var toggle = CLARITY.Interface.createToggle('offset', this.properties.offset);
 	controls.appendChild(toggle);
 	toggle.addEventListener('change', function(e){
-		self.toggleBool('dynamic');
+		self.toggleBool('offset');
 	});
 
 	return controls;
 }
 
-function calcPair(A){
+//Simple vector rotation that approximates the effect
+CLARITY.HanoverBars.prototype.calcPair = function(A){
+	var cs = Math.cos(Math.PI/6);
+	var sn = Math.sin(Math.PI/6);
+
+	return{
+		y: A.y,
+		u: A.u * cs - A.v * sn,
+		v: A.u * sn + A.v * cs
+	}
+}
+
+//An better approximation, but is much slower
+/*function calcPair(A){
 	var B = {u: A.v, v: -A.u};
 	B = scale(normalise(B), 0.75 * mod(A));
 	var C = add(A, B);
@@ -82,22 +97,6 @@ function calcPair(A){
 		u: F.u,
 		v: F.v
 	};
-}
-
-function RGBtoYUV(rgb){
-	return{
-		y: 0.299*rgb.r + 0.587*rgb.g + 0.114*rgb.b,
-		u: -0.14713*rgb.r - 0.28886*rgb.g + 0.436*rgb.b,
-		v: 0.615*rgb.r - 0.51499*rgb.g - 0.10001*rgb.b
-	}
-}
-
-function YUVtoRGB(yuv){
-	return{
-		r: 1*yuv.y + 0*yuv.u + 1.13983*yuv.v,
-		g: 1*yuv.y - -0.39465*yuv.u + -0.5806*yuv.v,
-		b: 1*yuv.y + 2.03211*yuv.u - 0*yuv.v
-	}
 }
 
 function mod(a){
@@ -135,4 +134,4 @@ function sub(a, b){
 
 function dot(a, b){
 	return a.u * b.u + a.v * b.v;
-}
+}*/

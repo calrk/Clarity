@@ -62,6 +62,22 @@ CLARITY.Operations = {
 		}
 	},
 
+	RGBtoYUV: function(rgb){
+		return{
+			y: 0.299*rgb.r + 0.587*rgb.g + 0.114*rgb.b,
+			u: -0.14713*rgb.r - 0.28886*rgb.g + 0.436*rgb.b,
+			v: 0.615*rgb.r - 0.51499*rgb.g - 0.10001*rgb.b
+		}
+	},
+
+	YUVtoRGB: function(yuv){
+		return{
+			r: 1*yuv.y + 0*yuv.u + 1.13983*yuv.v,
+			g: 1*yuv.y - -0.39465*yuv.u + -0.5806*yuv.v,
+			b: 1*yuv.y + 2.03211*yuv.u - 0*yuv.v
+		}
+	},
+
 	minimum: function(ins){
 		var out = 10000000;
 		for(var i = 0; i < ins.length; i++){
