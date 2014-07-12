@@ -60,6 +60,9 @@ h1{
 	background-color: #191a16;
 	float: right;
 	cursor: pointer;
+	position:absolute;
+	top:0;
+	right:0;
 }
 #shuffle li.listRed{ 
 	background: #f67689;

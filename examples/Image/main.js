@@ -2,7 +2,7 @@ var filters = [
 	{
 		name: "Hanover",
 		id: "hanover",
-		filter: new CLARITY.HanoverBars({enabled:true})
+		filter: new CLARITY.HanoverBars({enabled:false})
 	},
 	{
 		name: "Average Thresholder",
