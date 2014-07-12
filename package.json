@@ -1,0 +1,16 @@
+{
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/calrk/clarity.git"
+  },
+  "dependencies": {
+    "gulp": "^3.8.6",
+    "gulp-concat": "^2.3.3",
+    "gulp-uglify": "^0.3.1",
+    "gulp-connect": "^2.0.6"
+  },
+  "scripts": {},
+  "devDependencies": {
+    "gulp-s3": "^0.3.0"
+  }
+}
