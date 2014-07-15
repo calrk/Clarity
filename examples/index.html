@@ -2,34 +2,125 @@
 <head>
 	<title>Clarity</title>
 
-	<link rel="stylesheet" type="text/css" href="css/style.css"/>
+	<!-- <link rel="stylesheet" type="text/css" href="css/style.css"/> -->
 	<link rel="icon" href="favicon.png" type="image/png"/>
 	
 	<style type="text/css">
-		h1, h2{
-			padding:10px;
+		body {
+			background-color: #a17132;
+			background-size: 15px;
+			background-repeat: repeat-x;
+			background-attachment: scroll;
+		}
+
+		h1 {
+			color: #2b261c;
+			font-family: arial, verdana, sans-serif;
+			font-style: normal;
+			font-variant: small-caps;
+			font-weight: bold;
+			font-size: 300%;
+			margin-bottom: 0px;
+			text-align: left;
+		}
+
+		h2 {
+			text-indent: 5%;
+			color: #3d3629;
+			font-family: arial, verdana, sans-serif;
+			font-style: normal;
+			font-variant: small-caps;
+			text-align: left;
+			font-weight: bold;
+			font-size: 200%;
+			margin-top: 0px;
+		}
+
+		h3 {
+			color: #2b261c;
+			font-family: arial, verdana, sans-serif;
+			font-style: normal;
+			font-variant: small-caps;
+			text-align: left;
+			font-weight: bold;
+			font-size: 150%;
+			margin-bottom: 0px;
+		}
+
+		p {
+			margin-top: 0px;
+			text-indent: 5%;
+			font-family: arial, verdana, sans-serif;
+			color: #c89853;
+			text-align: left;
+			text-decoration: normal;
+			text-transform: normal;
+		}
+
+		a:link {
+			color: #3d3629;
+			text-decoration: none;
+		}
+		a:visited {
+			color: #3d3629;
+			text-decoration: none;
+		}
+		a:active {
+			color: #3d3629;
+			text-decoration: none;
+		}
+		a:hover {
+			color: #9f7942;
+			text-decoration: none;
+		}
+
+		.centred {
+			 margin-left: 25%;
+			 margin-right: 25%;
 		}
 	</style>
 </head>
 <body>
-	<h1>Clarity</h1>
-	<p>An image filter masterpiece</p>
-	<p>So easy its like you've used it before</p>
-	<p>So clear you'd have to be blind not to see it</p>
+	<div class='centred'>
+		<h1>Clarity</h1>
+		<p id='tag-0' style='display:none;'>An image filter masterpiece</p>
+		<p id='tag-1' style='display:none;'>So easy its like you've used it before</p>
+		<p id='tag-2' style='display:none;'>So clear you'd have to be blind not to see it</p>
 
-	<h2><a href='Image'>Image</a></h2>
-	<p>A simple example of manipulating a static image using a canvas</p>
-	<h2><a href='Video'>Video</a></h2>
-	<p>A simple example of manipulating a video streaming to a canvas</p>
-	<h2><a href='WebGL'>WebGl</a></h2>
-	<p>A simple example of manipulating a WebGL scene streaming to a canvas</p>
-	<h2><a href='Webcam'>Webcam</a></h2>
-	<p>A more complex example of manipulating webcam input streaming to a canvas, with options for each of the filters.</p>
-	<h2><a href='WebGL-Material'>WebGL-Material</a></h2>
-	<p>An example of how clarity can be used to generate textures and their normal maps procedurally.</p>
-	<h2><a href='WebGL-DualInputs'>WebGL-DualInputs</a></h2>
-	<p>An example of how clarity can be used to generate more complex textures procedurally, using combinations of filters.</p>
-	<h2><a href='HeightMap'>Height Map</a></h2>
-	<p>A height-map manipulation and normal map generation example.</p>
+		<h3>Example 1 : <a href="Image">Image</a></h3>
+		<p>A simple example of manipulating a static image using a canvas</p>
+
+		<h3>Example 2 : <a href="Video">Video</a></h3>
+		<p>A simple example of manipulating a video streaming to a canvas</p>
+
+		<h3>Example 3 : <a href="WebGL">WebGL</a></h3>
+		<p>A simple example of manipulating a WebGL scene streaming to a canvas</p>
+
+		<h3>Example 4 : <a href="Webcam">Webcam</a></h3>
+		<p>A more complex example of manipulating webcam input streaming to a canvas, with options for each of the filters.</p>
+
+		<h3>Example 5 : <a href="WebGL-Material">WebGL-Material</a></h3>
+		<p>An example of how clarity can be used to generate textures and their normal maps procedurally.</p>
+
+		<h3>Example 6 : <a href="WebGL-DualInputs">WebGL-DualInputs</a></h3>
+		<p>An example of how clarity can be used to generate more complex textures procedurally, using combinations of filters.</p>
+
+		<h3>Example 7 : <a href="HeightMap">HeightMap</a></h3>
+		<p>A height-map manipulation and normal map generation example.</p>
+	</div>
+
+	<script type="text/javascript">
+		var i = 0;
+		var elem = document.getElementById('tag-'+i);
+		var elems = [];
+		while(elem){
+			elems.push(elem);
+			i++;
+			elem = document.getElementById('tag-'+i);
+		}
+		var quote = Math.floor(Math.random()*i);
+
+		elems[quote].style.display = 'block';
+	</script>
 </body>
 </html>

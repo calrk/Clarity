@@ -27,7 +27,7 @@ gulp.task('js', function(){
 gulp.task('connect', function () {
   var connect = require('connect');
   var app = connect()
-  .use(connect.static('./'))
+  .use(connect.static('./examples'))
   .listen(80);
 });
 
