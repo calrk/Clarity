@@ -16,7 +16,31 @@ var filters = [
 	},
 ];
 
+var normalFilters = [
+	{
+		name: "Generate from Texture",
+		filter: new CLARITY.NormalGenerator({enabled: true})
+	},
+	{
+		name: "Swap Angles",
+		filter: new CLARITY.NormalFlip({enabled:true, red:true})
+	},
+	{
+		name: "Add Noise",
+		filter: new CLARITY.Noise({intensity:50, monochromatic: false, enabled:false})
+	},
+	{
+		name: "Modify Intensity",
+		filter: new CLARITY.NormalIntensity({intensity: 0.25, enabled:false})
+	},
+	{
+		name: "Blur",
+		filter: new CLARITY.Blur({enabled:false})
+	},
+]
+
 var ctx;
+var canvasNorm;
 var ctxNorm;
 var terrain;
 var width;
@@ -57,7 +81,18 @@ function init(){
 		filters[i].active = false;
 	}
 
+	for(var i = 0; i < normalFilters.length; i++){
+		var controls = normalFilters[i].filter.createControls(normalFilters[i].name);
+		document.getElementById('controlsNorm').appendChild(controls);
+
+		controls.addEventListener('click', function(){
+			render();
+			// needsUpdate = true;
+		});
+	}
+
 	ctx = document.getElementById('canvas').getContext('2d');
+	canvasNorm = document.getElementById('normal');
 	ctxNorm = document.getElementById('normal').getContext('2d');
 	width = canvas.width;
 	height = canvas.height;
@@ -75,10 +110,21 @@ function init(){
 	renderer.setSize(width, height);
 	renderer.setClearColor(0x000000, 0);
 
+	//dodgy toggling things for this example
+	normalFilters[1].filter.toggleEnabled();
+	normalFilters[1].filter.toggleBool('red');
+
+	textureNorm = new THREE.Texture();
 	render();
 	terrain = loadTerrain(normFrame);
 	scene.add(terrain);
 	loop();
+	
+	//dodgy toggling things for this example
+	normalFilters[0].filter.setFloat('intensity', 0.1);
+	normalFilters[1].filter.toggleEnabled();
+	normalFilters[1].filter.toggleBool('red');
+	render();
 }
 
 function compareFilters(first, second){
@@ -91,17 +137,28 @@ function render(){
 	ctx.drawImage(img, 0, 0, width, height);
 
 	frame = ctx.getImageData(0,0,width,height);
-	normFrame = new CLARITY.NormalGenerator().process(frame);
+	normFrame = ctx.getImageData(0,0,width,height);
 	// normFrame = new CLARITY.NormalIntensity({intensity:1}).process(normFrame);
 
 	for(var i = 0; i < filters.length; i++){
 		frame = filters[i].filter.process(frame);
 	}
 
+	for(var i = 0; i < normalFilters.length; i++){
+		normFrame = normalFilters[i].filter.process(normFrame);
+	}
+
 	// normFrame = new CLARITY.Smoother().process(normFrame);
 
 	ctx.putImageData(frame, 0, 0);
 	ctxNorm.putImageData(normFrame, 0, 0);
+
+
+	var img = canvasNorm.toDataURL("image/png");
+	var imageNorm = document.getElementById("imageNorm");
+	imageNorm.src = img;
+	textureNorm.image = imageNorm;
+	textureNorm.needsUpdate = true;
 }
 
 function loop(){
@@ -137,6 +194,8 @@ function loadTerrain(norm){
 			var y = (z+height_half)*4*width + (x+width_half)*4;
 
 			geo.vertices.push(new THREE.Vector3(x, frame.data[y]/2, z));
+			// geo.vertices.push(new THREE.Vector3(x, 0, z));
+			// var normal = new THREE.Vector3(0,0,1);
 			var normal = new THREE.Vector3((norm.data[y]-128)/128, norm.data[y+2]/255, (norm.data[y+1]-128)/128);
 			normal = normal.normalize();
 			normals.push(normal);
@@ -171,7 +230,7 @@ function loadTerrain(norm){
 		}
 	}
 
-	var mat = new THREE.MeshLambertMaterial({color: 0xFFFFFF});
+	var mat = new THREE.MeshPhongMaterial({color: 0xFFFFFF, normalMap: textureNorm});
 	var terrain = new THREE.Mesh(geo, mat);
 	terrain.rotation.x = Math.PI/4;
 	terrain.scale.x = 0.1;
