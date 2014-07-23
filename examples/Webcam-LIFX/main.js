@@ -5,7 +5,7 @@ var filters = [
 	},
 	{
 		name: "Value Thresholder",
-		filter: new CLARITY.ValueThreshold({threshold:128, enabled:true})
+		filter: new CLARITY.ValueThreshold({threshold:50, enabled:true})
 	},
 	{
 		name: "LIFX",
@@ -64,6 +64,7 @@ function init(){
 	requestAnimationFrame(render);
 }
 
+var cooldown = 0;
 function render(){
 	requestAnimationFrame(render);
 	
@@ -81,12 +82,25 @@ function render(){
 	RGBfilter.setInt('red', rgb.r);
 	RGBfilter.setInt('green', rgb.g);
 	RGBfilter.setInt('blue', rgb.b);
-	var asdcolframe = RGBfilter.process(frame);
 
 	ctx.putImageData(frame, 0, 0);
 
-	var asd = blender.process([asdcolframe, colframe]);
-	ctxcol.putImageData(asd, 0, 0);
+	/* var flatColFrame = RGBfilter.process(frame);
+	var blended = blender.process([flatColFrame, colframe]);
+	ctxcol.putImageData(blended, 0, 0);*/
+
+	var hsv = CLARITY.Operations.RGBtoHSV([rgb.r,rgb.g,rgb.b]);
+	hsv[0] = CLARITY.Operations.clamp(hsv[0], 0, 360);
+	hsv[1] = CLARITY.Operations.clamp(hsv[1], 0, 1);
+	hsv[2] = CLARITY.Operations.clamp(hsv[2], 0, 1);
+	// cooldown ++;
+	// if(cooldown > 5){
+		console.log('posting: ' + hsv);
+		$.post('http://localhost:3000/lights', {hsv:hsv}, function(err, res){
+			console.log(res);
+		});
+		cooldown = 0;
+	// }
 }
 
 function onCameraFail(e){
