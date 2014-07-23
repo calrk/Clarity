@@ -21,6 +21,9 @@ var video;
 var width;
 var height;
 
+var simulate = true;
+var refreshRate = 0;
+
 var RGBfilter = new CLARITY.FillRGB({enabled:true});
 var blender = new CLARITY.Blend();
 
@@ -43,16 +46,6 @@ function init(){
 				filter.filter.setClick([e.clientX, e.clientY]);
 		});
 	}
-	/*canvas.onmousemove = function(event){
-		var u = (event.pageX-2)/width-0.5;
-		var v = (event.pageY-2)/height-0.5;
-
-		var rgb = CLARITY.Operations.YUVtoRGB({y:0.5, u:u, v:-v});
-
-		RGBfilter.setInt('red', rgb.r*255);
-		RGBfilter.setInt('green', rgb.g*255);
-		RGBfilter.setInt('blue', rgb.b*255);
-	}*/
 
 	navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
 	window.URL = window.URL || window.webkitURL;
@@ -85,26 +78,36 @@ function render(){
 
 	ctx.putImageData(frame, 0, 0);
 
-	/* var flatColFrame = RGBfilter.process(frame);
-	var blended = blender.process([flatColFrame, colframe]);
-	ctxcol.putImageData(blended, 0, 0);*/
+	if(simulate){
+		var flatColFrame = RGBfilter.process(frame);
+		var blended = blender.process([flatColFrame, colframe]);
+		ctxcol.putImageData(blended, 0, 0);
+	}
 
 	var hsv = CLARITY.Operations.RGBtoHSV([rgb.r,rgb.g,rgb.b]);
 	hsv[0] = CLARITY.Operations.clamp(hsv[0], 0, 360);
 	hsv[1] = CLARITY.Operations.clamp(hsv[1], 0, 1);
 	hsv[2] = CLARITY.Operations.clamp(hsv[2], 0, 1);
-	// cooldown ++;
-	// if(cooldown > 5){
-		console.log('posting: ' + hsv);
-		$.post('http://localhost:3000/lights', {hsv:hsv}, function(err, res){
-			console.log(res);
+	cooldown ++;
+	if(cooldown > refreshRate){
+		// console.log('posting: ' + hsv);
+		$.post('http://localhost/lights', {hsv:hsv}, function(err, res){
+			// console.log(res);
 		});
 		cooldown = 0;
-	// }
+	}
 }
 
 function onCameraFail(e){
 	console.log("Camera did not work: ", e);
+}
+
+function toggleSimulate(){
+	simulate = !simulate;
+}
+
+function setRefresh(elem){
+	refreshRate = elem.value;
 }
 
 window.onload = init;

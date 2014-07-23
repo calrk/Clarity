@@ -1,14 +1,12 @@
 <html>
 <head>
-	<title>Clarity - Webcam</title>
+	<title>Clarity - Webcam LIFX</title>
 
-	<script type="text/javascript" src="../js/jquery-1.10.1.min.js"></script>
-	<script type="text/javascript" src="../js/jquery-ui-1.10.3.custom.min.js"></script>
-
-	<script type="text/javascript" src="../js/clarity.min.js"></script>
+	<script type="text/javascript" src="./js/jquery-1.10.1.min.js"></script>
+	<script type="text/javascript" src="./js/clarity.min.js"></script>
 
 	<script type="text/javascript" src="main.js"></script>
-	<link rel="stylesheet" type="text/css" href="../css/style.css">
+	<link rel="stylesheet" type="text/css" href="./css/style.css">
 	<link rel="icon" href="../favicon.png" type="image/png"/>
 </head>
 <body>
@@ -19,6 +17,22 @@
 	<ol id="shuffle" style="display:none;"></ol>
 	<div style="position:absolute; top:0; right:0; background: white;">
 		<div id="controls" class="controls"></div>
+		<div id="controls2" class="controls">
+			<div class='clarity-controlGroup'>
+				<h3 class='clarity-title'>Simulate: </h3>
+				<br/>
+				<label class='clarity-label'>For no LIFX bulb</label>
+				<input class='clarity-checkbox' type='checkbox' onclick='toggleSimulate();' checked>
+				<div style='clear:both'></div>
+				<br/>
+				<hr/>
+				<br/>
+				<h3 class='clarity-title'>Refresh Rate: </h3>
+				<br/>
+				<label class='clarity-label'>Posts to server</label>
+				<input class='clarity-slider' type='range' min='0' max'10' step='1' onclick='setRefresh(this);'>
+			</div>
+		</div>
 	</div>
 </body>
 </html>
