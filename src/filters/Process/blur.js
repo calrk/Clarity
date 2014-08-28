@@ -16,13 +16,11 @@ CLARITY.Blur = function(options){
 CLARITY.Blur.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Blur.prototype.doProcess = function(frame){
-	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
-
 	if(this.properties.radius < 1){
 		return frame;
 	}
 
-	var output = ctx.createImageData(frame.width, frame.height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
     output.data.set(frame.data);
 
 	return this.processor.stackBlurCanvasRGB(output, this.properties.radius);
