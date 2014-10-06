@@ -41,7 +41,7 @@ CLARITY.Noise.prototype.doCreateControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createDiv();
 	
-	var slider = CLARITY.Interface.createSlider(0, 50, 0.1, 'intensity', this.properties.intensity);
+	var slider = CLARITY.Interface.createSlider(0, 100, 0.1, 'intensity', this.properties.intensity);
 	controls.appendChild(slider);
 	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('intensity', e.srcElement.value);

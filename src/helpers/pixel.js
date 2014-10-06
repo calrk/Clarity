@@ -48,10 +48,10 @@ CLARITY.Pixel.prototype = {
 		this.g = g;
 		this.b = b;
 
-		min = minimum([this.r, this.g, this.b]);
-		max = maximum([this.r, this.g, this.b]);
+		min = CLARITY.Operations.minimum([this.r, this.g, this.b]);
+		max = CLARITY.Operations.maximum([this.r, this.g, this.b]);
 
-		this.v = max;
+		this.v = max/256;
 		delta = max - min;
 
 		if(max != 0){
@@ -126,5 +126,9 @@ CLARITY.Pixel.prototype = {
 				this.b = q;
 				break;
 		}
+	},
+
+	toRGBArray: function(){
+		return [this.r, this.g, this.b];
 	}
 }

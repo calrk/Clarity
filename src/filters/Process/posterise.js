@@ -3,6 +3,7 @@ CLARITY.Posteriser = function(options){
 	var options = options || {};
 
 	this.properties = {};
+	this.palette = undefined;
 
 	this.method = options.method;
 	if(this.method == 'fast'){
@@ -16,7 +17,6 @@ CLARITY.Posteriser = function(options){
 	}
 
 	CLARITY.Filter.call( this, options );
-
 };
 
 CLARITY.Posteriser.prototype = Object.create( CLARITY.Filter.prototype );
@@ -33,7 +33,7 @@ CLARITY.Posteriser.prototype.doProcess = function(frame){
 	}
 
 	this.MCut.init(data);
-	var palette = this.MCut.get_fixed_size_palette(this.properties.colours);
+	this.palette = this.MCut.get_fixed_size_palette(this.properties.colours);
 
 	var prevDistance;
 	var prevColour;
@@ -51,13 +51,13 @@ CLARITY.Posteriser.prototype.doProcess = function(frame){
 			col = prevColour;
 		}
 		else{
-			var col = palette[0];
+			var col = this.palette[0];
 			var dist = CLARITY.Operations.colourDistance(pix, col);
-			for(var j = 1; j < palette.length; j++){
-				tempDist = CLARITY.Operations.colourDistance(pix, palette[j]);
+			for(var j = 1; j < this.palette.length; j++){
+				tempDist = CLARITY.Operations.colourDistance(pix, this.palette[j]);
 				if(tempDist < dist){
 					dist = tempDist;
-					col = palette[j];
+					col = this.palette[j];
 				}
 			}
 			prevColour = col;
@@ -71,6 +71,10 @@ CLARITY.Posteriser.prototype.doProcess = function(frame){
 	}
 
 	return output;
+};
+
+CLARITY.Posteriser.prototype.Pallette = function(frame){
+	return this.palette;
 };
 
 //The old way i used to posterise, which is not accurate but is fast

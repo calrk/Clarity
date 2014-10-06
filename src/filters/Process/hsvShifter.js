@@ -31,7 +31,7 @@ CLARITY.hsvShifter.prototype.doProcess = function(frame){
 		output.data[i+0] = col[0];
 		output.data[i+1] = col[1];
 		output.data[i+2] = col[2];
-		output.data[i+3] = 255;
+		output.data[i+3] = frame.data[i+3];
 	}
 
 	return output;

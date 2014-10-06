@@ -32,7 +32,7 @@ CLARITY.NormalGenerator.prototype.doProcess = function(frame){
 			var res = this.generateNormal(veci, vecleft, vecright, vecup, vecdown)
 
 			output.data[i] =   (1-(res.x/2+0.5))*255;
-			output.data[i+1] = (1-(res.y/2+0.5))*255;
+			output.data[i+1] = (res.y/2+0.5)*255;
 			output.data[i+2] = -res.z*255;
 
 			output.data[i+3] = 255;
