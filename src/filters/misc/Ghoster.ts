@@ -1,13 +1,17 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface GhosterOptions extends FilterOptions {
 	length?: number;
 }
 
 export class Ghoster extends Filter {
+	static override schema: FilterSchema = {
+		length: { type: 'int', label: 'Trail length', min: 1, max: 30, step: 1, default: 10, description: 'How many frames are onion-skinned together.' }
+	};
+
 	override properties: {
 		length: number;
 	};
@@ -54,17 +58,5 @@ export class Ghoster extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(1, 30, 1, 'length', this.properties.length);
-		controls.appendChild(slider);
-		slider.getElementsByTagName('input')[0].addEventListener('change', (e: Event) => {
-			this.setInt('length', controlValue(e));
-		});
-
-		return controls;
 	}
 }

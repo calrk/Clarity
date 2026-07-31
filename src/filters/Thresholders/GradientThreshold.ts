@@ -2,8 +2,8 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface GradientThresholdOptions extends FilterOptions {
 	threshold?: number;
@@ -11,6 +11,11 @@ export interface GradientThresholdOptions extends FilterOptions {
 }
 
 export class GradientThreshold extends Filter {
+	static override schema: FilterSchema = {
+		threshold: { type: 'float', label: 'Threshold', min: 0, max: 100, step: 1, default: 20, description: 'How much neighbouring pixels must differ to be marked.' },
+		distance: { type: 'int', label: 'Distance', min: 1, max: 10, step: 1, default: 1, description: 'How far away the compared neighbour is, in pixels.' }
+	};
+
 	override properties: {
 		threshold: number;
 		distance: number;
@@ -82,23 +87,5 @@ export class GradientThreshold extends Filter {
 			}
 		}
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 100, 1, 'Threshold', this.properties.threshold);
-		controls.appendChild(slider);
-			slider.addEventListener('change', (e: Event) => {
-			this.setFloat('threshold', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 10, 1, 'Distance', this.properties.distance);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('distance', controlValue(e));
-		});
-
-		return controls;
 	}
 }

@@ -3,8 +3,8 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface WaveOptions extends FilterOptions {
 	horizontal?: boolean;
@@ -15,6 +15,14 @@ export interface WaveOptions extends FilterOptions {
 }
 
 export class Wave extends Filter {
+	static override schema: FilterSchema = {
+		horizontal: { type: 'bool', label: 'Horizontal', default: false },
+		vertical: { type: 'bool', label: 'Vertical', default: false },
+		speed: { type: 'int', label: 'Speed', min: -10, max: 10, step: 1, default: 1 },
+		frequency: { type: 'float', label: 'Frequency', min: 1, max: 100, step: 1, default: 10 },
+		amplitude: { type: 'float', label: 'Amplitude', min: 1, max: 100, step: 1, default: 10 }
+	};
+
 	override properties: {
 		horizontal: boolean;
 		vertical: boolean;
@@ -88,41 +96,5 @@ export class Wave extends Filter {
 
 	waveFunction(val: any) {
 		return Math.sin(val) + Math.sin(2*val);
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(-10, 10, 1, 'speed', this.properties.speed);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('speed', controlValue(e));
-		});
-
-		slider = Interface.createSlider(1, 100, 1, 'frequency', this.properties.frequency);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('frequency', controlValue(e));
-		});
-
-		slider = Interface.createSlider(1, 100, 1, 'amplitude', this.properties.amplitude);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('amplitude', controlValue(e));
-		});
-
-		let toggle = Interface.createToggle('Horizontal', this.properties.horizontal);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('horizontal');
-		});
-
-		toggle = Interface.createToggle('vertical', this.properties.vertical);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('vertical');
-		});
-
-		return controls;
 	}
 }

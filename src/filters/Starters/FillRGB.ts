@@ -2,8 +2,8 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface FillRGBOptions extends FilterOptions {
 	red?: number;
@@ -12,6 +12,12 @@ export interface FillRGBOptions extends FilterOptions {
 }
 
 export class FillRGB extends Filter {
+	static override schema: FilterSchema = {
+		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 0 },
+		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 0 },
+		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 0 }
+	};
+
 	override properties: {
 		red: number;
 		green: number;
@@ -39,29 +45,5 @@ export class FillRGB extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 255, 1, 'red', this.properties.red);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('red', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 255, 1, 'green', this.properties.green);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('green', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 255, 1, 'blue', this.properties.blue);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('blue', controlValue(e));
-		});
-
-		return controls;
 	}
 }

@@ -81,7 +81,7 @@ function init(){
 	canvasUV = document.querySelector('#canvasUV');
 
 	for(var i = 0; i < texFilters.length; i++){
-		var controls = texFilters[i].filter.createControls(texFilters[i].name);
+		var controls = ClarityControls.createControls(texFilters[i].filter, texFilters[i].name);
 		document.getElementById('controlsTex').appendChild(controls);
 
 		controls.addEventListener('click', function(){
@@ -90,7 +90,7 @@ function init(){
 	}
 
 	for(var i = 0; i < normalFilters.length; i++){
-		var controls = normalFilters[i].filter.createControls(normalFilters[i].name);
+		var controls = ClarityControls.createControls(normalFilters[i].filter, normalFilters[i].name);
 		document.getElementById('controlsNorm').appendChild(controls);
 
 		controls.addEventListener('click', function(){

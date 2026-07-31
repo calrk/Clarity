@@ -14,7 +14,16 @@ export { Operations } from './helpers/Operations.js';
 export type { RGB, YUV } from './helpers/Operations.js';
 export { Pixel } from './helpers/Pixel.js';
 export type { PixelChannel } from './helpers/Pixel.js';
-export { Interface, controlValue } from './helpers/Interface.js';
+export { CHANNEL_FIELD, coerceValue, defaultsOf } from './core/schema.js';
+export type {
+	FilterSchema,
+	SchemaField,
+	NumberField,
+	BoolField,
+	SelectField,
+	SelectOption,
+	PropertyValue
+} from './core/schema.js';
 export { medianCut, nearestColourIndex } from './helpers/quantise.js';
 export type { RGBTriplet, MedianCutOptions } from './helpers/quantise.js';
 
@@ -60,7 +69,7 @@ export type { NoiseOptions } from './filters/Process/Noise.js';
 export { Pixelate } from './filters/Process/Pixelate.js';
 export type { PixelateOptions } from './filters/Process/Pixelate.js';
 export { Posteriser } from './filters/Process/Posteriser.js';
-export type { PosteriserOptions } from './filters/Process/Posteriser.js';
+export type { PosteriserOptions, PosteriserMethod } from './filters/Process/Posteriser.js';
 export { Sharpen } from './filters/Process/Sharpen.js';
 export type { SharpenOptions } from './filters/Process/Sharpen.js';
 export { Smoother } from './filters/Process/Smoother.js';

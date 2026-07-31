@@ -110,7 +110,7 @@ var height;
 
 function init(){
 	for(var i = 0; i < filters.length; i++){
-		var controls = filters[i].filter.createControls(filters[i].name);
+		var controls = ClarityControls.createControls(filters[i].filter, filters[i].name);
 		document.getElementById('controls').appendChild(controls);
 	}
 

@@ -120,7 +120,7 @@ class Invert extends Filter {
 }
 ```
 
-Then a `CLARITY.Renderer` (see #4) owns one GL context and **ping-pongs two framebuffers** through the chain, so a five-filter pipeline is five draw calls with *zero* CPU round-trips — no `getImageData`/`putImageData` between stages, which is where the real cost lives. `properties` map straight onto uniforms; the existing `setFloat`/`setInt`/`toggleBool` setters become uniform writes for free.
+Then a `CLARITY.Renderer` (see #4) owns one GL context and **ping-pongs two framebuffers** through the chain, so a five-filter pipeline is five draw calls with *zero* CPU round-trips — no `getImageData`/`putImageData` between stages, which is where the real cost lives. `properties` map straight onto uniforms, and now that #8 has landed the schemas, *which* uniform call to make is declared rather than guessed — `type: 'int'` is `uniform1i`, `type: 'float'` is `uniform1f`. `setProperty` is the single write path, so it becomes the single place a uniform gets marked stale.
 
 Options tiers:
 
@@ -165,7 +165,7 @@ pipeline.move(1, 0);         // reorder
 pipeline.render();           // one-shot
 ```
 
-Fold in the other README to-do while you're here — **"a flag to each filter to only process if input/controls changed or forced"**. A `dirty` flag set by `setFloat`/`setInt`/`toggleBool`/`toggleEnabled` means a static image with unchanged controls costs nothing per frame, and lets the renderer cache each stage's output so tweaking filter #5 doesn't recompute #1–4. On a stateful filter (`Ghoster`, `MotionDetector`) the flag has to stay permanently dirty — worth an explicit `static stateful = true`.
+Fold in the other README to-do while you're here — **"a flag to each filter to only process if input/controls changed or forced"**. **#8 already added the flag** — `setProperty` sets `filter.dirty`, and nothing clears it yet because clearing it is this feature's job. A static image with unchanged controls should then cost nothing per frame, and the renderer can cache each stage's output so tweaking filter #5 doesn't recompute #1–4. On a stateful filter (`Ghoster`, `MotionDetector`) the flag has to stay permanently dirty — worth an explicit `static stateful = true`.
 
 This is also where the ping-pong FBO management from #3 lives, so it's worth designing the two together.
 
@@ -180,7 +180,7 @@ This is also where the ping-pong FBO management from #3 lives, so it's worth des
 Replace the whole folder with **one app** that's a better demo than eight pages ever were:
 
 - **A node-graph or drag-list pipeline editor** — the sortable list is genuinely Clarity's best idea; give it a proper UI. Drag filters in from a palette, reorder, toggle, and see the result update live at 60fps (which #3 makes possible for the first time).
-- **Auto-generated controls.** Today each filter hand-builds its own DOM in `doCreateControls` — 40 near-identical slider blocks, and `CLARITY.Interface` is a hand-rolled DOM helper that predates every framework. Replace with a **declarative property schema** (see #8) that the site renders. Removes ~600 lines and means new filters get a UI for free.
+- **Auto-generated controls.** ✓ Ready — #8 landed the schemas, so a generic control component binding to `filter.setProperty(key, value)` is all this needs, and new filters get a UI for free. `examples/js/controls.js` is a working plain-DOM reference to port.
 - **Swap the input**: sample images, drag-and-drop your own, webcam (fixed), video, or a live three.js scene — the existing examples become *sources* in one app rather than separate pages.
 - **Shareable pipelines** — serialise the chain to a URL hash so a link reproduces an exact filter stack. Very cheap, disproportionately good for showing the thing off.
 - **Show the code** — a panel emitting the `new CLARITY.Renderer()...` snippet for the current graph, so the playground doubles as documentation.
@@ -287,9 +287,29 @@ Unglamorous, but it's the difference between a library people can use and a repo
 
 ---
 
-## 8. Declarative Filter Schemas — Delete `doCreateControls`
+## ~~8. Declarative Filter Schemas — Delete `doCreateControls`~~ ✓
 
 **Effort: Medium** *(unblocks #5, simplifies #3)*
+
+**Done.** 717 lines out, 423 in — and every golden image is byte-identical, so nothing about what the filters *compute* moved.
+
+- **`static schema` on 33 filters**, in `src/core/schema.ts`. Four field types: `int`, `float`, `bool` and `select`, with `label`, `min`/`max`/`step`, `default`, an optional `description` for tooltips and generated docs, and `nullable` for the "derive it from the frame" case (only `ValueThreshold` uses it, but it needed representing rather than special-casing).
+- **`setProperty(key, value)` is the single write path.** It coerces per the schema, clamps to the declared range, marks the filter dirty for #4, and calls a `propertyChanged` hook. `setInt`/`setFloat`/`toggleBool` are gone — the caller no longer has to know which one a property wanted. Unknown *keys* throw (a caller bug); out-of-range *values* clamp (user input, or a link made by an older build).
+- **`Interface` and all 31 `doCreateControls` methods deleted**, and with them the library's last DOM dependency.
+- **The examples still work**, via `examples/js/controls.js` — ~90 lines of plain DOM that renders any filter from its schema. It lives in `examples/`, not in the library, which is the whole point: the metadata is Clarity's, the markup is yours.
+
+Four things fell out of doing it that weren't in the original write-up:
+
+- **Filters were hiding derived-state rebuilds inside their control handlers.** `Sharpen` rebuilt its convolution kernel in the slider's `change` listener; `MotionDetector` reset its frame ring in one. Setting those properties *any other way* — from a constructor-adjacent call, a preset, a URL — left the derived state stale and the filter quietly ignoring the change. Deleting the DOM code would have deleted the rebuild with it. That logic now lives in `propertyChanged`, where it belongs, and is asserted by a test.
+- **Declaring a property forces you to ask whether changing it works.** `Puzzler` shuffles its tile grid in the constructor and had no controls at all, so nothing had ever noticed that changing the segment counts left a grid of the old size. `Posteriser.method` was a constructor-only field that nothing could describe, so the fast/accurate choice was invisible; it is a `select` property now and switches live.
+- **`Bleed` returned `undefined` at radius 0.** StackBlur bails out with a bare `return` below a radius of 1, and `Bleed` handed that straight back, so everything downstream died on `.data`. Found by a test that simply sets every declared field to each end of its declared range and checks the filter still produces a frame — the cheap version of the property-based fuzzing in #6, and it earned its keep immediately.
+- **Minification was renaming the classes.** `filter.constructor.name` came back as `lt`, which matters now that it is the natural key for serialising a pipeline to a URL in #5, and it was appearing in `setProperty`'s error messages. `esbuild.keepNames` fixes it for ~1.3 kB.
+
+**The anti-drift mechanism is the point.** A hand-written description of hand-written code rots, so `test/schema.test.js` compares each schema against the filter it claims to describe rather than against another document: schema keys must match the filter's actual properties exactly, every declared default must equal what the constructor builds, and every field must be internally consistent. `test/controls.test.js` then renders all 41 filters through the example renderer against a DOM stub, so "the schema carries enough to build a working control" is asserted rather than hoped for. 181 new tests.
+
+Still deliberately not done: constructors don't yet *read* their defaults from the schema, so the two are pinned together by a test rather than being one declaration. That's the natural follow-up, but it means rewriting 33 constructors that each coerce their options slightly differently, and it's better done alongside #4 when the `Renderer` decides how filters get built.
+
+### Original write-up
 
 **34 filters hand-write a `doCreateControls` that builds DOM by hand** — about 550 lines of near-identical code:
 
@@ -437,7 +457,7 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | ✓ | Licensing / replace GPL MCut | Low–Med | Done — MIT, no GPL code, quantiser 2-21x faster |
 | ✓ | Golden-image test suite | Medium | Done — 56 goldens, contact sheet, determinism plumbing, GPU parity harness ready |
 | 4 | `Renderer` / pipeline object | Medium | High — kills seven copies of the same loop; home for FBO ping-pong |
-| 8 | Declarative filter schemas | Medium | High — removes ~600 lines, fixes the dead sliders, feeds #3/#5/#6/#11 |
+| ✓ | Declarative filter schemas | Medium | Done — 717 lines out, DOM dependency gone, `setProperty` is the one write path |
 | 3 | GPU shader backend | High | Highest payoff, highest cost — do it in the three tiers, not in one go |
 | 5 | Demo site / pipeline playground | Med–High | High — the thing you show people; current examples are broken anyway |
 | 9 | Finish the filter wishlist | Low each | Medium — cheap and fun once the kernel template exists |
@@ -445,6 +465,6 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | 12 | Pipeline fusion | High | Medium — big for UV-transform chains and weak GPUs; also fixes 8-bit precision loss. Classification metadata in #3, compiler later |
 | 10 | CPU path modernisation | Medium | Low–Medium — mostly superseded by #3; cherry-pick the allocation fix |
 
-**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → **4/8** → 3 (tier by tier) → 5 → 9/11 → 12.
+**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → ~~8~~ → **4** → 3 (tier by tier) → 5 → 9/11 → 12.
 
 *More features to be added.*

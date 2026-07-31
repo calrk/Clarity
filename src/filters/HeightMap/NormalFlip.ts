@@ -2,8 +2,8 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface NormalFlipOptions extends FilterOptions {
 	red?: boolean;
@@ -12,6 +12,12 @@ export interface NormalFlipOptions extends FilterOptions {
 }
 
 export class NormalFlip extends Filter {
+	static override schema: FilterSchema = {
+		red: { type: 'bool', label: 'Flip X', default: false },
+		green: { type: 'bool', label: 'Flip Y', default: false },
+		swap: { type: 'bool', label: 'Swap X/Y', default: false }
+	};
+
 	override properties: {
 		red: boolean;
 		green: boolean;
@@ -56,29 +62,5 @@ export class NormalFlip extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let toggle = Interface.createToggle('Red', this.properties.red);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('red');
-		});
-
-		toggle = Interface.createToggle('Green', this.properties.green);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('green');
-		});
-
-		toggle = Interface.createToggle('Swap', this.properties.swap);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('swap');
-		});
-
-		return controls;
 	}
 }

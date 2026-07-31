@@ -40,15 +40,28 @@ a, h1{
 .clarity-controlGroup{
 	background-color: white;
 	padding:10px;
-	height: 150px;
+	/* was a fixed 150px, which clipped any filter with more than three
+	   controls - and the schemas gave several filters controls for the
+	   first time */
+	min-height: 150px;
+	margin-bottom: 4px;
 }
 .clarity-control{
 	background-color: white;
 	clear: both;
 	position: relative;
 }
-.clarity-slider, .clarity-checkbox{
+.clarity-slider, .clarity-checkbox, .clarity-select{
 	float: right;
+}
+/* live readout of the slider's value, so the number is visible rather than guessed */
+.clarity-value{
+	float: right;
+	min-width: 3em;
+	text-align: right;
+	font-family: monospace;
+	font-size: 0.85em;
+	opacity: 0.7;
 }
 .clarity-label{
 	float: left;

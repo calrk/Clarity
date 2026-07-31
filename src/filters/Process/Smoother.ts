@@ -2,14 +2,18 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface SmootherOptions extends FilterOptions {
 	iterations?: number;
 }
 
 export class Smoother extends Filter {
+	static override schema: FilterSchema = {
+		iterations: { type: 'int', label: 'Iterations', min: 1, max: 5, step: 1, default: 1 }
+	};
+
 	override properties: {
 		iterations: number;
 	};
@@ -81,17 +85,5 @@ export class Smoother extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(1, 5, 1, 'iterations', this.properties.iterations);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('iterations', controlValue(e));
-		});
-
-		return controls;
 	}
 }

@@ -1,6 +1,7 @@
-import { Interface } from '../helpers/Interface.js';
 import { defaultClock } from './random.js';
+import { coerceValue } from './schema.js';
 import type { Clock, RandomSource } from './random.js';
+import type { FilterSchema, PropertyValue } from './schema.js';
 
 /** Channel selectors accepted by `getColourValue`. */
 export type Channel =
@@ -31,7 +32,7 @@ export interface FilterOptions {
  * `null` is allowed because a few filters use it for "derive this from the
  * frame" - ValueThreshold's auto threshold, for instance.
  */
-export type FilterProperties = Record<string, number | boolean | null>;
+export type FilterProperties = Record<string, PropertyValue>;
 
 /**
  * Base class for every filter.
@@ -40,9 +41,25 @@ export type FilterProperties = Record<string, number | boolean | null>;
  * unpacks the two-frame form used by the DualInput filters.
  */
 export class Filter {
+	/**
+	 * What this filter's properties are and what values they accept.
+	 *
+	 * Declared per subclass; see `src/core/schema.ts` for why this lives in the
+	 * library rather than in whatever is drawing the controls. The base class
+	 * has none, so a filter with no options needs no schema and a host app gets
+	 * an empty object rather than a special case.
+	 */
+	static schema: FilterSchema = {};
+
 	channel: Channel;
 	enabled: boolean;
 	properties: FilterProperties = {};
+
+	/**
+	 * Set whenever a property changes, so a renderer can skip filters whose
+	 * output can't have moved. Nothing clears it yet - that's FEATURES.md #4.
+	 */
+	dirty = true;
 
 	/** Injectable so filter output can be made reproducible - see FEATURES.md #6. */
 	random: RandomSource;
@@ -105,32 +122,68 @@ export class Filter {
 		}
 	}
 
-	setFloat(key: string, value: string | number): void {
-		this.properties[key] = typeof value === 'number' ? value : parseFloat(value);
+	/** This filter's schema, reached from an instance. */
+	get schema(): FilterSchema {
+		return (this.constructor as typeof Filter).schema;
 	}
 
-	setInt(key: string, value: string | number): void {
-		this.properties[key] = typeof value === 'number' ? Math.trunc(value) : parseInt(value, 10);
+	/**
+	 * The single way to change a property from outside.
+	 *
+	 * Everything funnels through here so coercion happens in one place. The old
+	 * `setInt`/`setFloat`/`toggleBool` trio existed because DOM inputs hand back
+	 * *strings*, and every filter had to remember which one to call. Bind a
+	 * framework model straight onto `properties` instead and you get
+	 * `radius: "10"`, which silently works in some arithmetic and breaks the
+	 * rest - `"10" + 1` is `"101"`, and it becomes `NaN` the moment it reaches
+	 * `uniform1i`. The schema says what the type is, so the caller doesn't have
+	 * to.
+	 *
+	 * Unknown keys throw, because that is a mistake in the caller rather than
+	 * bad user input; out-of-range *values* are clamped rather than rejected.
+	 */
+	setProperty(key: string, value: unknown): void {
+		const field = this.schema[key];
+		if (!field) {
+			throw new Error(`${this.constructor.name} has no property "${key}"`);
+		}
+
+		const coerced = coerceValue(field, value);
+
+		//`channel` is the one field declared on the base class rather than in
+		//`properties`, so filters that honour it describe it in their schema but
+		//it is stored alongside `enabled` instead.
+		if (key === 'channel') {
+			this.channel = coerced as Channel;
+		} else {
+			this.properties[key] = coerced;
+		}
+
+		this.dirty = true;
+		this.propertyChanged(key);
 	}
 
-	toggleBool(key: string): void {
-		this.properties[key] = !this.properties[key];
+	/** Flips a boolean property. */
+	toggleProperty(key: string): void {
+		this.setProperty(key, !this.getProperty(key));
 	}
+
+	getProperty(key: string): PropertyValue {
+		return key === 'channel' ? this.channel : this.properties[key];
+	}
+
+	/**
+	 * Called after a property changes, for filters holding state derived from
+	 * one - Sharpen's kernel, MotionDetector's frame ring, Puzzler's shuffle.
+	 *
+	 * That rebuilding used to live inside `doCreateControls`, which meant it
+	 * only ever ran when the change came from a slider. Setting the property any
+	 * other way left the derived state stale, and deleting the DOM code would
+	 * have lost the rebuild entirely.
+	 */
+	propertyChanged(_key: string): void {}
 
 	toggleEnabled(): void {
 		this.enabled = !this.enabled;
-	}
-
-	createControls(titleSet?: string): HTMLElement {
-		const controls = Interface.createControlGroup(titleSet, this.enabled);
-		const toggle = controls.getElementsByTagName('input')[0];
-		toggle.addEventListener('change', () => this.toggleEnabled());
-
-		controls.appendChild(this.doCreateControls());
-		return controls;
-	}
-
-	doCreateControls(): HTMLElement {
-		return Interface.createLabel('No options.');
 	}
 }

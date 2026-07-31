@@ -18,6 +18,13 @@ const banner = `/*!
  */`;
 
 export default defineConfig({
+	// Minification renames classes, so `filter.constructor.name` came back as
+	// `lt`. That matters now the schemas are public API: it is the natural key
+	// for serialising a pipeline to a URL, and it is what setProperty puts in
+	// its error messages. Costs a few bytes, buys names that mean something.
+	esbuild: {
+		keepNames: true
+	},
 	server: {
 		port: 8080,
 		// replaces the old gulp-connect task, which bound port 80 and needed admin

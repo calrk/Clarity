@@ -2,8 +2,8 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface BrickulateOptions extends FilterOptions {
 	horizontalSegs?: number;
@@ -13,6 +13,13 @@ export interface BrickulateOptions extends FilterOptions {
 }
 
 export class Brickulate extends Filter {
+	static override schema: FilterSchema = {
+		horizontalSegs: { type: 'int', label: 'Columns', min: 1, max: 20, step: 1, default: 4 },
+		verticalSegs: { type: 'int', label: 'Rows', min: 1, max: 20, step: 1, default: 4 },
+		grooveSize: { type: 'int', label: 'Groove size', min: 1, max: 20, step: 1, default: 5 },
+		offset: { type: 'bool', label: 'Offset rows', default: false }
+	};
+
 	override properties: {
 		horizontalSegs: number;
 		verticalSegs: number;
@@ -87,13 +94,5 @@ export class Brickulate extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-
-
-		return controls;
 	}
 }

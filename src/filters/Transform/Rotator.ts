@@ -5,14 +5,18 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import { Operations } from '../../helpers/Operations.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface RotatorOptions extends FilterOptions {
 	turns?: number;
 }
 
 export class Rotator extends Filter {
+	static override schema: FilterSchema = {
+		turns: { type: 'int', label: 'Turns', min: 0, max: 3, step: 1, default: 0, description: 'Quarter turns clockwise.' }
+	};
+
 	override properties: {
 		turns: number;
 	};
@@ -97,17 +101,5 @@ export class Rotator extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(-3, 3, 1, 'Turns', this.properties.turns);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('turns', controlValue(e));
-		});
-
-		return controls;
 	}
 }

@@ -2,14 +2,18 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface ContourerOptions extends FilterOptions {
 	contours?: number;
 }
 
 export class Contourer extends Filter {
+	static override schema: FilterSchema = {
+		contours: { type: 'int', label: 'Contours', min: 1, max: 20, step: 1, default: 10, description: 'How many height bands to split the map into.' }
+	};
+
 	override properties: {
 		contours: number;
 	};
@@ -88,17 +92,5 @@ export class Contourer extends Filter {
 		}
 		this.threshes[index] = i;
 		this.threshSets[index] = 255;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(1, 20, 1, 'contours', this.properties.contours);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('contours', controlValue(e));
-		});
-
-		return controls;
 	}
 }

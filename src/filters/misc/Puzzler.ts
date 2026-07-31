@@ -3,6 +3,7 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface PuzzlerOptions extends FilterOptions {
 	horizontalSegs?: number;
@@ -10,6 +11,11 @@ export interface PuzzlerOptions extends FilterOptions {
 }
 
 export class Puzzler extends Filter {
+	static override schema: FilterSchema = {
+		horizontalSegs: { type: 'int', label: 'Columns', min: 2, max: 16, step: 1, default: 4 },
+		verticalSegs: { type: 'int', label: 'Rows', min: 2, max: 16, step: 1, default: 4 }
+	};
+
 	override properties: {
 		horizontalSegs: number;
 		verticalSegs: number;
@@ -31,6 +37,22 @@ export class Puzzler extends Filter {
 			verticalSegs: options.verticalSegs || 4
 		};
 
+		this.shuffle();
+	}
+
+	//The grid is sized by the segment counts, so changing either invalidates it.
+	//Puzzler had no controls at all before, which is why nothing noticed - now
+	//that the schema declares the two counts, a control for them has to actually
+	//work.
+	override propertyChanged(key: string): void {
+		if(key === 'horizontalSegs' || key === 'verticalSegs'){
+			this.selected = null;
+			this.shuffle();
+		}
+	}
+
+	/** Builds the tile grid in order, then scrambles it. */
+	shuffle(): void {
 		this.swaps = [];
 		let count = 0;
 		for(let i = 0; i < this.properties.verticalSegs; i++){

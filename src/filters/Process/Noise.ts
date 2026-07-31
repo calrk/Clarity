@@ -2,8 +2,8 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface NoiseOptions extends FilterOptions {
 	intensity?: number;
@@ -11,6 +11,11 @@ export interface NoiseOptions extends FilterOptions {
 }
 
 export class Noise extends Filter {
+	static override schema: FilterSchema = {
+		intensity: { type: 'float', label: 'Intensity', min: 0, max: 100, step: 0.1, default: 1 },
+		monochromatic: { type: 'bool', label: 'Monochromatic', default: false }
+	};
+
 	override properties: {
 		intensity: number;
 		monochromatic: boolean;
@@ -47,23 +52,5 @@ export class Noise extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 100, 0.1, 'intensity', this.properties.intensity);
-		controls.appendChild(slider);
-		slider.getElementsByTagName('input')[0].addEventListener('change', (e: Event) => {
-			this.setFloat('intensity', controlValue(e));
-		});
-
-		let toggle = Interface.createToggle('monochromatic', this.properties.monochromatic);
-		controls.appendChild(toggle);
-		toggle.getElementsByTagName('input')[0].addEventListener('change', () => {
-			this.toggleBool('monochromatic');
-		});
-
-		return controls;
 	}
 }

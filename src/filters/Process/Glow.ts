@@ -3,8 +3,8 @@
 import { Filter } from '../../core/Filter.js';
 import { Blur } from './Blur.js';
 import { Blend } from '../DualInput/Blend.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface GlowOptions extends FilterOptions {
 	radius?: number;
@@ -14,6 +14,10 @@ export interface GlowOptions extends FilterOptions {
 //rather than touching a blur implementation directly, so swapping the blur
 //out (FEATURES.md #3) only has to change one filter.
 export class Glow extends Filter {
+	static override schema: FilterSchema = {
+		radius: { type: 'int', label: 'Radius', min: 1, max: 180, step: 1, default: 10 }
+	};
+
 	override properties: {
 		radius: number;
 	};
@@ -30,17 +34,5 @@ export class Glow extends Filter {
 		let blend = new Blend({ratio: 0.5}).process([frame, blur]);
 
 		return blend;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 180, 1, 'radius', this.properties.radius);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('radius', controlValue(e));
-		});
-
-		return controls;
 	}
 }

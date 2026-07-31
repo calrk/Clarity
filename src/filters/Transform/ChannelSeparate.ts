@@ -3,8 +3,8 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface ChannelSeparateOptions extends FilterOptions {
 	xdistance?: number;
@@ -13,6 +13,12 @@ export interface ChannelSeparateOptions extends FilterOptions {
 }
 
 export class ChannelSeparate extends Filter {
+	static override schema: FilterSchema = {
+		xdistance: { type: 'int', label: 'X distance', min: -100, max: 100, step: 1, default: 0 },
+		ydistance: { type: 'int', label: 'Y distance', min: -100, max: 100, step: 1, default: 0 },
+		fixed: { type: 'bool', label: 'Fixed', default: false, description: 'Pixels rather than a percentage of the frame.' }
+	};
+
 	override properties: {
 		xdistance: number;
 		ydistance: number;
@@ -123,29 +129,5 @@ export class ChannelSeparate extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let toggle = Interface.createToggle('fixed', this.properties.fixed);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('fixed');
-		});
-
-		let slider = Interface.createSlider(-100, 100, 1, 'xdistance', this.properties.xdistance);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('xdistance', controlValue(e));
-		});
-
-		slider = Interface.createSlider(-100, 100, 1, 'ydistance', this.properties.ydistance);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('ydistance', controlValue(e));
-		});
-
-		return controls;
 	}
 }

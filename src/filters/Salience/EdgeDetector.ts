@@ -2,14 +2,18 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface EdgeDetectorOptions extends FilterOptions {
 	fast?: boolean;
 }
 
 export class EdgeDetector extends Filter {
+	static override schema: FilterSchema = {
+		fast: { type: 'bool', label: 'Fast', default: false, description: 'Two-sample difference instead of the 3x3 kernel.' }
+	};
+
 	override properties: {
 		fast: boolean;
 	};
@@ -74,17 +78,5 @@ export class EdgeDetector extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let toggle = Interface.createToggle('fast', this.properties.fast);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('fast');
-		});
-
-		return controls;
 	}
 }

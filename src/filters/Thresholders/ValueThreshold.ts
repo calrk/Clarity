@@ -1,9 +1,10 @@
 //Value Threshold object
 
 import { Filter } from '../../core/Filter.js';
+import { CHANNEL_FIELD } from '../../core/schema.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface ValueThresholdOptions extends FilterOptions {
 	inverted?: boolean;
@@ -11,6 +12,12 @@ export interface ValueThresholdOptions extends FilterOptions {
 }
 
 export class ValueThreshold extends Filter {
+	static override schema: FilterSchema = {
+		inverted: { type: 'bool', label: 'Inverted', default: false },
+		threshold: { type: 'int', label: 'Threshold', min: 0, max: 255, step: 1, default: null, nullable: true, nullLabel: 'Auto', description: 'Auto derives the split from the frame each time.' },
+		channel: CHANNEL_FIELD
+	};
+
 	override properties: {
 		inverted: boolean;
 		/** `null` means "work it out from the frame each time". */
@@ -105,24 +112,5 @@ export class ValueThreshold extends Filter {
 			upper = 0;
 		}
 		return current;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let toggle = Interface.createToggle('Inverted', this.properties.inverted);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('inverted');
-		});
-
-		//null means auto, which the slider can't show - start it mid-range
-		let slider = Interface.createSlider(0, 255, 1, 'Threshold', this.properties.threshold ?? 128);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('threshold', controlValue(e));
-		});
-
-		return controls;
 	}
 }

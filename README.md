@@ -33,10 +33,10 @@ for (const filter of pipeline) {
 ctx.putImageData(frame, 0, 0);
 ```
 
-Each filter takes a typed options bag, and exposes `properties` for live tweaking
-plus `enabled` to bypass it without removing it from the chain. The two-input
-filters (`Add`, `Subtract`, `Blend`, `Mask`, `Multiply`) take
-`process([frameA, frameB])`.
+Each filter takes a typed options bag, exposes `enabled` to bypass it without
+removing it from the chain, and describes its own tweakable properties through a
+[schema](#property-schemas). The two-input filters (`Add`, `Subtract`, `Blend`,
+`Mask`, `Multiply`) take `process([frameA, frameB])`.
 
 A plain `<script>` build is also published, exposing everything on a `CLARITY`
 global:
@@ -48,19 +48,54 @@ global:
 </script>
 ```
 
+Property schemas
+----------------
+
+Every filter carries a `static schema` describing its properties — what each one
+means, and what values are legal:
+
+```js
+Blur.schema
+// { radius: { type: 'int', label: 'Radius', min: 1, max: 180, step: 1, default: 10 } }
+```
+
+Clarity ships **no UI code**. The schema is metadata, so build controls however
+you like — `examples/js/controls.js` is a ~90-line plain-DOM renderer that
+handles every filter, and a framework version is shorter still:
+
+```svelte
+{#each Object.entries(filter.schema) as [key, field]}
+	<label>{field.label}</label>
+	{#if field.type === 'bool'}
+		<input type="checkbox" checked={filter.getProperty(key)}
+			on:change={(e) => filter.setProperty(key, e.target.checked)}>
+	{:else}
+		<input type="range" min={field.min} max={field.max} step={field.step}
+			value={filter.getProperty(key)}
+			on:input={(e) => filter.setProperty(key, e.target.value)}>
+	{/if}
+{/each}
+```
+
+Always write through `setProperty`. It coerces per the schema, clamps to the
+declared range, and rebuilds any derived state — a DOM input hands back a
+*string*, so assigning to `properties` directly leaves you with `radius: "10"`,
+which works in some arithmetic and silently breaks the rest.
+
+Field types are `int`, `float`, `bool` and `select`. A numeric field may be
+`nullable`, meaning `null` is legal and stands for "derive this from the frame"
+— `ValueThreshold`'s auto mode is the one that uses it.
+
 ### Outside the browser
 
-Importing Clarity no longer needs a DOM. Node has no global `ImageData` though,
-so headless callers must supply one:
+Clarity has no DOM dependency at all. Node has no global `ImageData` though, so
+headless callers must supply one:
 
 ```js
 import { setImageDataFactory } from '@calrk/clarity';
 
 setImageDataFactory((w, h) => new MyImageData(w, h));
 ```
-
-The `Interface` helpers and every filter's `doCreateControls` still build real
-DOM nodes, so those remain browser-only.
 
 Development
 -----------

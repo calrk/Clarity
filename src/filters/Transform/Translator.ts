@@ -4,8 +4,8 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import { Operations } from '../../helpers/Operations.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface TranslatorOptions extends FilterOptions {
 	horizontal?: number;
@@ -13,6 +13,11 @@ export interface TranslatorOptions extends FilterOptions {
 }
 
 export class Translator extends Filter {
+	static override schema: FilterSchema = {
+		horizontal: { type: 'float', label: 'Horizontal', min: -1, max: 1, step: 0.01, default: 0.5, description: 'Fraction of the frame width, wrapping at the edges.' },
+		vertical: { type: 'float', label: 'Vertical', min: -1, max: 1, step: 0.01, default: 0.5, description: 'Fraction of the frame height, wrapping at the edges.' }
+	};
+
 	override properties: {
 		horizontal: number;
 		vertical: number;
@@ -60,23 +65,5 @@ export class Translator extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 1, 0.01, 'Vertical', this.properties.vertical);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('vertical', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 1, 0.01, 'Horizontal', this.properties.horizontal);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('horizontal', controlValue(e));
-		});
-
-		return controls;
 	}
 }

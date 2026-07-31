@@ -2,43 +2,50 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import { medianCut, nearestColourIndex } from '../../helpers/quantise.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 import type { RGBTriplet } from '../../helpers/quantise.js';
+
+export type PosteriserMethod = 'median' | 'fast';
 
 export interface PosteriserOptions extends FilterOptions {
 	/** Number of colours to quantise to. Ignored when `method` is `'fast'`. */
 	colours?: number;
 	/** `'fast'` selects the old fixed-threshold method instead of median cut. */
-	method?: 'fast';
+	method?: PosteriserMethod;
 }
 
 export class Posteriser extends Filter {
+	static override schema: FilterSchema = {
+		colours: { type: 'int', label: 'Colours', min: 1, max: 20, step: 1, default: 5, description: 'Palette size. Ignored by the fast method.' },
+		method: { type: 'select', label: 'Method', default: 'median', description: 'Median cut derives a palette from the image; fast snaps to fixed bands.', options: [{ value: 'median', label: 'Median cut' }, { value: 'fast', label: 'Fast' }] }
+	};
+
 	override properties: {
 		colours: number;
+		method: PosteriserMethod;
 	};
 	/** The palette from the most recent `doProcess`, once median cut has run. */
 	palette: RGBTriplet[] | undefined;
-	method: 'fast' | undefined;
 	threshes: number[] = [];
 	difference = 0;
 
 	constructor(options: PosteriserOptions = {}) {
 		super(options);
-		this.properties = { colours: options.colours ?? 5 };
+		//`method` used to be a bare field set only in the constructor, so it was
+		//not switchable at runtime and nothing could describe it. As a property
+		//it gets a control for free and can be flipped live - `oldMethod` builds
+		//its own thresholds, so nothing else has to be rebuilt.
+		this.properties = {
+			colours: options.colours ?? 5,
+			method: options.method ?? 'median'
+		};
 		this.palette = undefined;
-
-		this.method = options.method;
-		if(this.method == 'fast'){
-			this.threshes = [128, 256];
-			this.difference = 32;
-			this.setThresh(64);
-		}
 	}
 
 	override doProcess(frame: ImageData): ImageData {
-		if(this.method == 'fast'){
+		if(this.properties.method === 'fast'){
 			return this.oldMethod(frame);
 		}
 		let output = createImageData(frame.width, frame.height);
@@ -124,17 +131,5 @@ export class Posteriser extends Filter {
 			index ++;
 		}
 		this.threshes[index] = i;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(1, 20, 1, 'Colours', this.properties.colours);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('colours', controlValue(e));
-		});
-
-		return controls;
 	}
 }

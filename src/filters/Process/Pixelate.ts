@@ -2,14 +2,18 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface PixelateOptions extends FilterOptions {
 	size?: number;
 }
 
 export class Pixelate extends Filter {
+	static override schema: FilterSchema = {
+		size: { type: 'int', label: 'Block size', min: 1, max: 256, step: 1, default: 64 }
+	};
+
 	override properties: {
 		size: number;
 	};
@@ -59,17 +63,5 @@ export class Pixelate extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 256, 1, 'size', this.properties.size);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('size', controlValue(e));
-		});
-
-		return controls;
 	}
 }

@@ -3,14 +3,18 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface NormalGeneratorOptions extends FilterOptions {
 	intensity?: number;
 }
 
 export class NormalGenerator extends Filter {
+	static override schema: FilterSchema = {
+		intensity: { type: 'float', label: 'Intensity', min: 0, max: 3, step: 0.1, default: 0.5, description: 'How much the height differences tilt the normal.' }
+	};
+
 	override properties: {
 		intensity: number;
 	};
@@ -94,17 +98,6 @@ export class NormalGenerator extends Filter {
 		return output;
 	}
 
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 3, 0.1, 'intensity', this.properties.intensity);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('intensity', controlValue(e));
-		});
-
-		return controls;
-	}
 
 	generateNormal(centreIn: any, leftIn: any, rightIn: any, upIn: any, downIn: any) {
 		let vecs = [];

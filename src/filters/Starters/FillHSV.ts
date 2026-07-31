@@ -3,8 +3,8 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import { Operations } from '../../helpers/Operations.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface FillHSVOptions extends FilterOptions {
 	hue?: number;
@@ -15,6 +15,12 @@ export interface FillHSVOptions extends FilterOptions {
 }
 
 export class FillHSV extends Filter {
+	static override schema: FilterSchema = {
+		hue: { type: 'float', label: 'Hue', min: 0, max: 360, step: 1, default: 0 },
+		saturation: { type: 'float', label: 'Saturation', min: 0, max: 1, step: 0.01, default: 0 },
+		value: { type: 'float', label: 'Value', min: 0, max: 1, step: 0.01, default: 0 }
+	};
+
 	override properties: {
 		hue: number;
 		saturation: number;
@@ -43,29 +49,5 @@ export class FillHSV extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 360, 1, 'hue', this.properties.hue);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('hue', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 2, 0.1, 'saturation', this.properties.saturation);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('saturation', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.value);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('value', controlValue(e));
-		});
-
-		return controls;
 	}
 }

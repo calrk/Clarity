@@ -2,14 +2,18 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface NormalIntensityOptions extends FilterOptions {
 	intensity?: number;
 }
 
 export class NormalIntensity extends Filter {
+	static override schema: FilterSchema = {
+		intensity: { type: 'float', label: 'Intensity', min: 0, max: 2, step: 0.1, default: 0.5, description: 'Below 1 flattens the normal, above 1 exaggerates it.' }
+	};
+
 	override properties: {
 		intensity: number;
 	};
@@ -56,17 +60,5 @@ export class NormalIntensity extends Filter {
 			y: v.y/mag,
 			z: v.z/mag
 		}
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 2, 0.1, 'intensity', this.properties.intensity);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('intensity', controlValue(e));
-		});
-
-		return controls;
 	}
 }

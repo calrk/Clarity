@@ -3,12 +3,17 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface DotRemoverOptions extends FilterOptions {
 	neighboursReq?: number;
 }
 
 export class DotRemover extends Filter {
+	static override schema: FilterSchema = {
+		neighboursReq: { type: 'int', label: 'Neighbours required', min: 1, max: 8, step: 1, default: 1, description: 'A lit pixel with fewer lit neighbours than this is removed.' }
+	};
+
 	override properties: {
 		neighboursReq: number;
 	};

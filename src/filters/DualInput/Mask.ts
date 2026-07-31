@@ -1,9 +1,10 @@
 //Mask object
 
 import { Filter } from '../../core/Filter.js';
+import { CHANNEL_FIELD } from '../../core/schema.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface MaskOptions extends FilterOptions {
 	/** Mask value at or above which the first image shows through. */
@@ -22,6 +23,12 @@ export interface MaskOptions extends FilterOptions {
  * a thresholder or an edge detector and it behaves like a cookie cutter.
  */
 export class Mask extends Filter {
+	static override schema: FilterSchema = {
+		threshold: { type: 'int', label: 'Threshold', min: 0, max: 255, step: 1, default: 128, description: 'Mask values at or above this keep the first image.' },
+		inverted: { type: 'bool', label: 'Inverted', default: false },
+		channel: CHANNEL_FIELD
+	};
+
 	override properties: {
 		threshold: number;
 		inverted: boolean;
@@ -64,23 +71,5 @@ export class Mask extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 255, 1, 'threshold', this.properties.threshold);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('threshold', controlValue(e));
-		});
-
-		let toggle = Interface.createToggle('inverted', this.properties.inverted);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('inverted');
-		});
-
-		return controls;
 	}
 }

@@ -3,8 +3,8 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import { Operations } from '../../helpers/Operations.js';
-import { Interface } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 import type { YUV } from '../../helpers/Operations.js';
 
 export interface HanoverBarsOptions extends FilterOptions {
@@ -12,6 +12,10 @@ export interface HanoverBarsOptions extends FilterOptions {
 }
 
 export class HanoverBars extends Filter {
+	static override schema: FilterSchema = {
+		offset: { type: 'bool', label: 'Offset', default: false }
+	};
+
 	override properties: {
 		offset: boolean;
 	};
@@ -60,17 +64,6 @@ export class HanoverBars extends Filter {
 		return output;
 	}
 
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let toggle = Interface.createToggle('offset', this.properties.offset);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('offset');
-		});
-
-		return controls;
-	}
 
 	/** Rotates the chroma pair 30 degrees, for the offset variant. */
 	calcPair(A: YUV): YUV {

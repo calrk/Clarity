@@ -82,7 +82,7 @@ function init(){
 	}
 
 	for(var i = 0; i < normalFilters.length; i++){
-		var controls = normalFilters[i].filter.createControls(normalFilters[i].name);
+		var controls = ClarityControls.createControls(normalFilters[i].filter, normalFilters[i].name);
 		document.getElementById('controlsNorm').appendChild(controls);
 
 		controls.addEventListener('click', function(){
@@ -112,7 +112,7 @@ function init(){
 
 	//dodgy toggling things for this example
 	normalFilters[1].filter.toggleEnabled();
-	normalFilters[1].filter.toggleBool('red');
+	normalFilters[1].filter.toggleProperty('red');
 
 	textureNorm = new THREE.Texture();
 	render();
@@ -121,9 +121,9 @@ function init(){
 	loop();
 	
 	//dodgy toggling things for this example
-	normalFilters[0].filter.setFloat('intensity', 0.1);
+	normalFilters[0].filter.setProperty('intensity', 0.1);
 	normalFilters[1].filter.toggleEnabled();
-	normalFilters[1].filter.toggleBool('red');
+	normalFilters[1].filter.toggleProperty('red');
 	render();
 }
 

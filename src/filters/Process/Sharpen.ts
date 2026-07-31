@@ -2,14 +2,18 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface SharpenOptions extends FilterOptions {
 	intensity?: number;
 }
 
 export class Sharpen extends Filter {
+	static override schema: FilterSchema = {
+		intensity: { type: 'float', label: 'Intensity', min: 0, max: 3, step: 0.1, default: 1 }
+	};
+
 	override properties: {
 		intensity: number;
 	};
@@ -61,22 +65,19 @@ export class Sharpen extends Filter {
 		return output;
 	}
 
+	//The kernel is derived from `intensity`, so it has to be rebuilt when that
+	//changes. This used to sit in the slider's change handler, which meant
+	//setting `intensity` any other way left the kernel at its old value and the
+	//filter quietly ignored the change.
+	override propertyChanged(key: string): void {
+		if(key === 'intensity'){
+			this.makeKernel(this.properties.intensity);
+		}
+	}
+
 	makeKernel(intensity: number): void {
 		this.kernel = [ [ -intensity, -intensity, -intensity],
 					    [ -intensity,  8*intensity+1, -intensity],
 					    [ -intensity, -intensity, -intensity]];
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 3, 0.1, 'Intensity', this.properties.intensity);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setFloat('intensity', controlValue(e));
-			this.makeKernel(this.properties.intensity);
-		});
-
-		return controls;
 	}
 }

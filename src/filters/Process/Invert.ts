@@ -1,15 +1,21 @@
 //Invert object
 
 import { Filter } from '../../core/Filter.js';
+import { CHANNEL_FIELD } from '../../core/schema.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface InvertOptions extends FilterOptions {
 	dynamic?: boolean;
 }
 
 export class Invert extends Filter {
+	static override schema: FilterSchema = {
+		dynamic: { type: 'bool', label: 'Dynamic', default: false, description: 'Reflects within the image own range rather than around 128.' },
+		channel: CHANNEL_FIELD
+	};
+
 	override properties: {
 		dynamic: boolean;
 	};
@@ -58,17 +64,5 @@ export class Invert extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let toggle = Interface.createToggle('dynamic', this.properties.dynamic);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('dynamic');
-		});
-
-		return controls;
 	}
 }

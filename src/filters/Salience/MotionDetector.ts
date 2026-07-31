@@ -2,14 +2,18 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface MotionDetectorOptions extends FilterOptions {
 	frameCount?: number;
 }
 
 export class MotionDetector extends Filter {
+	static override schema: FilterSchema = {
+		frameCount: { type: 'int', label: 'Frame count', min: 1, max: 24, step: 1, default: 1, description: 'How many frames back to compare against.' }
+	};
+
 	override properties: {
 		frameCount: number;
 	};
@@ -47,6 +51,19 @@ export class MotionDetector extends Filter {
 		return output;
 	}
 
+	//Changing the buffer length invalidates the ring, so it is thrown away and
+	//refilled. This used to live in the slider handler; setting `frameCount`
+	//any other way left indices pointing into a differently-sized buffer.
+	override propertyChanged(key: string): void {
+		if(key === 'frameCount'){
+			this.frames = [];
+			this.index = 0;
+			//has to match the constructor: preindex starts at frameCount, not
+			//frameCount-1, or the first comparison comes out as a frame against itself
+			this.preindex = this.properties.frameCount;
+		}
+	}
+
 	pushFrame(frame: ImageData) {
 		//makes a new frame, then copies current frame data into it
 		this.frames[this.index] = createImageData(frame.width, frame.height);
@@ -63,23 +80,5 @@ export class MotionDetector extends Filter {
 		if(this.preindex > this.properties.frameCount){
 			this.preindex = 0;
 		}
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(1, 24, 1, 'Frame Count', this.properties.frameCount);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('frameCount', controlValue(e));
-
-			//has to match the constructor: preindex starts at frameCount, not
-			//frameCount-1, or the first comparison comes out as a frame against itself
-			this.index = 0;
-			this.preindex = this.properties.frameCount;
-			this.frames = [];
-		});
-
-		return controls;
 	}
 }

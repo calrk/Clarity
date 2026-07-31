@@ -3,8 +3,8 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface MirrorOptions extends FilterOptions {
 	Horizontal?: boolean;
@@ -12,6 +12,11 @@ export interface MirrorOptions extends FilterOptions {
 }
 
 export class Mirror extends Filter {
+	static override schema: FilterSchema = {
+		Horizontal: { type: 'bool', label: 'Horizontal', default: true },
+		Vertical: { type: 'bool', label: 'Vertical', default: false }
+	};
+
 	override properties: {
 		Horizontal: boolean;
 		Vertical: boolean;
@@ -56,23 +61,5 @@ export class Mirror extends Filter {
 		}
 
 		return output;
-	}
-
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let toggle = Interface.createToggle('Vertical', this.properties.Vertical);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('Vertical');
-		});
-
-		toggle = Interface.createToggle('Horizontal', this.properties.Horizontal);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('Horizontal');
-		});
-
-		return controls;
 	}
 }

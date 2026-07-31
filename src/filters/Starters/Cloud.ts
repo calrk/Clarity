@@ -2,8 +2,8 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Interface, controlValue } from '../../helpers/Interface.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { FilterSchema } from '../../core/schema.js';
 
 export interface CloudOptions extends FilterOptions {
 	red?: number;
@@ -15,6 +15,15 @@ export interface CloudOptions extends FilterOptions {
 }
 
 export class Cloud extends Filter {
+	static override schema: FilterSchema = {
+		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 0 },
+		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 0 },
+		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 0 },
+		linear: { type: 'bool', label: 'Linear', default: false },
+		iterations: { type: 'int', label: 'Iterations', min: 1, max: 10, step: 1, default: 4, description: 'Octaves of value noise.' },
+		initialSize: { type: 'int', label: 'Initial size', min: 1, max: 16, step: 1, default: 4, description: 'Grid size of the coarsest octave.' }
+	};
+
 	override properties: {
 		red: number;
 		green: number;
@@ -116,47 +125,6 @@ export class Cloud extends Filter {
 		return output;
 	}
 
-	override doCreateControls(): HTMLElement {
-		let controls = Interface.createDiv();
-
-		let slider = Interface.createSlider(0, 255, 1, 'red', this.properties.red);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('red', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 255, 1, 'green', this.properties.green);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('green', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 255, 1, 'blue', this.properties.blue);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('blue', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 10, 1, 'iterations', this.properties.iterations);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('iterations', controlValue(e));
-		});
-
-		slider = Interface.createSlider(0, 16, 1, 'Initial Size', this.properties.initialSize);
-		controls.appendChild(slider);
-		slider.addEventListener('change', (e: Event) => {
-			this.setInt('initialSize', controlValue(e));
-		});
-
-		let toggle = Interface.createToggle('linear', this.properties.linear);
-		controls.appendChild(toggle);
-		toggle.addEventListener('change', () => {
-			this.toggleBool('linear');
-		});
-
-		return controls;
-	}
 
 	linearInterpolate(min: any, max: any, x: any) {
 		return min+(max-min)*x;
