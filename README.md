@@ -72,8 +72,30 @@ npm run typecheck
 npm test
 ```
 
-`dist/` is generated and not committed - the examples load it, so run
-`npm run build` once after cloning.
+`dist/` is generated and not committed - the examples load it, and the tests run
+against it, so run `npm run build` once after cloning.
+
+### Tests
+
+Filter output is pinned by golden images in `test/golden/`, one per case,
+compared exactly. Filters that use randomness or time take injectable `random`
+and `now` options so their output is reproducible:
+
+```js
+import { Noise, seededRandom } from '@calrk/clarity';
+
+new Noise({ intensity: 40, random: seededRandom(1) });   // same result every run
+```
+
+```sh
+npm run test:golden           # goldens only
+npm run test:update-golden    # regenerate them, then review the diff before committing
+npm run test:fixtures         # regenerate the input images in test/fixtures/
+```
+
+When a golden fails, the actual output and a visual diff are written to
+`test/output/`. Never regenerate a golden to make a test pass without looking at
+what changed.
 
 Licence
 -------

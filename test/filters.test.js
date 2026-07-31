@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import * as CLARITY from '../dist/clarity.js';
+import { filterNames as detectFilters } from './helpers/exports.js';
 
 // Node has no global ImageData, so hand Clarity a factory for headless use.
 class NodeImageData {
@@ -58,15 +59,10 @@ function sameHistogram(a, b) {
 }
 
 const DUAL_INPUT = new Set(['AddSub', 'Blend', 'Mask', 'Multiply']);
-const NOT_FILTERS = new Set([
-	'Filter', 'Interface', 'Operations', 'Pixel',
-	'createImageData', 'cloneImageData', 'fillAlpha', 'setImageDataFactory',
-	'controlValue', 'medianCut', 'nearestColourIndex'
-]);
 
-const filterNames = Object.keys(CLARITY).filter(
-	(n) => !NOT_FILTERS.has(n) && typeof CLARITY[n] === 'function'
-);
+// derived from the prototype chain, so exporting a new helper can't be
+// mistaken for a filter - see helpers/exports.js
+const filterNames = detectFilters();
 
 test('the bundle exports every filter', () => {
 	assert.equal(filterNames.length, 41);

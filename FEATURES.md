@@ -88,6 +88,12 @@ Prerequisite for basically everything below.
 
 **Effort: High** *(depends on #2; much easier after #1)*
 
+> **Decided:** target **WebGL2 first, WebGPU later**, and keep the **CPU path permanently** as a first-class fallback rather than scaffolding to be deleted after the port.
+>
+> WebGL2 is universal — Firefox and older Safari included — and it is testable headlessly through SwiftShader, which WebGPU is not yet. The reduction-shaped filters (median threshold, histogram) stay awkward until the WebGPU compute path arrives; that is the accepted cost.
+>
+> Keeping both paths means every filter is implemented twice, forever. The honest risk is that the CPU side rots while nobody looks at it, so the parity tests in #6 are not a nice-to-have — they are the mechanism that stops the two drifting. A new filter is not done until both paths exist and agree.
+
 The headline. Today every filter is a JS loop over `ImageData`; a 1080p frame is 8.3M array writes per filter per frame, and a five-filter chain on a webcam feed is unwatchable. The README's own to-do list has said "Add WebGL function to each filter to improve performance" since 2014.
 
 The design that fits Clarity's existing shape: **keep the pipeline, swap the executor.** Each filter already declares `doProcess(frame)` + `properties`; add a parallel GPU declaration:
@@ -172,17 +178,61 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 ---
 
-## 6. Test Suite — Golden Images
+## ~~6. Test Suite — Golden Images~~ ✓
 
 **Effort: Medium** *(depends on #2)*
 
-There are zero tests. For an image library the natural form is **golden-image regression**: run each filter over a small fixed input PNG at fixed options, compare against a committed reference with a per-pixel tolerance, and write a diff image on failure. Vitest + `pixelmatch` + `node-canvas` (or `@napi-rs/canvas`) covers it.
+**Done.** 130 passing tests, plus 57 GPU-parity cases skipping until #3 lands a backend.
 
-Value is concentrated in three places:
+- **57 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
+- **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
+- **Six fixtures** at 64×48 (photographic, hard-edged, height map, alpha, a second input for the dual-input filters) plus one at **33×25** for the boundary cases — `Pixelate` walks `size` down until it divides the height, `Tiler` steps by 2, and the whole #1 sweep was off-by-ones at edges.
+- **`test/gpu-parity.test.js`** is the comparison-B harness, written and wired but skipping. #3 only has to implement two functions in it: `gpuBackendAvailable()` and `runOnGPU()`. Its non-skipped assertions still run, so the cases list and comparison logic can't rot before the backend arrives.
+- **Per-case comparison metadata** lives in `test/helpers/cases.js`, tagged `POINTWISE` (±1), `KERNEL` (±2), `ACCUMULATING` (±3) or `BOUNDARY` (at most 2% of pixels may differ *at all*) — the last for thresholders, where a per-channel tolerance is meaningless because a one-unit input difference flips a pixel between 0 and 255.
+- `npm run test:golden`, `test:update-golden` and `test:fixtures` added.
 
-- It's the only way to refactor 41 filters to ESM (#2) with any confidence.
-- It's the **acceptance criterion for #3** — a GPU filter is "done" when its output matches the CPU reference within tolerance. Without this, porting 41 filters to GLSL is guesswork.
-- Pure-maths helpers (`Operations.RGBtoHSV`/`HSVtoRGB` round-trips, `Pixel`, `clamp`, `colourDistance`) are trivially unit-testable and would have caught most of #1 outright.
+One incidental fix: the "which exports are filters" check is now derived from the prototype chain (`value.prototype instanceof Filter`) rather than a hand-maintained denylist. The denylist silently misclassified each new helper export as a filter — it broke three times while building this.
+
+### Original write-up
+
+#2 added 68 tests, but they assert *properties* (no NaN, opaque alpha, output is a permutation of its input). Nothing pins down what a filter's output actually looks like. That's what this adds.
+
+### Two comparisons, deliberately separate
+
+- **A — CPU vs a committed golden PNG.** Catches unintended changes to CPU behaviour. The reference lives in git.
+- **B — GPU vs CPU, computed live in the same run.** Catches a shader disagreeing with the reference implementation. No stored file: the CPU path *is* the oracle.
+
+Folding B into A — storing the CPU result and diffing the GPU against the file — looks simpler but collapses two failure modes into one. Legitimately change a CPU filter and you regenerate the golden, at which point the GPU test fails for a reason unrelated to the GPU. Kept apart, each failure points at exactly one cause, and A still pins B transitively. Given the decision in #3 to keep both paths permanently, **B is the mechanism that stops the CPU path rotting**, so it stays after the port is finished.
+
+### Prerequisite: five filters aren't deterministic
+
+Nothing can be goldened until these are seedable:
+
+- **`Cloud`** — `Math.random()` per grid cell
+- **`Noise`** — `Math.random()` per pixel
+- **`Puzzler`** — shuffles in the constructor
+- **`Wave`** — phase from `performance.now()`
+- **`MotionDetector` / `Ghoster` / `DifferenceDetector`** — output depends on frames already seen, so their fixture is a frame *sequence*, not one image
+
+So `Filter` needs injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus a small seeded PRNG. This is the first piece of work, not a detail.
+
+### Tolerance has to be per-filter
+
+GPU output can't be bit-exact — 8-bit framebuffer rounding, `mediump` against JS doubles. But one global tolerance doesn't fit:
+
+- pointwise (Invert, Desaturate, HSV Shift) — ±1 per channel
+- accumulating (Blur, Glow, Smoother) — ±2–3
+- **thresholders, `DotRemover`, `SkinDetector` — per-pixel tolerance is meaningless.** A pixel on the boundary flips 0 ↔ 255 from a one-unit input difference, so a tight tolerance fails a correct shader and a loose one hides real bugs. These need a different metric: *at most N% of pixels may differ at all*.
+
+So tolerance and comparison mode belong in each filter's fixture definition.
+
+### Fixtures
+
+Not one image — a small set at ~64×48 so diffs stay reviewable: a photographic gradient, a hard-edged synthetic (edges and thresholds), a height map, one with real alpha, and one at **odd dimensions**. That last matters given #1: `Tiler` steps by 2, `Pixelate` does `while(height % size != 0) size--`, and the Mirror/Brickulate bugs were all boundary off-by-ones. Dual-input filters need a second image.
+
+`pngjs` for decode/encode (pure JS, no native build on Windows) and `pixelmatch` for diffing; `setImageDataFactory` from #2 is already the hook.
+
+**Honest caveat:** the GPU half of B is awkward in CI, since headless runners have no real GPU. Either drive SwiftShader through headless Chrome or accept that B runs locally only — worth deciding before building the harness rather than after.
 
 ---
 
@@ -371,7 +421,7 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | ✓ | Correctness sweep | Low | Done — 4 crashing filters revived, 31→40 of 41 clean |
 | ✓ | ESM + Vite + publishable package | Medium | Done — TS classes, 3 bundles, types, `npm test`; found 3 more bugs |
 | ✓ | Licensing / replace GPL MCut | Low–Med | Done — MIT, no GPL code, quantiser 2-21x faster |
-| 6 | Golden-image test suite | Medium | High — the acceptance criterion for the GPU port |
+| ✓ | Golden-image test suite | Medium | Done — 57 goldens, determinism plumbing, GPU parity harness ready |
 | 4 | `Renderer` / pipeline object | Medium | High — kills seven copies of the same loop; home for FBO ping-pong |
 | 8 | Declarative filter schemas | Medium | High — removes ~600 lines, fixes the dead sliders, feeds #3/#5/#6/#11 |
 | 3 | GPU shader backend | High | Highest payoff, highest cost — do it in the three tiers, not in one go |
@@ -381,6 +431,6 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | 12 | Pipeline fusion | High | Medium — big for UV-transform chains and weak GPUs; also fixes 8-bit precision loss. Classification metadata in #3, compiler later |
 | 10 | CPU path modernisation | Medium | Low–Medium — mostly superseded by #3; cherry-pick the allocation fix |
 
-**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → **6** → 4/8 → 3 (tier by tier) → 5 → 9/11 → 12.
+**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → **4/8** → 3 (tier by tier) → 5 → 9/11 → 12.
 
 *More features to be added.*

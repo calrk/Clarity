@@ -36,9 +36,14 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:golden": "node --test test/golden.test.js",
+    "test:update-golden": "node --test test/golden.test.js -- --update",
+    "test:fixtures": "node test/helpers/make-fixtures.js"
   },
   "devDependencies": {
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vite-plugin-dts": "^4.4.0"

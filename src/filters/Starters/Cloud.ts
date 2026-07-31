@@ -57,7 +57,7 @@ export class Cloud extends Filter {
 			for(let i = 0; i < size; i++){
 				values[i] = [];
 				for(let j = 0; j < size; j++){
-					values[i][j] = Math.round(Math.random()*255);
+					values[i][j] = Math.round(this.random()*255);
 				}
 			}
 

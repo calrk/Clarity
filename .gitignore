@@ -8,3 +8,6 @@ dist
 
 # codemod scratch
 .codemod-manifest.json
+
+# actual/diff images written when a golden test fails
+test/output

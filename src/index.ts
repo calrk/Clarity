@@ -8,6 +8,8 @@
 export { Filter } from './core/Filter.js';
 export type { FilterOptions, FilterProperties, Channel } from './core/Filter.js';
 export { createImageData, cloneImageData, fillAlpha, setImageDataFactory } from './core/imagedata.js';
+export { seededRandom, defaultClock } from './core/random.js';
+export type { RandomSource, Clock } from './core/random.js';
 export { Operations } from './helpers/Operations.js';
 export type { RGB, YUV } from './helpers/Operations.js';
 export { Pixel } from './helpers/Pixel.js';

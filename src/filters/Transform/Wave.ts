@@ -44,9 +44,9 @@ export class Wave extends Filter {
 
 		let output = createImageData(frame.width, frame.height);
 
-		//performance.now() climbs monotonically. The old Date().getMilliseconds()
+		//this.now() climbs monotonically. The old Date().getMilliseconds()
 		//wrapped at 1000ms, so the phase snapped back once every second.
-		let phase = ((performance.now()/1000)*Math.PI*2)*this.properties.speed;
+		let phase = ((this.now()/1000)*Math.PI*2)*this.properties.speed;
 
 		//hoisted out of the inner loop - each is a function of one axis only
 		let xOffsets = [];

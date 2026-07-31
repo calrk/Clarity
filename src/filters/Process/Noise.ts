@@ -29,18 +29,18 @@ export class Noise extends Filter {
 
 		for(let i = 0; i < frame.width*frame.height*4; i+=4){
 			if(this.properties.monochromatic){
-				let random = Math.round(2*(Math.random()-0.5)*this.properties.intensity);
+				let random = Math.round(2*(this.random()-0.5)*this.properties.intensity);
 				// let col = Operations.RGBtoHSV([frame.data[i], frame.data[i+1], frame.data[i+2]]);
-				// col[2] += Operations.clamp((Math.random()-0.5)*2, 0, 1);
+				// col[2] += Operations.clamp((this.random()-0.5)*2, 0, 1);
 				// col = Operations.HSVtoRGB([col[0], col[1], col[2]]);
 				output.data[i  ] = frame.data[i  ] + random;
 				output.data[i+1] = frame.data[i+1] + random;
 				output.data[i+2] = frame.data[i+2] + random;
 			}
 			else{
-				output.data[i  ] = frame.data[i  ] + 2*(Math.random()-0.5)*this.properties.intensity;
-				output.data[i+1] = frame.data[i+1] + 2*(Math.random()-0.5)*this.properties.intensity;
-				output.data[i+2] = frame.data[i+2] + 2*(Math.random()-0.5)*this.properties.intensity;
+				output.data[i  ] = frame.data[i  ] + 2*(this.random()-0.5)*this.properties.intensity;
+				output.data[i+1] = frame.data[i+1] + 2*(this.random()-0.5)*this.properties.intensity;
+				output.data[i+2] = frame.data[i+2] + 2*(this.random()-0.5)*this.properties.intensity;
 			}
 
 			output.data[i+3] = 255;

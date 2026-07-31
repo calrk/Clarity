@@ -41,10 +41,10 @@ export class Puzzler extends Filter {
 		}
 
 		for(let i = 0; i < 10*(this.properties.verticalSegs+this.properties.horizontalSegs)/2; i++){
-			let a = Math.floor(Math.random()*this.properties.verticalSegs);
-			let b = Math.floor(Math.random()*this.properties.horizontalSegs);
-			let c = Math.floor(Math.random()*this.properties.verticalSegs);
-			let d = Math.floor(Math.random()*this.properties.horizontalSegs);
+			let a = Math.floor(this.random()*this.properties.verticalSegs);
+			let b = Math.floor(this.random()*this.properties.horizontalSegs);
+			let c = Math.floor(this.random()*this.properties.verticalSegs);
+			let d = Math.floor(this.random()*this.properties.horizontalSegs);
 			let temp = this.swaps[a][b];
 			this.swaps[a][b] = this.swaps[c][d];
 			this.swaps[c][d] = temp;

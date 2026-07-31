@@ -1,4 +1,6 @@
 import { Interface } from '../helpers/Interface.js';
+import { defaultClock } from './random.js';
+import type { Clock, RandomSource } from './random.js';
 
 /** Channel selectors accepted by `getColourValue`. */
 export type Channel =
@@ -12,6 +14,16 @@ export interface FilterOptions {
 	channel?: Channel;
 	/** Start disabled - `process` then passes the frame straight through. */
 	enabled?: boolean;
+	/**
+	 * Randomness source for filters that need it. Defaults to `Math.random`.
+	 * Pass {@link seededRandom} to make output reproducible.
+	 */
+	random?: RandomSource;
+	/**
+	 * Clock for time-varying filters. Defaults to `performance.now`. Pass a
+	 * fixed function to freeze animation for a screenshot or a test.
+	 */
+	now?: Clock;
 }
 
 /**
@@ -32,9 +44,15 @@ export class Filter {
 	enabled: boolean;
 	properties: FilterProperties = {};
 
+	/** Injectable so filter output can be made reproducible - see FEATURES.md #6. */
+	random: RandomSource;
+	now: Clock;
+
 	constructor(options: FilterOptions = {}) {
 		this.channel = options.channel ?? 'grey';
 		this.enabled = options.enabled !== false;
+		this.random = options.random ?? Math.random;
+		this.now = options.now ?? defaultClock;
 	}
 
 	process(frame: ImageData | ImageData[]): ImageData {
