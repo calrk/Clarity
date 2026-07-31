@@ -18,6 +18,18 @@ Three notes on judgement calls made along the way:
 - **`Cloud` still emits alpha `(red+green+blue)/3`** rather than 255, so with default options it produces a fully transparent image. That looks deliberate (alpha tracking the requested colour, for the WebGL-Material texture use), so it was left alone — but it's worth a decision.
 - **`Rotator`'s non-square cropping** is still approximate. The 90°/180°/270° mapping is now correct and the operator-precedence bug is fixed, but the offset/crop path for non-square frames applies its offset to both axes and needs a proper rewrite.
 
+**A second round of fixes came out of the contact sheet in #6** — which is the point of building it. Reading a filter is a poor way to find out whether it works; looking at 56 before/after pairs found five things in a minute that the headless smoke tests, the behavioural assertions and the golden suite had all passed clean:
+
+- **`Posteriser`'s fast path rendered an empty canvas.** It stepped `i += 4` while guarding with `(i+1) % 4 == 0` — a test that only makes sense stepping one byte at a time, and which is therefore permanently false. The alpha branch never ran, so alpha stayed 0; green and blue were never written either.
+- **`Pixelate` wrapped at the right edge.** It shrank `size` until it divided the frame *height*, which says nothing about the width, so on a 33-wide frame the last block sampled one pixel past the end of the row and picked up the *next row's* first pixel. Now a clamped gather, which also honours the requested block size instead of quietly reducing it.
+- **`Tiler` had the same bug, plus a cross down the middle.** Scattering from 2×2 blocks meant an odd frame read past the end of a row and past the end of the buffer, and both halves landed on the centre row and column, writing them twice. Rewritten as a clamped gather; `Tiler.png` on the even fixture is byte-identical, which proves the rewrite equivalent where the old code was already right.
+- **`Mask` was inverted** — it kept the image where the mask was *dark*. Flipped, and it now goes through `getColourValue` so the `channel` option applies and a coloured mask behaves sensibly. The obvious follow-up question is why it exists at all when `Multiply` is right there — the answer is that the old README description ("a simple implementation of multiply") was simply wrong. `Mask` has a hard cut-off, `Multiply` is continuous: a 50% grey mask over a value of 200 gives 200-or-0 under `Mask` and 100 under `Multiply`. Both are worth having; the docs now say so, and `threshold`/`inverted` options make the stencil properly controllable.
+- **The `grey` channel wasn't exact.** The Rec. 601 red weight was `0.2989`, so the weights summed to `0.9999` and a neutral grey read back fractionally darker. Correcting it to `0.299` isn't enough either — that doesn't sum to 1 in binary floating point — so it now scales by 1000 and divides once, `299 + 587 + 114` being exactly `1000`. Six goldens moved by a single unit; nothing with a hard boundary changed. This is precisely the class of bug that only bites at a decision boundary, which is where it was found: a mask of exactly 128 fell on the wrong side of a threshold of 128.
+
+Two structural changes came with them. **`AddSub` is now `Add` and `Subtract`** — a boolean that switches which operation runs is two filters wearing one coat, and splitting it keeps the shader path branch-free and the #12 fusion groups monomorphic. **`LIFX` is deleted**, along with its example, cases and goldens.
+
+`DotRemover` was also flagged, but the filter was fine and the *fixture* was wrong: it's a clean-up pass for thresholded output, so a continuous-tone photo gave it nothing to do. It now runs on a binary fixture with salt-and-pepper specks. Expect it to be superseded by proper morphological bloat/erode in #9.
+
 Original findings, for the record:
 
 - **`DifferenceDetector` is dead code.** `src/filters/misc/DifferenceDetector.js:23` calls the bare `findDifference(colour2, colour1)` instead of `this.findDifference(...)` — a `ReferenceError` on the first non-null frame. This is exactly why the README says "(not working)". One `this.` fixes it. (It also stores `this.original = frame` **by reference**; the caller's `ImageData` gets mutated downstream, so the reference frame drifts. Copy it.)
@@ -182,14 +194,16 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** 130 passing tests, plus 57 GPU-parity cases skipping until #3 lands a backend.
+**Done.** 133 passing tests, plus 56 GPU-parity cases skipping until #3 lands a backend.
 
-- **57 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
+- **56 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
-- **Six fixtures** at 64×48 (photographic, hard-edged, height map, alpha, a second input for the dual-input filters) plus one at **33×25** for the boundary cases — `Pixelate` walks `size` down until it divides the height, `Tiler` steps by 2, and the whole #1 sweep was off-by-ones at edges.
+- **Eight fixtures** at 64×48 (photographic, hard-edged, height map, alpha, a second input for the dual-input filters, a binary image with salt-and-pepper specks for `DotRemover`, and a near-identical pair for the frame-differencing filters) plus one at **33×25** for the boundary cases — `Pixelate` walked `size` down until it divided the height, `Tiler` stepped by 2, and the whole #1 sweep was off-by-ones at edges. That 33×25 fixture earned its keep twice over: both `Pixelate` and `Tiler` were visibly wrong on it.
 - **`test/gpu-parity.test.js`** is the comparison-B harness, written and wired but skipping. #3 only has to implement two functions in it: `gpuBackendAvailable()` and `runOnGPU()`. Its non-skipped assertions still run, so the cases list and comparison logic can't rot before the backend arrives.
 - **Per-case comparison metadata** lives in `test/helpers/cases.js`, tagged `POINTWISE` (±1), `KERNEL` (±2), `ACCUMULATING` (±3) or `BOUNDARY` (at most 2% of pixels may differ *at all*) — the last for thresholders, where a per-channel tolerance is meaningless because a one-unit input difference flips a pixel between 0 and 255.
 - `npm run test:golden`, `test:update-golden` and `test:fixtures` added.
+- **`npm run test:sheet`** builds `test/contact-sheet/index.html` — one self-contained page with every case's before and after side by side, what the filter does, what you should be able to see, and the percentage of pixels it actually changed. Anything changing 0% is flagged. This turned out to be the highest-value part of the whole suite: it found five real bugs the assertions and goldens had all passed clean, because a golden only tells you output *changed*, never that it was ever right. See #1 for the list.
+- **Cases can declare a `pre` chain** — filters run over the fixture before the case's own. `NormalIntensity` and `NormalFlip` want a normal map, not a height map, so they were being tested against an input that made their output meaningless; they now run on `NormalGenerator`'s output, and the sheet shows the prepared frame as the "before" image. Declaring the pipeline beats committing a derived fixture, which would go stale silently when its producer changed.
 
 One incidental fix: the "which exports are filters" check is now derived from the prototype chain (`value.prototype instanceof Filter`) rather than a hand-maintained denylist. The denylist silently misclassified each new helper export as a filter — it broke three times while building this.
 
@@ -421,7 +435,7 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | ✓ | Correctness sweep | Low | Done — 4 crashing filters revived, 31→40 of 41 clean |
 | ✓ | ESM + Vite + publishable package | Medium | Done — TS classes, 3 bundles, types, `npm test`; found 3 more bugs |
 | ✓ | Licensing / replace GPL MCut | Low–Med | Done — MIT, no GPL code, quantiser 2-21x faster |
-| ✓ | Golden-image test suite | Medium | Done — 57 goldens, determinism plumbing, GPU parity harness ready |
+| ✓ | Golden-image test suite | Medium | Done — 56 goldens, contact sheet, determinism plumbing, GPU parity harness ready |
 | 4 | `Renderer` / pipeline object | Medium | High — kills seven copies of the same loop; home for FBO ping-pong |
 | 8 | Declarative filter schemas | Medium | High — removes ~600 lines, fixes the dead sliders, feeds #3/#5/#6/#11 |
 | 3 | GPU shader backend | High | Highest payoff, highest cost — do it in the three tiers, not in one go |
