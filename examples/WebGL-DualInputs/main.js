@@ -194,7 +194,7 @@ function brick(ctx){
 	mortar = new CLARITY.Brickulate({verticalSegs: 8, offset: true}).process(frame2);
 	mortar = multiplier.process([mortarfill, mortar]);
 
-	frame1 = new CLARITY.AddSub().process([frame1, mortar]);
+	frame1 = new CLARITY.Add().process([frame1, mortar]);
 
 	frame1 = new CLARITY.Puzzler().process(frame1);
 

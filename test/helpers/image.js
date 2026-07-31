@@ -20,11 +20,16 @@ export function readPNG(path) {
 	return image;
 }
 
-export function writePNG(path, image) {
-	mkdirSync(dirname(path), { recursive: true });
+/** PNG bytes for an ImageData, for callers that want it in memory rather than on disk. */
+export function encodePNG(image) {
 	const png = new PNG({ width: image.width, height: image.height });
 	png.data.set(image.data);
-	writeFileSync(path, PNG.sync.write(png));
+	return PNG.sync.write(png);
+}
+
+export function writePNG(path, image) {
+	mkdirSync(dirname(path), { recursive: true });
+	writeFileSync(path, encodePNG(image));
 }
 
 export function exists(path) {

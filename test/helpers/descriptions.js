@@ -8,18 +8,22 @@
 
 export const descriptions = {
 	// --- Dual input ---
-	AddSub: {
-		summary: 'Adds the second image to the first, or subtracts it.',
-		look: 'The disc region should blow out to white (add) or crush to black (subtract).'
+	Add: {
+		summary: 'Adds the second image to the first, clamping at white.',
+		look: 'The disc region blows out to white; the dark surround barely lifts the photo.'
+	},
+	Subtract: {
+		summary: 'Subtracts the second image from the first, clamping at black.',
+		look: 'The disc region crushes to black; the dark surround barely dims the photo.'
 	},
 	Blend: {
 		summary: 'Weighted mix of two images.',
 		look: 'Both images visible at once; at ratio 0.35 the disc dominates.'
 	},
 	Mask: {
-		summary: 'Keeps the first image only where the mask image is dark.',
-		look: 'The disc is black and everything around it survives.',
-		note: 'Inverted relative to the README, which says "white is shown and black is not" and calls this an implementation of multiply - where white should mean keep. Worth deciding which is right.'
+		summary: 'Binary stencil - keeps the first image where the mask is light, blacks it out where the mask is dark.',
+		look: 'The photo survives inside the white disc and everything around it is black. Inverted swaps which side is kept.',
+		note: 'Not the same as Multiply, despite the old README calling it one. Mask has a hard cut-off at the threshold, so a pixel is either fully kept or fully dropped; Multiply is continuous, so a 50% grey mask halves the image instead.'
 	},
 	Multiply: {
 		summary: 'Multiplies the two images together, channel by channel.',
@@ -33,7 +37,7 @@ export const descriptions = {
 	},
 	NormalFlip: {
 		summary: 'Flips or swaps the X/Y axes of a normal map.',
-		look: 'Colours shift channel-wise; the surface structure stays put.'
+		look: 'Compared to the generated normal map on the left, the red and green channels have traded places and red is inverted - the surface structure stays exactly where it was.'
 	},
 	NormalGenerator: {
 		summary: 'Derives a tangent-space normal map from a height map.',
@@ -41,7 +45,7 @@ export const descriptions = {
 	},
 	NormalIntensity: {
 		summary: 'Strengthens or weakens the X/Y tilt of an existing normal map.',
-		look: 'Same structure, more or less colour saturation away from neutral.'
+		look: 'Same structure as the generated normal map on the left, pushed further from neutral lilac on the slopes.'
 	},
 
 	// --- Process ---
@@ -157,8 +161,8 @@ export const descriptions = {
 		note: 'On a non-square frame the crop path is still approximate - see FEATURES.md #1. Expect a cropped region rather than a clean rotation here.'
 	},
 	Tiler: {
-		summary: 'Tiles the image so its edges line up seamlessly.',
-		look: 'Four mirrored quadrants meeting without a visible seam.'
+		summary: 'Mirrors the image into four quadrants, so opposite edges match and the result tiles seamlessly.',
+		look: 'Four mirrored quadrants meeting without a visible seam - and, critically, no bright cross down the centre rows and columns.'
 	},
 	Translator: {
 		summary: 'Shifts the image by a percentage, wrapping at the edges.',
@@ -182,10 +186,6 @@ export const descriptions = {
 		summary: 'Onion-skins the last N frames together, weighted towards the newest.',
 		look: 'The newest frame dominant with earlier ones faintly behind it.'
 	},
-	LIFX: {
-		summary: 'Finds the average position of bright pixels and maps it to a colour, for driving a lamp.',
-		look: 'Bright regions recoloured to a single hue, everything else black. Field mode shows the UV colour space instead.'
-	},
 	Puzzler: {
 		summary: 'Scrambles the image into shuffled tiles.',
 		look: 'Rectangular tiles rearranged. Every tile from the input should appear exactly once.'
@@ -194,7 +194,7 @@ export const descriptions = {
 
 /** Directory each filter lives in, used to group the sheet. */
 export const categories = {
-	AddSub: 'Dual Input', Blend: 'Dual Input', Mask: 'Dual Input', Multiply: 'Dual Input',
+	Add: 'Dual Input', Subtract: 'Dual Input', Blend: 'Dual Input', Mask: 'Dual Input', Multiply: 'Dual Input',
 	Contourer: 'Height Map', NormalFlip: 'Height Map', NormalGenerator: 'Height Map', NormalIntensity: 'Height Map',
 	Bleed: 'Process', Blur: 'Process', Desaturate: 'Process', DotRemover: 'Process', Glow: 'Process',
 	HanoverBars: 'Process', Invert: 'Process', Noise: 'Process', Pixelate: 'Process', Posteriser: 'Process',
@@ -204,7 +204,7 @@ export const categories = {
 	GradientThreshold: 'Thresholders', MedianThreshold: 'Thresholders', ValueThreshold: 'Thresholders',
 	ChannelSeparate: 'Transform', Mirror: 'Transform', Rotator: 'Transform', Tiler: 'Transform',
 	Translator: 'Transform', Wave: 'Transform',
-	Brickulate: 'Misc', DifferenceDetector: 'Misc', Ghoster: 'Misc', LIFX: 'Misc', Puzzler: 'Misc'
+	Brickulate: 'Misc', DifferenceDetector: 'Misc', Ghoster: 'Misc', Puzzler: 'Misc'
 };
 
 export const CATEGORY_ORDER = [

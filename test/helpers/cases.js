@@ -7,6 +7,11 @@
 //              that use randomness or time get `seed` / `now`, which the runner
 //              turns into an injected RandomSource / Clock.
 //
+//   pre      - optional chain of filters run over the fixture first, for filters
+//              that only make sense downstream of another one. Same shape as a
+//              case. The contact sheet shows the prepared frame as the "before"
+//              image, so the pair reads as the pipeline it really is.
+//
 //   gpu      - how the GPU implementation will be compared against the CPU one
 //              in #3. Unused until then, but it belongs with the case rather
 //              than in the GPU harness, because the right metric is a property
@@ -29,6 +34,9 @@ const ACCUMULATING = { mode: 'tolerance', tolerance: 3 };
 const KERNEL = { mode: 'tolerance', tolerance: 2 };
 /** Hard decision boundaries - see the note above. */
 const BOUNDARY = { mode: 'population', maxDifferentRatio: 0.02 };
+
+/** NormalIntensity and NormalFlip take a normal map, not a height map. */
+const NORMAL = [{ filter: 'NormalGenerator', options: { intensity: 1 } }];
 
 export const cases = [
 	// --- Process: pointwise ---------------------------------------------
@@ -70,8 +78,8 @@ export const cases = [
 
 	// --- Height map ------------------------------------------------------
 	{ filter: 'NormalGenerator', input: 'heightmap', options: { intensity: 1 }, gpu: KERNEL },
-	{ filter: 'NormalIntensity', input: 'heightmap', options: { intensity: 1.5 }, gpu: POINTWISE },
-	{ filter: 'NormalFlip', input: 'heightmap', options: { red: true, swap: true }, gpu: POINTWISE },
+	{ filter: 'NormalIntensity', input: 'heightmap', pre: NORMAL, options: { intensity: 1.5 }, gpu: POINTWISE },
+	{ filter: 'NormalFlip', input: 'heightmap', pre: NORMAL, options: { red: true, swap: true }, gpu: POINTWISE },
 	{ filter: 'Contourer', input: 'heightmap', options: { contours: 6 }, gpu: BOUNDARY },
 
 	// --- Transform (gather/scatter; odd sizes matter) --------------------
@@ -93,16 +101,15 @@ export const cases = [
 
 	// --- Dual input ------------------------------------------------------
 	{ filter: 'Blend', input: ['photo', 'second'], options: { ratio: 0.35 }, gpu: POINTWISE },
-	{ filter: 'AddSub', input: ['photo', 'second'], options: {}, gpu: POINTWISE },
-	{ filter: 'AddSub', name: 'subtractive', input: ['photo', 'second'], options: { subtractive: true }, gpu: POINTWISE },
+	{ filter: 'Add', input: ['photo', 'second'], options: {}, gpu: POINTWISE },
+	{ filter: 'Subtract', input: ['photo', 'second'], options: {}, gpu: POINTWISE },
 	{ filter: 'Mask', input: ['photo', 'second'], options: {}, gpu: BOUNDARY },
+	{ filter: 'Mask', name: 'inverted', input: ['photo', 'second'], options: { inverted: true }, gpu: BOUNDARY },
 	{ filter: 'Multiply', input: ['photo', 'second'], options: {}, gpu: POINTWISE },
 
 	// --- Misc ------------------------------------------------------------
 	{ filter: 'Brickulate', input: 'photo', options: { horizontalSegs: 4, verticalSegs: 3, grooveSize: 3 }, gpu: POINTWISE },
 	{ filter: 'Puzzler', input: 'photo', options: { horizontalSegs: 4, verticalSegs: 3 }, seed: 3, gpu: POINTWISE },
-	{ filter: 'LIFX', input: 'edges', options: {}, gpu: POINTWISE },
-	{ filter: 'LIFX', name: 'field', input: 'edges', options: { showField: true }, gpu: POINTWISE },
 	// stateful pair: first frame is the reference, second is the comparison
 	{ filter: 'DifferenceDetector', input: ['clean', 'moved'], sequence: true, options: {}, gpu: BOUNDARY },
 	{ filter: 'Ghoster', input: ['clean', 'moved'], sequence: true, options: { length: 3 }, gpu: ACCUMULATING },

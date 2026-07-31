@@ -7,21 +7,17 @@
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { PNG } from 'pngjs';
 
 import { cases, caseName } from './cases.js';
 import { descriptions, categories, CATEGORY_ORDER } from './descriptions.js';
-import { FIXTURES, GOLDEN } from './run.js';
+import { GOLDEN, inputFrame } from './run.js';
+import { readPNG, encodePNG } from './image.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', 'contact-sheet');
 
-const dataURI = (path) => `data:image/png;base64,${readFileSync(path).toString('base64')}`;
-
-function pixels(path) {
-	const png = PNG.sync.read(readFileSync(path));
-	return { width: png.width, height: png.height, data: png.data };
-}
+const dataURI = (buffer) => `data:image/png;base64,${buffer.toString('base64')}`;
+const fileURI = (path) => dataURI(readFileSync(path));
 
 /**
  * How much the filter actually changed, as a percentage of pixels touched and
@@ -81,21 +77,29 @@ for (const [category, entries] of grouped) {
 		const inputs = Array.isArray(entry.input) ? entry.input : [entry.input];
 		const goldenPath = join(GOLDEN, `${name}.png`);
 
+		// the before image is the frame the filter actually saw, `pre` chain and
+		// all - otherwise a case like NormalIntensity would show a height map next
+		// to a normal map and the pair would be unreadable
+		const before = inputs.map((n) => inputFrame(entry, n));
+
 		// for a sequence the last frame is what produced the output; for the
 		// dual-input form both are inputs
-		const primary = entry.sequence ? inputs[inputs.length - 1] : inputs[0];
-		const stats = changeStats(pixels(join(FIXTURES, `${primary}.png`)), pixels(goldenPath));
+		const primary = entry.sequence ? before[before.length - 1] : before[0];
+		const stats = changeStats(primary, readPNG(goldenPath));
 
 		const doc = descriptions[entry.filter] ?? {};
 		const didNothing = stats.changed < 0.01;
 		if (didNothing) suspicious++;
 		cards++;
 
-		const beforeImgs = inputs
-			.map(
-				(n) =>
-					`<figure><img src="${dataURI(join(FIXTURES, `${n}.png`))}" alt="${escape(n)}"><figcaption>${escape(n)}</figcaption></figure>`
-			)
+		const preLabel = (entry.pre ?? []).map((step) => step.filter).join(' &rarr; ');
+		const beforeImgs = before
+			.map((frame, index) => {
+				const caption = preLabel
+					? `${escape(inputs[index])} &rarr; ${preLabel}`
+					: escape(inputs[index]);
+				return `<figure><img src="${dataURI(encodePNG(frame))}" alt="${escape(inputs[index])}"><figcaption>${caption}</figcaption></figure>`;
+			})
 			.join('');
 
 		const badge = stats.resized
@@ -116,7 +120,7 @@ for (const [category, entries] of grouped) {
 		<div class="images">
 			<div class="side">${beforeImgs}</div>
 			<div class="arrow">&rarr;</div>
-			<div class="side"><figure><img src="${dataURI(goldenPath)}" alt="${escape(name)} output"><figcaption>output</figcaption></figure></div>
+			<div class="side"><figure><img src="${fileURI(goldenPath)}" alt="${escape(name)} output"><figcaption>output</figcaption></figure></div>
 		</div>
 		<p class="options"><code>${escape(formatOptions(entry.options))}</code>${entry.sequence ? ' <em>(fed as a frame sequence)</em>' : ''}</p>
 	</article>`;

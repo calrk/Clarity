@@ -19,8 +19,10 @@ export { medianCut, nearestColourIndex } from './helpers/quantise.js';
 export type { RGBTriplet, MedianCutOptions } from './helpers/quantise.js';
 
 // DualInput
-export { AddSub } from './filters/DualInput/AddSub.js';
-export type { AddSubOptions } from './filters/DualInput/AddSub.js';
+export { Add } from './filters/DualInput/Add.js';
+export type { AddOptions } from './filters/DualInput/Add.js';
+export { Subtract } from './filters/DualInput/Subtract.js';
+export type { SubtractOptions } from './filters/DualInput/Subtract.js';
 export { Blend } from './filters/DualInput/Blend.js';
 export type { BlendOptions } from './filters/DualInput/Blend.js';
 export { Mask } from './filters/DualInput/Mask.js';
@@ -111,7 +113,5 @@ export { DifferenceDetector } from './filters/misc/DifferenceDetector.js';
 export type { DifferenceDetectorOptions } from './filters/misc/DifferenceDetector.js';
 export { Ghoster } from './filters/misc/Ghoster.js';
 export type { GhosterOptions } from './filters/misc/Ghoster.js';
-export { LIFX } from './filters/misc/LIFX.js';
-export type { LIFXOptions } from './filters/misc/LIFX.js';
 export { Puzzler } from './filters/misc/Puzzler.js';
 export type { PuzzlerOptions } from './filters/misc/Puzzler.js';

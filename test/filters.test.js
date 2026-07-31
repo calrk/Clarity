@@ -58,7 +58,7 @@ function sameHistogram(a, b) {
 	return true;
 }
 
-const DUAL_INPUT = new Set(['AddSub', 'Blend', 'Mask', 'Multiply']);
+const DUAL_INPUT = new Set(['Add', 'Subtract', 'Blend', 'Mask', 'Multiply']);
 
 // derived from the prototype chain, so exporting a new helper can't be
 // mistaken for a filter - see helpers/exports.js

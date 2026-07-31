@@ -50,6 +50,26 @@ export function buildFilter(entry) {
 }
 
 /**
+ * The frame a case actually operates on: the fixture, with the case's `pre`
+ * chain applied.
+ *
+ * Some filters only make sense downstream of another one - NormalIntensity and
+ * NormalFlip expect a normal map, not a height map, and feeding them the raw
+ * fixture tests nothing meaningful. Rather than committing a derived fixture
+ * (which would silently go stale when its producer changes), the case declares
+ * the pipeline and the runner builds the input every time.
+ *
+ * Each `pre` step has the same shape as a case: `{ filter, options, seed?, now? }`.
+ */
+export function inputFrame(entry, name) {
+	let frame = fixture(name);
+	for (const step of entry.pre ?? []) {
+		frame = buildFilter(step).process(frame);
+	}
+	return frame;
+}
+
+/**
  * Runs a case and returns the resulting ImageData.
  *
  * Three input shapes:
@@ -64,12 +84,12 @@ export function runCase(entry, filter = buildFilter(entry)) {
 		if (entry.sequence) {
 			let out;
 			for (const name of entry.input) {
-				out = filter.process(fixture(name));
+				out = filter.process(inputFrame(entry, name));
 			}
 			return out;
 		}
-		return filter.process(entry.input.map(fixture));
+		return filter.process(entry.input.map((name) => inputFrame(entry, name)));
 	}
 
-	return filter.process(fixture(entry.input));
+	return filter.process(inputFrame(entry, entry.input));
 }

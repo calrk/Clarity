@@ -35,7 +35,8 @@ ctx.putImageData(frame, 0, 0);
 
 Each filter takes a typed options bag, and exposes `properties` for live tweaking
 plus `enabled` to bypass it without removing it from the chain. The two-input
-filters (`AddSub`, `Blend`, `Mask`, `Multiply`) take `process([frameA, frameB])`.
+filters (`Add`, `Subtract`, `Blend`, `Mask`, `Multiply`) take
+`process([frameA, frameB])`.
 
 A plain `<script>` build is also published, exposing everything on a `CLARITY`
 global:
@@ -122,14 +123,19 @@ Current Filters
 ===============
 
 ### Dual Input
-#### Add/Subtract
-Adds/Subtracts images from each other
+#### Add
+Adds the second image to the first, clamping at white
+#### Subtract
+Subtracts the second image from the first, clamping at black
 #### Blend
 Blends two images together, with optional weighting
 #### Mask
-Simple implementation of multiply, where white is shown and black is not
+Binary stencil - keeps the first image where the mask is light, blacks it out
+where the mask is dark. Unlike `Multiply` the cut-off is hard, so a pixel is
+either fully kept or fully dropped
 #### Multiply
-Multiplies an image with a greyscale
+Multiplies two images together channel by channel, so grey attenuates rather
+than cuts
 
 ### Height Map
 #### Contourer
