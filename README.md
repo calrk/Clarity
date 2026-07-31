@@ -91,11 +91,23 @@ new Noise({ intensity: 40, random: seededRandom(1) });   // same result every ru
 npm run test:golden           # goldens only
 npm run test:update-golden    # regenerate them, then review the diff before committing
 npm run test:fixtures         # regenerate the input images in test/fixtures/
+npm run test:sheet            # build the contact sheet (below)
 ```
 
 When a golden fails, the actual output and a visual diff are written to
 `test/output/`. Never regenerate a golden to make a test pass without looking at
 what changed.
+
+### Contact sheet
+
+`npm run test:sheet` builds `test/contact-sheet/index.html` - a single
+self-contained page showing every filter's input and output side by side, with
+what each filter does and what you should be able to see. Each card reports the
+percentage of pixels the filter actually changed, and any filter that changed
+*nothing* is highlighted, which is the quickest way to spot one that has
+silently stopped working.
+
+Open it in a browser after `npm run build && npm run test:update-golden`.
 
 Licence
 -------

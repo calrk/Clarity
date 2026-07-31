@@ -66,7 +66,7 @@ export const cases = [
 	{ filter: 'EdgeDetector', name: 'fast', input: 'edges', options: { fast: true }, gpu: KERNEL },
 	{ filter: 'SkinDetector', input: 'photo', options: {}, gpu: BOUNDARY },
 	// stateful: needs a frame sequence, so the runner feeds it `passes` frames
-	{ filter: 'MotionDetector', input: ['photo', 'second'], sequence: true, options: { frameCount: 1 }, gpu: POINTWISE },
+	{ filter: 'MotionDetector', input: ['clean', 'moved'], sequence: true, options: { frameCount: 1 }, gpu: POINTWISE },
 
 	// --- Height map ------------------------------------------------------
 	{ filter: 'NormalGenerator', input: 'heightmap', options: { intensity: 1 }, gpu: KERNEL },
@@ -104,8 +104,8 @@ export const cases = [
 	{ filter: 'LIFX', input: 'edges', options: {}, gpu: POINTWISE },
 	{ filter: 'LIFX', name: 'field', input: 'edges', options: { showField: true }, gpu: POINTWISE },
 	// stateful pair: first frame is the reference, second is the comparison
-	{ filter: 'DifferenceDetector', input: ['photo', 'second'], sequence: true, options: {}, gpu: BOUNDARY },
-	{ filter: 'Ghoster', input: ['photo', 'second'], sequence: true, options: { length: 3 }, gpu: ACCUMULATING },
+	{ filter: 'DifferenceDetector', input: ['clean', 'moved'], sequence: true, options: {}, gpu: BOUNDARY },
+	{ filter: 'Ghoster', input: ['clean', 'moved'], sequence: true, options: { length: 3 }, gpu: ACCUMULATING },
 
 	// --- Alpha handling ---------------------------------------------------
 	// most filters rewrite alpha to 255; these pin that behaviour down so a

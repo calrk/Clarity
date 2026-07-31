@@ -64,11 +64,19 @@ const heightmap = build(W, H, (x, y) => {
 	return [v, v, v];
 });
 
-// 4. alpha: partially transparent content, so filters that assume opaque
-//    input, or that rebuild the alpha channel, are exercised honestly.
+// 4. alpha: partially transparent content, so filters that assume opaque input,
+//    or that rebuild the alpha channel, are exercised honestly. RGB has to vary
+//    independently of alpha - a constant colour makes Blur a no-op here and the
+//    case proves nothing.
 const alpha = build(W, H, (x, y) => {
 	const a = Math.round((x / W) * 255);
-	return [220, 60, 160, y < 6 ? 0 : a];
+	const checker = (Math.floor(x / 8) + Math.floor(y / 8)) % 2 === 0;
+	return [
+		checker ? 230 : 40,
+		60 + y * 3,
+		checker ? 80 : 200,
+		y < 6 ? 0 : a
+	];
 });
 
 // 5. odd dimensions, deliberately prime-ish and not divisible by the tile
@@ -88,7 +96,30 @@ const second = build(W, H, (x, y) => {
 	return disc ? [240, 240, 240] : [25, 25, 25];
 });
 
-const fixtures = { photo, edges, heightmap, alpha, odd, second };
+// 7. `photo` with one region altered. The frame-differencing filters need an
+//    input that is *mostly* the same as the previous frame - against a wholly
+//    different image they just echo it back, which demonstrates nothing.
+const moved = build(W, H, (x, y) => {
+	const inPatch = x >= 36 && x < 52 && y >= 14 && y < 30;
+	if (inPatch) return [235, 225, 60];
+	const sky = y < H * 0.55;
+	const n = () => 0; // no grain: only the patch should differ
+	if (sky) {
+		return [90 + x * 0.35 + n(), 140 + y * 0.6 + n(), 215 - y * 0.9 + n()];
+	}
+	const hill = Math.sin(x * 0.2) * 4;
+	return [45 + hill + n(), 105 + y * 0.4 + n(), 40 + n()];
+});
+
+// `photo` without its grain, so `moved` differs from it only inside the patch
+const clean = build(W, H, (x, y) => {
+	const sky = y < H * 0.55;
+	if (sky) return [90 + x * 0.35, 140 + y * 0.6, 215 - y * 0.9];
+	const hill = Math.sin(x * 0.2) * 4;
+	return [45 + hill, 105 + y * 0.4, 40];
+});
+
+const fixtures = { photo, edges, heightmap, alpha, odd, second, clean, moved };
 
 for (const [name, image] of Object.entries(fixtures)) {
 	const path = join(out, `${name}.png`);

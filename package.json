@@ -38,8 +38,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.js",
     "test:golden": "node --test test/golden.test.js",
-    "test:update-golden": "node --test test/golden.test.js -- --update",
-    "test:fixtures": "node test/helpers/make-fixtures.js"
+    "test:update-golden": "node test/helpers/update-golden.js",
+    "test:fixtures": "node test/helpers/make-fixtures.js",
+    "test:sheet": "node test/helpers/make-contact-sheet.js"
   },
   "devDependencies": {
     "pixelmatch": "^7.2.0",
