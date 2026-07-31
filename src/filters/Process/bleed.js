@@ -16,9 +16,7 @@ CLARITY.Bleed.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Bleed.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
-
-	var output = ctx.createImageData(frame.width, frame.height);
-    output.data.set(frame.data);
+	output.data.set(frame.data);
 
 	return this.processor.stackBlurCanvasSingle(output, this.properties.radius);
 };

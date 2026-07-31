@@ -25,7 +25,9 @@ CLARITY.Cloud.prototype.doProcess = function(frame){
 		data[i] = 0;
 	}
 	for(var z = 0; z < this.properties.iterations; z++){
-		size *= (z+1);
+		if(z > 0){
+			size *= 2;	//octaves double; the old size *= (z+1) gave 4, 8, 24, 96
+		}
 		if(size > frame.width){
 			break;
 		}
@@ -65,7 +67,7 @@ CLARITY.Cloud.prototype.doProcess = function(frame){
 					xpercent = this.smoothStep(xpercent);
 					ypercent = this.smoothStep(ypercent);
 				}
-				
+
 				xval1 = this.linearInterpolate(values[y1][x1], values[y1][x2], xpercent);
 				xval2 = this.linearInterpolate(values[y2][x1], values[y2][x2], xpercent);
 				yval2 = this.linearInterpolate(xval1, xval2, ypercent);
@@ -78,13 +80,18 @@ CLARITY.Cloud.prototype.doProcess = function(frame){
 	}
 
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
-	for(var k = 0; k < data.length; k ++){
+	if(iterations == 0){
+		return output;	//initialSize was wider than the frame, nothing was accumulated
+	}
+	//data holds 3 entries per pixel, so this loops over pixels - not over data.length,
+	//which ran 3x past the end of output
+	for(var k = 0; k < frame.width*frame.height; k ++){
 		var i = k * 3;
 		var j = k * 4;
 		output.data[j  ] = data[i  ]/iterations * this.properties.red/255;
 		output.data[j+1] = data[i+1]/iterations * this.properties.green/255;
 		output.data[j+2] = data[i+2]/iterations * this.properties.blue/255;
-		output.data[j+3] = 255;
+		output.data[j+3] = (this.properties.red + this.properties.green + this.properties.blue)/3;
 	}
 	return output;
 };
@@ -92,7 +99,7 @@ CLARITY.Cloud.prototype.doProcess = function(frame){
 CLARITY.Cloud.prototype.doCreateControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createDiv();
-	
+
 	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red', this.properties.red);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){

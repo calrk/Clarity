@@ -12,7 +12,7 @@ CLARITY.Multiply = function(options){
 CLARITY.Multiply.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Multiply.prototype.doProcess = function(frame1, frame2){
-	var output = CLARITY.ctx.createImageData(frame1.width, frame2.height);
+	var output = CLARITY.ctx.createImageData(frame1.width, frame1.height);
 
 	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
 		output.data[i+0] = ((frame1.data[i  ]/255) * (frame2.data[i  ])/255)*255;

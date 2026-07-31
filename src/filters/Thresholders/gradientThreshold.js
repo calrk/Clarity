@@ -17,6 +17,11 @@ CLARITY.GradientThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.GradientThreshold.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//the loops skip a `distance`-wide border, which would otherwise stay transparent
+	for(var a = 3; a < output.data.length; a += 4){
+		output.data[a] = 255;
+	}
+
 	var found = false;
 	for(var y = this.properties.distance; y < frame.height - this.properties.distance; y++){
 		for(var x = this.properties.distance; x < frame.width - this.properties.distance; x++){

@@ -3,9 +3,10 @@
 CLARITY.Translator = function(options){
 	var options = options || {};
 
+	//`options.horizontal || 0.5` turned a deliberate 0 into 0.5, so "no shift" was unreachable
 	this.properties = {
-		horizontal: CLARITY.Operations.clamp(options.horizontal || 0.5, -1, 1),
-		vertical: CLARITY.Operations.clamp(options.vertical || 0.5, -1, 1)
+		horizontal: CLARITY.Operations.clamp(options.horizontal === undefined ? 0.5 : options.horizontal, -1, 1),
+		vertical: CLARITY.Operations.clamp(options.vertical === undefined ? 0.5 : options.vertical, -1, 1)
 	};
 
 	CLARITY.Filter.call( this, options );

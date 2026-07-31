@@ -20,13 +20,24 @@ CLARITY.Contourer.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Contourer.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//recomputed per frame - these used to persist between frames, so on video the
+	//range only ever widened and the contours drifted
+	this.maxValue = 0;
+	this.minValue = 255;
 	for(var i = 0; i < frame.data.length; i+=4){
+		//separate ifs: `else if` meant a pixel could only ever update one of the two,
+		//so the first pixel set the max and never the min
 		if(frame.data[i] > this.maxValue){
 			this.maxValue = frame.data[i];
 		}
-		else if(frame.data[i] < this.minValue){
+		if(frame.data[i] < this.minValue){
 			this.minValue = frame.data[i];
 		}
+	}
+
+	//a flat image gives difference 0, which made the loop in setVar run forever
+	if(this.maxValue == this.minValue){
+		return output;
 	}
 	this.setVar(this.properties.contours);
 

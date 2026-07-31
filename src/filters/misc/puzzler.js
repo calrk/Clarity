@@ -37,6 +37,11 @@ CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Puzzler.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//setClick and the highlight below both need the frame size, and nothing else
+	//ever set them - they were plain undefined, so every click resolved to NaN
+	this.width = frame.width;
+	this.height = frame.height;
+
 	var minHeight = Math.round(frame.height/this.properties.verticalSegs);
 	var minWidth = Math.round(frame.width/this.properties.horizontalSegs);
 
@@ -59,9 +64,9 @@ CLARITY.Puzzler.prototype.doProcess = function(frame){
 	}
 
 	if(this.selected != undefined){
-		for(var y = 0; y < this.height/this.properties.verticalSegs; y++){
-			for(var x = 0; x < this.width/this.properties.horizontalSegs; x++){
-				var pos1 = ((this.selected[1]*(this.height/this.properties.verticalSegs)+y)*this.width + (this.selected[0]*(this.width/this.properties.horizontalSegs)+x))*4;
+		for(var y = 0; y < minHeight; y++){
+			for(var x = 0; x < minWidth; x++){
+				var pos1 = ((this.selected[1]*minHeight+y)*frame.width + (this.selected[0]*minWidth+x))*4;
 				output.data[pos1+2] += 80;
 			}
 		}
@@ -83,13 +88,19 @@ CLARITY.Puzzler.prototype.setPixel = function(picture, xPos, yPos, newCol){
 }
 
 CLARITY.Puzzler.prototype.setClick = function(pos){
+	if(!this.width || !this.height){
+		return;	//nothing has been processed yet, so the tile size isn't known
+	}
+
 	var x = Math.floor(pos[0]/(this.width/this.properties.horizontalSegs));
 	var y = Math.floor(pos[1]/(this.height/this.properties.verticalSegs));
 
 	if(this.selected){
-		var temp = this.swaps[this.selected[0]][this.selected[1]];
-		this.swaps[this.selected[0]][this.selected[1]] = this.swaps[x][y];
-		this.swaps[x][y] = temp;
+		//swaps is indexed [row][column], and selected/x/y are [column, row] -
+		//these were indexed the wrong way round
+		var temp = this.swaps[this.selected[1]][this.selected[0]];
+		this.swaps[this.selected[1]][this.selected[0]] = this.swaps[y][x];
+		this.swaps[y][x] = temp;
 
 		this.selected = undefined;
 	}
@@ -98,13 +109,10 @@ CLARITY.Puzzler.prototype.setClick = function(pos){
 	}
 }
 
+//swaps[row][column] holds row*horizontalSegs + column, so this returns
+//[column, row] to match how doProcess indexes the result. It used to return
+//them the other way round, which only looked right on a square frame with an
+//equal number of segments on both axes.
 CLARITY.Puzzler.prototype.numToPos = function(num){
-	var x = 0;
-	var y = 0;
-	while(num > this.properties.horizontalSegs-1){
-		num -= this.properties.horizontalSegs;
-		x++;
-	}
-	y = num;
-	return [x,y];
+	return [num % this.properties.horizontalSegs, Math.floor(num / this.properties.horizontalSegs)];
 }

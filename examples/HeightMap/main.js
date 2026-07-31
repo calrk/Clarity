@@ -128,7 +128,7 @@ function init(){
 }
 
 function compareFilters(first, second){
-	return first.position > second.position;
+	return first.position - second.position;
 }
 
 function render(){
@@ -257,7 +257,7 @@ function shuffleChanged(){
 }
 
 function compareFilters(first, second){
-	return first.position > second.position;
+	return first.position - second.position;
 }
 
 window.onload = init;

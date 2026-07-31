@@ -6,7 +6,7 @@ CLARITY.Wave = function(options){
 	this.properties = {
 		horizontal: options.horizontal || false,
 		vertical: options.vertical || false,
-		speed: Math.round(options.speed) || 1,
+		speed: options.speed === undefined ? 1 : Math.round(options.speed),
 		frequency: options.frequency || 10,
 		amplitude: options.amplitude || 10
 	};
@@ -16,99 +16,57 @@ CLARITY.Wave = function(options){
 
 CLARITY.Wave.prototype = Object.create( CLARITY.Filter.prototype );
 
+//Rewritten as a gather (each output pixel reads its own source) rather than a scatter.
+//The old version wrote to a computed destination, so wherever the mapping wasn't onto
+//it left un-written holes - visible as tearing. A gather writes every output pixel
+//exactly once, needs no second buffer for the two-axis case, and is the form a
+//fragment shader would take.
 CLARITY.Wave.prototype.doProcess = function(frame){
+	var horizontal = this.properties.horizontal;
+	var vertical = this.properties.vertical;
+
+	if(!horizontal && !vertical){
+		return frame;
+	}
+
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
-	var output2 = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	var offset = ((new Date().getMilliseconds()/1000)*Math.PI*2)*this.properties.speed;
+	//performance.now() climbs monotonically. The old Date().getMilliseconds()
+	//wrapped at 1000ms, so the phase snapped back once every second.
+	var phase = ((performance.now()/1000)*Math.PI*2)*this.properties.speed;
 
-	if(this.properties.horizontal){
+	//hoisted out of the inner loop - each is a function of one axis only
+	var xOffsets = [];
+	if(horizontal){
 		for(var y = 0; y < frame.height; y++){
-			var offsetx = Math.floor(this.waveFunction(y/this.properties.frequency+offset)*this.properties.amplitude);
-			for(var x = 0; x < frame.width; x++){
-				var from = (y*frame.width + x)*4;
-				var toX = x + offsetx;
-				var toY = y;
-				if(toX >= frame.width){
-					toX -= frame.width;
-				}
-				else if(toX < 0){
-					toX += frame.width;
-				}
-				if(toY >= frame.height){
-					toY -= frame.height;
-				}
-				else if(toY < 0){
-					toY += frame.height;
-				}
-				var to = ((toY)*frame.width + toX)*4;
-				
-				output.data[to] = frame.data[from];
-				output.data[to+1] = frame.data[from+1];
-				output.data[to+2] = frame.data[from+2];
-
-				output.data[to+3] = 255;
-			}
-		}
-
-		if(this.properties.vertical){
-			for(var x = 0; x < frame.width; x++){
-				var offsety = Math.floor(this.waveFunction(x/this.properties.frequency+offset)*this.properties.amplitude);
-				for(var y = 0; y < frame.height; y++){
-					var from = (y*frame.width + x)*4;
-					var toX = x;
-					var toY = y + offsety;
-					if(toX >= frame.width){
-						toX -= frame.width;
-					}
-					else if(toX < 0){
-						toX += frame.width;
-					}
-					if(toY >= frame.height){
-						toY -= frame.height;
-					}
-					else if(toY < 0){
-						toY += frame.height;
-					}
-					var to = ((toY)*frame.width + toX)*4;
-					
-					output2.data[to]   = output.data[from];
-					output2.data[to+1] = output.data[from+1];
-					output2.data[to+2] = output.data[from+2];
-
-					output2.data[to+3] = 255;
-				}
-			}
-			return output2;
+			xOffsets[y] = Math.floor(this.waveFunction(y/this.properties.frequency+phase)*this.properties.amplitude);
 		}
 	}
-	else if(this.properties.vertical){
+	var yOffsets = [];
+	if(vertical){
 		for(var x = 0; x < frame.width; x++){
-			var offsety = Math.floor(this.waveFunction(x/this.properties.frequency+offset)*this.properties.amplitude);
-			for(var y = 0; y < frame.height; y++){
-				var from = (y*frame.width + x)*4;
-				var toX = x;
-				var toY = y + offsety;
-				if(toX >= frame.width){
-					toX -= frame.width;
-				}
-				else if(toX < 0){
-					toX += frame.width;
-				}
-				if(toY >= frame.height){
-					toY -= frame.height;
-				}
-				else if(toY < 0){
-					toY += frame.height;
-				}
-				var to = ((toY)*frame.width + toX)*4;
-				
-				output.data[to]   = frame.data[from];
-				output.data[to+1] = frame.data[from+1];
-				output.data[to+2] = frame.data[from+2];
+			yOffsets[x] = Math.floor(this.waveFunction(x/this.properties.frequency+phase)*this.properties.amplitude);
+		}
+	}
 
-				output.data[to+3] = 255;
-			}
+	for(var y = 0; y < frame.height; y++){
+		for(var x = 0; x < frame.width; x++){
+			var to = (y*frame.width + x)*4;
+
+			//vertical first, then horizontal reads from the displaced row -
+			//matches the order the old two-pass version applied them in
+			var fromY = vertical ? y - yOffsets[x] : y;
+			fromY = ((fromY % frame.height) + frame.height) % frame.height;
+
+			var fromX = horizontal ? x - xOffsets[fromY] : x;
+			fromX = ((fromX % frame.width) + frame.width) % frame.width;
+
+			var from = (fromY*frame.width + fromX)*4;
+
+			output.data[to  ] = frame.data[from  ];
+			output.data[to+1] = frame.data[from+1];
+			output.data[to+2] = frame.data[from+2];
+			output.data[to+3] = 255;
 		}
 	}
 

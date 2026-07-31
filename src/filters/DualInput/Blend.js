@@ -2,8 +2,9 @@
 CLARITY.Blend = function(options){
 	var options = options || {};
 
+	//`clamp(...) || 0.5` turned a deliberate ratio of 0 back into 0.5
 	this.properties = {
-		ratio: CLARITY.Operations.clamp(options.ratio, 0, 1) || 0.5
+		ratio: CLARITY.Operations.clamp(options.ratio === undefined ? 0.5 : options.ratio, 0, 1)
 	};
 
 	CLARITY.Filter.call( this, options );

@@ -20,7 +20,7 @@ CLARITY.Filter.prototype = {
 		if(!this.enabled){
 			return frame;
 		}
-		if(frame.length){//if there are multiple frames in an array
+		if(Array.isArray(frame)){//if there are multiple frames in an array
 			return this.doProcess(frame[0], frame[1]);
 		}
 		return this.doProcess(frame);
@@ -1377,6 +1377,8 @@ CLARITY.Operations = {
 		var minRGB = this.minimum([r, g, b]);
 		var maxRGB = this.maximum([r, g, b]);
 
+		var computedH, computedS, computedV;
+
 		if(minRGB == maxRGB) {
 			computedV = minRGB;
 			return [0,0,computedV];
@@ -1474,7 +1476,7 @@ CLARITY.Operations = {
 	},
 
 	colorDistance: function(from, to){
-		this.colourDistance(from, to);
+		return this.colourDistance(from, to);
 	},
 	colourDistance: function(from, to){
 		return Math.pow(from[0]-to[0], 2) + Math.pow(from[1]-to[1], 2) + Math.pow(from[2]-to[2], 2);
@@ -1498,7 +1500,7 @@ CLARITY.Pixel = function(r, g, b){
 
 CLARITY.Pixel.prototype = {
 	getColourValue: function(channel){
-		var channel = this.channel || channel || "grey";
+		var channel = channel || this.channel || "grey";
 
 		switch(channel){
 			case 'grey':
@@ -1536,7 +1538,7 @@ CLARITY.Pixel.prototype = {
 		min = CLARITY.Operations.minimum([this.r, this.g, this.b]);
 		max = CLARITY.Operations.maximum([this.r, this.g, this.b]);
 
-		this.v = max/256;
+		this.v = max/255;
 		delta = max - min;
 
 		if(max != 0){
@@ -1560,21 +1562,22 @@ CLARITY.Pixel.prototype = {
 			this.h += 360;
 	},
 
+	//h is in degrees (0-360), s and v are 0-1. r/g/b are written back as 0-255.
 	setFromHSV: function(h, s, v){
 		var i;
 		var f, p, q, t;
-		
+
 		this.h = h;
 		this.s = s;
 		this.v = v;
 
 		if(this.s == 0){//grey
-			this.r = this.g = this.b = this.v;
+			this.r = this.g = this.b = this.v*255;
 			return;
 		}
 
 		i =  Math.floor(this.h/60);
-		f = this.h - i;			// factorial part of h
+		f = this.h/60 - i;		// fractional part of h/60
 		p = this.v * (1 - this.s);
 		q = this.v * (1 - this.s * f);
 		t = this.v * (1 - this.s * (1 - f));
@@ -1611,6 +1614,10 @@ CLARITY.Pixel.prototype = {
 				this.b = q;
 				break;
 		}
+
+		this.r *= 255;
+		this.g *= 255;
+		this.b *= 255;
 	},
 
 	toRGBArray: function(){
@@ -1669,8 +1676,9 @@ CLARITY.AddSub.prototype.doCreateControls = function(titleSet){
 CLARITY.Blend = function(options){
 	var options = options || {};
 
+	//`clamp(...) || 0.5` turned a deliberate ratio of 0 back into 0.5
 	this.properties = {
-		ratio: CLARITY.Operations.clamp(options.ratio, 0, 1) || 0.5
+		ratio: CLARITY.Operations.clamp(options.ratio === undefined ? 0.5 : options.ratio, 0, 1)
 	};
 
 	CLARITY.Filter.call( this, options );
@@ -1718,7 +1726,7 @@ CLARITY.Mask.prototype.doProcess = function(frame1, frame2){
 	var output = CLARITY.ctx.createImageData(frame1.width, frame1.height);
 
 	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
-		if(frame2[i].data < 128){
+		if(frame2.data[i] < 128){
 			output.data[i+0] = frame1.data[i  ];
 			output.data[i+1] = frame1.data[i+1];
 			output.data[i+2] = frame1.data[i+2];
@@ -1762,7 +1770,7 @@ CLARITY.Multiply = function(options){
 CLARITY.Multiply.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Multiply.prototype.doProcess = function(frame1, frame2){
-	var output = CLARITY.ctx.createImageData(frame1.width, frame2.height);
+	var output = CLARITY.ctx.createImageData(frame1.width, frame1.height);
 
 	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
 		output.data[i+0] = ((frame1.data[i  ]/255) * (frame2.data[i  ])/255)*255;
@@ -1810,13 +1818,24 @@ CLARITY.Contourer.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Contourer.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//recomputed per frame - these used to persist between frames, so on video the
+	//range only ever widened and the contours drifted
+	this.maxValue = 0;
+	this.minValue = 255;
 	for(var i = 0; i < frame.data.length; i+=4){
+		//separate ifs: `else if` meant a pixel could only ever update one of the two,
+		//so the first pixel set the max and never the min
 		if(frame.data[i] > this.maxValue){
 			this.maxValue = frame.data[i];
 		}
-		else if(frame.data[i] < this.minValue){
+		if(frame.data[i] < this.minValue){
 			this.minValue = frame.data[i];
 		}
+	}
+
+	//a flat image gives difference 0, which made the loop in setVar run forever
+	if(this.maxValue == this.minValue){
+		return output;
 	}
 	this.setVar(this.properties.contours);
 
@@ -2195,8 +2214,8 @@ CLARITY.Brickulate.prototype.doProcess = function(frame){
 	var heightSegs = Math.round(frame.height/this.properties.verticalSegs);
 
 	var grooveSize = this.properties.grooveSize;
-	for(var y = 0; y < frame.height*4; y++){
-		for(var x = 0; x < frame.width*4; x++){
+	for(var y = 0; y < frame.height; y++){
+		for(var x = 0; x < frame.width; x++){
 			var i = (y*frame.width + x)*4;
 
 			var xasd = x%widthSegs;
@@ -2209,7 +2228,7 @@ CLARITY.Brickulate.prototype.doProcess = function(frame){
 					}
 				}
 			}
-			if((xasd <= grooveSize || xasd >= widthSegs-5) && (yasd <= grooveSize || yasd >= heightSegs-5)){
+			if((xasd <= grooveSize || xasd >= widthSegs-grooveSize) && (yasd <= grooveSize || yasd >= heightSegs-grooveSize)){
 				output.data[i  ] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
 				output.data[i+1] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
 				output.data[i+2] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
@@ -2219,7 +2238,7 @@ CLARITY.Brickulate.prototype.doProcess = function(frame){
 				output.data[i+1] = 255*(grooveSize-xasd)/grooveSize;
 				output.data[i+2] = 255*(grooveSize-xasd)/grooveSize;
 			}
-			else if(xasd >= widthSegs-5){
+			else if(xasd >= widthSegs-grooveSize){
 				output.data[i  ] = 255*(xasd-widthSegs+grooveSize)/grooveSize;
 				output.data[i+1] = 255*(xasd-widthSegs+grooveSize)/grooveSize;
 				output.data[i+2] = 255*(xasd-widthSegs+grooveSize)/grooveSize;
@@ -2229,7 +2248,7 @@ CLARITY.Brickulate.prototype.doProcess = function(frame){
 				output.data[i+1] = 255*(grooveSize-yasd)/grooveSize;
 				output.data[i+2] = 255*(grooveSize-yasd)/grooveSize;
 			}
-			else if(yasd >= heightSegs-5){
+			else if(yasd >= heightSegs-grooveSize){
 				output.data[i  ] = 255*(yasd-heightSegs+grooveSize)/grooveSize;
 				output.data[i+1] = 255*(yasd-heightSegs+grooveSize)/grooveSize;
 				output.data[i+2] = 255*(yasd-heightSegs+grooveSize)/grooveSize;
@@ -2270,7 +2289,10 @@ CLARITY.DifferenceDetector.prototype = Object.create( CLARITY.Filter.prototype )
 
 CLARITY.DifferenceDetector.prototype.doProcess = function(frame){
 		if(!this.original){
-			this.original = frame;
+			//keeps its own copy, otherwise later filters mutating the frame
+			//would drift the reference image out from under us
+			this.original = CLARITY.ctx.createImageData(frame.width, frame.height);
+			this.original.data.set(frame.data);
 			return frame;
 		}
 
@@ -2282,7 +2304,7 @@ CLARITY.DifferenceDetector.prototype.doProcess = function(frame){
 					frame.data[i+2] != this.original.data[i+2]){*/
 			var colour1 = [this.original.data[i], this.original.data[i+1], this.original.data[i+2]];
 			var colour2 = [frame.data[i], frame.data[i+1], frame.data[i+2]];
-			if(findDifference(colour2, colour1)){
+			if(this.findDifference(colour2, colour1)){
 				output.data[i]   = frame.data[i];
 				output.data[i+1] = frame.data[i+1];
 				output.data[i+2] = frame.data[i+2];
@@ -2317,33 +2339,64 @@ CLARITY.DifferenceDetector.prototype.findDifference = function(pix1, pix2){
 
 CLARITY.Ghoster = function(options){
 	var options = options || {};
-	this.length = options.length || 10;
+
+	this.properties = {
+		length: options.length || 10
+	};
+
 	this.frames = new Array();
-	
+
 	CLARITY.Filter.call( this, options );
 };
 
 CLARITY.Ghoster.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Ghoster.prototype.doProcess = function(frame){
-	this.frames.unshift(frame);
-	if(this.frames.length > this.length){
+	//keeps its own copy so a later filter mutating the frame can't corrupt the trail
+	var kept = CLARITY.ctx.createImageData(frame.width, frame.height);
+	kept.data.set(frame.data);
+
+	this.frames.unshift(kept);
+	while(this.frames.length > this.properties.length){
 		this.frames.pop();
 	}
 
-	var output = CLARITY.ctx.createImageData(width, height);
+	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
+	var count = this.frames.length;
 
 	for(var i = 0; i < frame.data.length; i+=4){
-		for (var j = 0; j < this.frames.length; j++) {
-			output.data[i]   += this.frames[j].data[i]  /this.frames.length*(j/this.frames.length*2);
-			output.data[i+1] += this.frames[j].data[i+1]/this.frames.length*(j/this.frames.length*2);
-			output.data[i+2] += this.frames[j].data[i+2]/this.frames.length*(j/this.frames.length*2);
+		var r = 0, g = 0, b = 0;
+		for (var j = 0; j < count; j++) {
+			//frames[0] is the newest, so it gets the heaviest weight.
+			//weights sum to (count+1)/count, i.e. ~1.
+			var weight = 2*(count-j)/(count*count);
+			r += this.frames[j].data[i  ]*weight;
+			g += this.frames[j].data[i+1]*weight;
+			b += this.frames[j].data[i+2]*weight;
 		};
+		//accumulated in floats first - writing into the clamped array each
+		//pass would round every partial sum
+		output.data[i  ] = r;
+		output.data[i+1] = g;
+		output.data[i+2] = b;
 		output.data[i+3] = 255;
 	}
 
 	return output;
 };
+
+CLARITY.Ghoster.prototype.doCreateControls = function(titleSet){
+	var self = this;
+	var controls = CLARITY.Interface.createDiv();
+
+	var slider = CLARITY.Interface.createSlider(1, 30, 1, 'length', this.properties.length);
+	controls.appendChild(slider);
+	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
+		self.setInt('length', e.target.value);
+	});
+
+	return controls;
+}
 //LIFX object
 CLARITY.LIFX = function(options){
 	var options = options || {};
@@ -2491,6 +2544,11 @@ CLARITY.Puzzler.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Puzzler.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//setClick and the highlight below both need the frame size, and nothing else
+	//ever set them - they were plain undefined, so every click resolved to NaN
+	this.width = frame.width;
+	this.height = frame.height;
+
 	var minHeight = Math.round(frame.height/this.properties.verticalSegs);
 	var minWidth = Math.round(frame.width/this.properties.horizontalSegs);
 
@@ -2513,9 +2571,9 @@ CLARITY.Puzzler.prototype.doProcess = function(frame){
 	}
 
 	if(this.selected != undefined){
-		for(var y = 0; y < this.height/this.properties.verticalSegs; y++){
-			for(var x = 0; x < this.width/this.properties.horizontalSegs; x++){
-				var pos1 = ((this.selected[1]*(this.height/this.properties.verticalSegs)+y)*this.width + (this.selected[0]*(this.width/this.properties.horizontalSegs)+x))*4;
+		for(var y = 0; y < minHeight; y++){
+			for(var x = 0; x < minWidth; x++){
+				var pos1 = ((this.selected[1]*minHeight+y)*frame.width + (this.selected[0]*minWidth+x))*4;
 				output.data[pos1+2] += 80;
 			}
 		}
@@ -2537,13 +2595,19 @@ CLARITY.Puzzler.prototype.setPixel = function(picture, xPos, yPos, newCol){
 }
 
 CLARITY.Puzzler.prototype.setClick = function(pos){
+	if(!this.width || !this.height){
+		return;	//nothing has been processed yet, so the tile size isn't known
+	}
+
 	var x = Math.floor(pos[0]/(this.width/this.properties.horizontalSegs));
 	var y = Math.floor(pos[1]/(this.height/this.properties.verticalSegs));
 
 	if(this.selected){
-		var temp = this.swaps[this.selected[0]][this.selected[1]];
-		this.swaps[this.selected[0]][this.selected[1]] = this.swaps[x][y];
-		this.swaps[x][y] = temp;
+		//swaps is indexed [row][column], and selected/x/y are [column, row] -
+		//these were indexed the wrong way round
+		var temp = this.swaps[this.selected[1]][this.selected[0]];
+		this.swaps[this.selected[1]][this.selected[0]] = this.swaps[y][x];
+		this.swaps[y][x] = temp;
 
 		this.selected = undefined;
 	}
@@ -2552,166 +2616,14 @@ CLARITY.Puzzler.prototype.setClick = function(pos){
 	}
 }
 
+//swaps[row][column] holds row*horizontalSegs + column, so this returns
+//[column, row] to match how doProcess indexes the result. It used to return
+//them the other way round, which only looked right on a square frame with an
+//equal number of segments on both axes.
 CLARITY.Puzzler.prototype.numToPos = function(num){
-	var x = 0;
-	var y = 0;
-	while(num > this.properties.horizontalSegs-1){
-		num -= this.properties.horizontalSegs;
-		x++;
-	}
-	y = num;
-	return [x,y];
+	return [num % this.properties.horizontalSegs, Math.floor(num / this.properties.horizontalSegs)];
 }
 
-/*
-//Shot Detector object
-CLARITY.ShotDetector = function(options){
-	var count = [];
-	var postCount = [];
-	var frames = [];
-	var dilateFrames = [];
-	var index = 1;
-	var prevECR = 0;
-	var cutTime = 0;
-
-	CLARITY.Filter.call( this, options );
-};
-
-CLARITY.ShotDetector.prototype = Object.create( CLARITY.Filter.prototype );
-
-CLARITY.ShotDetector.prototype.doProcess = function(frame){
-	var output = cxt.createImageData(frame.width, frame.height);
-	cxt2.putImageData(output, 0, 0);
-	
-	this.pushFrame(frame);
-
-	//waits until the buffer is full before trying to do stuff
-	if(frames.length < 2 || dilateFrames.length < 2){
-		log("returning");
-		return output;
-	}
-
-	//create new image data
-	var postProcess = cxt.createImageData(frame.width, frame.height);
-
-	//does the first compare, first frame times second dilation
-	for(var i = 0; i < frames[index].data.length; i+=4){
-		postProcess.data[i+0] = dilateFrames[1].data[i+0] * frames[0].data[i+0];
-		postProcess.data[i+1] = dilateFrames[1].data[i+1] * frames[0].data[i+1];
-		postProcess.data[i+2] = dilateFrames[1].data[i+2] * frames[0].data[i+2];
-		postProcess.data[i+3] = 255;
-	}
-	//counts how many pixels are on after this
-	for(var i = 0; i < frames[index].data.length; i+=4){
-		if(postProcess.data[i] > 128){
-			postCount[index] ++;
-		}
-	}
-
-	//does the second compare, second frame times first dilation
-	for(var i = 0; i < frames[index].data.length; i+=4){
-		postProcess.data[i+0] = dilateFrames[0].data[i+0] * frames[1].data[i+0];
-		postProcess.data[i+1] = dilateFrames[0].data[i+1] * frames[1].data[i+1];
-		postProcess.data[i+2] = dilateFrames[0].data[i+2] * frames[1].data[i+2];
-		postProcess.data[i+3] = 255;
-	}
-
-	//counts how many pixels are on after this
-	for(var i = 0; i < frames[index].data.length; i+=4){
-		if(postProcess.data[i] > 128){
-			postCount[!index] ++;
-		}
-	}
-
-	//calculate the edge change ratio between the two frames
-	var ECR = maximum([postCount[0]/count[0], postCount[1]/count[1]]);
-	ECR = postCount[0]/count[0] + postCount[1]/count[1];
-	
-	//compares the previous ECR with the current ECR to see if theres much difference
-	var shot = false;
-	if(Math.abs(ECR - prevECR) > 0.2){
-		shot = true;
-	}
-	prevECR = ECR;
-	log(ECR);
-
-	if(cutTime > 0){
-		cutTime --;
-		shot = false;
-	}
-	//shows white if it detects a shot, black if not
-	for(var i = 0; i < output.data.length; i++){
-		if(shot){
-			cutTime = 3;
-			log("shot detected");
-			output.data[i] = 255;
-		}
-		else{
-			output.data[i] = 0;
-		}
-	}
-
-	return output;
-};
-
-	//used for analysis, to push frames on without processing them
-	this.pushFrame = function(frame){
-		//gets the edges of the new frame
-		var edgeDetector = new EdgeDetector();
-		var threshOld = thresheld;
-		thresheld = true;
-		var output = edgeDetector.process(frame);
-		thresheld = threshOld;
-
-		//increments and bounds checks the index
-		index ++;
-		if(index > 1){
-			index = 0;
-		}
-		//makes a new frame, then copies the edge data into it
-		frames[index] = cxt.createImageData(frame.width, frame.height);
-		for(var i = 0; i < output.data.length; i++){
-			frames[index].data[i] = output.data[i];
-		}
-
-		//resets the counts
-		count[index] = 0;
-		postCount[index] = 0;
-
-		//dilates the image
-		for(var y = 0; y < frame.height*4; y+=4){
-			for(var x = 0; x < frame.width*4; x+=4){
-				var i = y*frame.width + x;
-				if(frames[index].data[i] > 128){
-					cxt2.fillStyle = "#FFFFFF";
-					cxt2.beginPath();
-					cxt2.arc(x/4, y/4, 5, 5, Math.PI*2, true); 
-					cxt2.closePath();
-					cxt2.fill();
-					count[index] ++;
-				}
-			}
-		}
-
-		//gets dilate image data, and sets alpha channel to 255
-		dilateFrames[index] = cxt2.getImageData(0, 0, frame.width, frame.height);
-		for(var i = 3; i < dilateFrames[index].data.length; i+=4){
-			dilateFrames[index].data[i] = 255;
-		}
-	};
-
-//returns the maximum value of the inputs in ins
-	function maximum(ins){
-		var out = 0;
-		for(var i = 0; i < ins.length; i++){
-			if(ins[i] > out){
-				out = ins[i];
-			}
-		}
-		return out;
-	}
-}
-*/
 
 //Bleed object
 CLARITY.Bleed = function(options){
@@ -2730,9 +2642,7 @@ CLARITY.Bleed.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Bleed.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
-
-	var output = ctx.createImageData(frame.width, frame.height);
-    output.data.set(frame.data);
+	output.data.set(frame.data);
 
 	return this.processor.stackBlurCanvasSingle(output, this.properties.radius);
 };
@@ -2819,8 +2729,12 @@ CLARITY.Desaturate.prototype.doProcess = function(frame){
 //Dot Remover object
 CLARITY.DotRemover = function(options){
 	var options = options || {};
-	this.neighboursReq = options.neighboursReq || 1;
-	
+
+	//was a bare `this.neighboursReq`, which the base class's setInt couldn't reach
+	this.properties = {
+		neighboursReq: options.neighboursReq || 1
+	};
+
 	CLARITY.Filter.call( this, options );
 }
 
@@ -2828,6 +2742,11 @@ CLARITY.DotRemover.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.DotRemover.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	//the loop skips a one pixel border, which would otherwise stay transparent
+	for(var a = 3; a < output.data.length; a += 4){
+		output.data[a] = 255;
+	}
 
 	for(var y = 1; y < frame.height - 1; y++){
 		for(var x = 1; x < frame.width - 1; x++){
@@ -2845,7 +2764,7 @@ CLARITY.DotRemover.prototype.doProcess = function(frame){
 			if(frame.data[left] == col) count++;
 			if(frame.data[right] == col) count++;
 
-			if(count <= this.neighboursReq){
+			if(count <= this.properties.neighboursReq){
 				if(col > 138){
 					output.data[i] = 0;
 					output.data[i+1] = 0;
@@ -3097,7 +3016,7 @@ CLARITY.hsvShifter.prototype.doCreateControls = function(titleSet){
 		self.setFloat('saturation', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.lightness);
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.value);
 	controls.appendChild(slider);
 	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('value', e.srcElement.value);
@@ -3145,10 +3064,12 @@ CLARITY.Invert.prototype.doProcess = function(frame){
 			}
 		}
 
+		//`max-min-value+min` cancels down to `max-value`, which pushes everything
+		//below `min` and clips. Reflecting within the range is `max+min-value`.
 		for(var i = 0; i < frame.width*frame.height*4; i+=4){
-			output.data[i  ] = max-min-(frame.data[i  ])+min;
-			output.data[i+1] = max-min-(frame.data[i+1])+min;
-			output.data[i+2] = max-min-(frame.data[i+2])+min;
+			output.data[i  ] = max+min-frame.data[i  ];
+			output.data[i+1] = max+min-frame.data[i+1];
+			output.data[i+2] = max+min-frame.data[i+2];
 			output.data[i+3] = 255;
 		}
 	}
@@ -3318,33 +3239,32 @@ CLARITY.Posteriser.prototype.doProcess = function(frame){
 	this.MCut.init(data);
 	this.palette = this.MCut.get_fixed_size_palette(this.properties.colours);
 
-	var prevDistance;
+	var prevPixel;
 	var prevColour;
-	var count = 0;
-	var total = 0;
 	for(var i = 0; i < frame.data.length; i+=4){
 		var pix = [frame.data[i],frame.data[i+1],frame.data[i+2]];
-		var tempDist;
+		var col;
 
-		//attempts to improve performance by assuming that this colour might
-		//be similar to the previous one, and thus don't search through
-		//whole colour array.
-		if(prevColour && tempDist < prevDistance + 5 && tempDist > prevDistance - 5){
-			tempDist = CLARITY.Operations.colourDistance(pix, prevColour);
+		//Flat regions repeat the same pixel value over and over, so an identical
+		//pixel must quantise to an identical palette entry - skip the search.
+		//The original tried to do this by proximity, but compared `tempDist`
+		//before it had been assigned, so the branch was never taken. Matching on
+		//equality instead keeps the result exact rather than approximate.
+		if(prevColour && pix[0] == prevPixel[0] && pix[1] == prevPixel[1] && pix[2] == prevPixel[2]){
 			col = prevColour;
 		}
 		else{
-			var col = this.palette[0];
+			col = this.palette[0];
 			var dist = CLARITY.Operations.colourDistance(pix, col);
 			for(var j = 1; j < this.palette.length; j++){
-				tempDist = CLARITY.Operations.colourDistance(pix, this.palette[j]);
+				var tempDist = CLARITY.Operations.colourDistance(pix, this.palette[j]);
 				if(tempDist < dist){
 					dist = tempDist;
 					col = this.palette[j];
 				}
 			}
+			prevPixel = pix;
 			prevColour = col;
-			prevDistance = dist;
 		}
 
 		output.data[i]   = col[0];
@@ -3424,6 +3344,12 @@ CLARITY.Sharpen.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Sharpen.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//the kernel loop skips a one pixel border, which would otherwise be left
+	//fully transparent rather than black
+	for(var a = 3; a < output.data.length; a += 4){
+		output.data[a] = 255;
+	}
+
 	// for(var y = frame.height*4-4; y > 4; y -= 4){
 		// for(var x = frame.width*4-4; x > 4; x -= 4){
 	for(var y = 4; y < frame.height*4-4; y+=4){
@@ -3478,7 +3404,6 @@ CLARITY.Sharpen.prototype.doCreateControls = function(titleSet){
 CLARITY.Smoother = function(options){
 	var options = options || {};
 	// this.distance = options.distance || 1;
-	this.iterations = options.iterations || 1;
 	this.properties = {
 		iterations: options.iterations || 1
 	};
@@ -3489,9 +3414,15 @@ CLARITY.Smoother = function(options){
 CLARITY.Smoother.prototype = Object.create( CLARITY.Filter.prototype );
 
 CLARITY.Smoother.prototype.doProcess = function(frame){
-	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
+	//each pass now reads the previous pass's output. Before, every iteration read
+	//`frame` and wrote the same buffer, so iterations > 1 recomputed an identical
+	//result and the control did nothing.
+	var source = frame;
+	var output = frame;
 
 	for(var z = 0; z < this.properties.iterations; z++){
+		output = CLARITY.ctx.createImageData(frame.width, frame.height);
+
 		for(var y = 0; y < frame.height; y++){
 			for(var x = 0; x < frame.width; x++){
 				var i = (y*frame.width + x)*4;
@@ -3505,27 +3436,27 @@ CLARITY.Smoother.prototype.doProcess = function(frame){
 				var col = [0, 0, 0];
 
 				if(x != 0){
-					col[0] += frame.data[left];
-					col[1] += frame.data[left+1];
-					col[2] += frame.data[left+2];
+					col[0] += source.data[left];
+					col[1] += source.data[left+1];
+					col[2] += source.data[left+2];
 					count ++;
 				}
 				if(x != frame.width-1){
-					col[0] += frame.data[right];
-					col[1] += frame.data[right+1];
-					col[2] += frame.data[right+2];
+					col[0] += source.data[right];
+					col[1] += source.data[right+1];
+					col[2] += source.data[right+2];
 					count ++;
 				}
 				if(y != 0){
-					col[0] += frame.data[up];
-					col[1] += frame.data[up+1];
-					col[2] += frame.data[up+2];
+					col[0] += source.data[up];
+					col[1] += source.data[up+1];
+					col[2] += source.data[up+2];
 					count ++;
 				}
 				if(y != frame.height-1){
-					col[0] += frame.data[down];
-					col[1] += frame.data[down+1];
-					col[2] += frame.data[down+2];
+					col[0] += source.data[down];
+					col[1] += source.data[down+1];
+					col[2] += source.data[down+2];
 					count ++;
 				}
 
@@ -3535,6 +3466,8 @@ CLARITY.Smoother.prototype.doProcess = function(frame){
 				output.data[i+3] = 255;
 			}
 		}
+
+		source = output;
 	}
 
 	return output;
@@ -3576,6 +3509,12 @@ CLARITY.EdgeDetector.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.EdgeDetector.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//the kernel loops skip a one pixel border, which would otherwise be left
+	//fully transparent rather than black
+	for(var a = 3; a < output.data.length; a += 4){
+		output.data[a] = 255;
+	}
+
 	if(!this.properties.fast){
 		for(var y = 4; y < frame.height*4-4; y+=4){
 			for(var x = 4; x < frame.width*4-4; x+=4){
@@ -3601,10 +3540,11 @@ CLARITY.EdgeDetector.prototype.doProcess = function(frame){
 		for(var y = 4; y < frame.height*4-4; y+=4){
 			for(var x = 4; x < frame.width*4-4; x+=4){
 				var i = y*frame.width + x;
-				output.data[i]   = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-				output.data[i+1] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-				output.data[i+2] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-			
+				var diff = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
+				output.data[i]   = diff;
+				output.data[i+1] = diff;
+				output.data[i+2] = diff;
+
 				output.data[i+3] = 255;
 			}
 		}
@@ -3688,10 +3628,12 @@ CLARITY.MotionDetector.prototype.doCreateControls = function(titleSet){
 	var slider = CLARITY.Interface.createSlider(1, 24, 1, 'Frame Count', this.properties.frameCount);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
-		self.setInt('frameCount', e.srcElement.value);
+		self.setInt('frameCount', e.target.value);
 
+		//has to match the constructor: preindex starts at frameCount, not
+		//frameCount-1, or the first comparison comes out as a frame against itself
 		self.index = 0;
-		self.preindex = e.srcElement.value-1;
+		self.preindex = self.properties.frameCount;
 		self.frames = [];
 	});
 
@@ -3773,7 +3715,9 @@ CLARITY.Cloud.prototype.doProcess = function(frame){
 		data[i] = 0;
 	}
 	for(var z = 0; z < this.properties.iterations; z++){
-		size *= (z+1);
+		if(z > 0){
+			size *= 2;	//octaves double; the old size *= (z+1) gave 4, 8, 24, 96
+		}
 		if(size > frame.width){
 			break;
 		}
@@ -3813,7 +3757,7 @@ CLARITY.Cloud.prototype.doProcess = function(frame){
 					xpercent = this.smoothStep(xpercent);
 					ypercent = this.smoothStep(ypercent);
 				}
-				
+
 				xval1 = this.linearInterpolate(values[y1][x1], values[y1][x2], xpercent);
 				xval2 = this.linearInterpolate(values[y2][x1], values[y2][x2], xpercent);
 				yval2 = this.linearInterpolate(xval1, xval2, ypercent);
@@ -3826,13 +3770,18 @@ CLARITY.Cloud.prototype.doProcess = function(frame){
 	}
 
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
-	for(var k = 0; k < data.length; k ++){
+	if(iterations == 0){
+		return output;	//initialSize was wider than the frame, nothing was accumulated
+	}
+	//data holds 3 entries per pixel, so this loops over pixels - not over data.length,
+	//which ran 3x past the end of output
+	for(var k = 0; k < frame.width*frame.height; k ++){
 		var i = k * 3;
 		var j = k * 4;
 		output.data[j  ] = data[i  ]/iterations * this.properties.red/255;
 		output.data[j+1] = data[i+1]/iterations * this.properties.green/255;
 		output.data[j+2] = data[i+2]/iterations * this.properties.blue/255;
-		output.data[j+3] = 255;
+		output.data[j+3] = (this.properties.red + this.properties.green + this.properties.blue)/3;
 	}
 	return output;
 };
@@ -3840,7 +3789,7 @@ CLARITY.Cloud.prototype.doProcess = function(frame){
 CLARITY.Cloud.prototype.doCreateControls = function(titleSet){
 	var self = this;
 	var controls = CLARITY.Interface.createDiv();
-	
+
 	var slider = CLARITY.Interface.createSlider(0, 255, 1, 'red', this.properties.red);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
@@ -4019,6 +3968,11 @@ CLARITY.GradientThreshold.prototype = Object.create( CLARITY.Filter.prototype );
 //The main function to do all the thresholding from
 CLARITY.GradientThreshold.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
+
+	//the loops skip a `distance`-wide border, which would otherwise stay transparent
+	for(var a = 3; a < output.data.length; a += 4){
+		output.data[a] = 255;
+	}
 
 	var found = false;
 	for(var y = this.properties.distance; y < frame.height - this.properties.distance; y++){
@@ -4412,7 +4366,8 @@ CLARITY.Mirror = function(options){
 	var options = options || {};
 
 	this.properties = {
-		Horizontal: options.Horizontal || true,
+		//`options.Horizontal || true` is always true - it could never be turned off
+		Horizontal: options.Horizontal === undefined ? true : options.Horizontal,
 		Vertical: options.Vertical || false
 	};
 
@@ -4424,20 +4379,24 @@ CLARITY.Mirror.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Mirror.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//written as a gather (read from the mirrored source) rather than a scatter, so
+	//every output pixel is guaranteed to be written. The old scatter used
+	//width-x / height-y, which wrote index `width` on x=0 - wrapping onto the next
+	//row - and never wrote column 0 at all.
 	for(var y = 0; y < frame.height; y++){
 		for(var x = 0; x < frame.width; x++){
-			var from = (y*frame.width + x)*4;
-			var toX = x;
-			var toY = y;
+			var to = (y*frame.width + x)*4;
+			var fromX = x;
+			var fromY = y;
 			if(this.properties.Horizontal){
-				toX = frame.width-x;
+				fromX = frame.width-1-x;
 			}
 			if(this.properties.Vertical){
-				toY = frame.height-y;
+				fromY = frame.height-1-y;
 			}
 
-			var to = ((toY)*frame.width + toX)*4;
-			
+			var from = ((fromY)*frame.width + fromX)*4;
+
 			output.data[to] = frame.data[from];
 			output.data[to+1] = frame.data[from+1];
 			output.data[to+2] = frame.data[from+2];
@@ -4496,7 +4455,8 @@ CLARITY.Rotator.prototype.doProcess = function(frame){
 	var height = frame.height;
 	var offset = 0;
 
-	if(this.properties.turns == 1 || this.properties.turns == 3 && frame.width != frame.height){
+	//&& binds tighter than ||, so this used to read `turns==1 || (turns==3 && w!=h)`
+	if((this.properties.turns == 1 || this.properties.turns == 3) && frame.width != frame.height){
 		var smallest = CLARITY.Operations.minimum([frame.width, frame.height]);
 		if(smallest == frame.width){
 			offset = Math.floor((frame.height-frame.width)/2);
@@ -4515,25 +4475,28 @@ CLARITY.Rotator.prototype.doProcess = function(frame){
 			var from = ((y-offset)*frame.width + (x+offset))*4;
 			var toX;
 			var toY;
+			//these used to be -y / -x and relied on the wrap below to bring them back
+			//into range, which landed every result one pixel out
 			if(this.properties.turns == 1){
-				toX = -y;
+				toX = frame.width-1-y;
 				toY = x;
 			}
 			else if(this.properties.turns == 2){
-				toX = -x;
-				toY = -y;
+				toX = frame.width-1-x;
+				toY = frame.height-1-y;
 			}
 			else if(this.properties.turns == 3){
 				toX = y;
-				toY = -x;
+				toY = frame.height-1-x;
 			}
-			if(toX > frame.width){
+			//`>` let an index of exactly width/height through, wrapping onto the next row
+			if(toX >= frame.width){
 				toX -= frame.width;
 			}
 			else if(toX < 0){
 				toX += frame.width;
 			}
-			if(toY > frame.height){
+			if(toY >= frame.height){
 				toY -= frame.height;
 			}
 			else if(toY < 0){
@@ -4635,9 +4598,10 @@ CLARITY.Tiler.prototype.doProcess = function(frame){
 CLARITY.Translator = function(options){
 	var options = options || {};
 
+	//`options.horizontal || 0.5` turned a deliberate 0 into 0.5, so "no shift" was unreachable
 	this.properties = {
-		horizontal: CLARITY.Operations.clamp(options.horizontal || 0.5, -1, 1),
-		vertical: CLARITY.Operations.clamp(options.vertical || 0.5, -1, 1)
+		horizontal: CLARITY.Operations.clamp(options.horizontal === undefined ? 0.5 : options.horizontal, -1, 1),
+		vertical: CLARITY.Operations.clamp(options.vertical === undefined ? 0.5 : options.vertical, -1, 1)
 	};
 
 	CLARITY.Filter.call( this, options );
@@ -4707,7 +4671,7 @@ CLARITY.Wave = function(options){
 	this.properties = {
 		horizontal: options.horizontal || false,
 		vertical: options.vertical || false,
-		speed: Math.round(options.speed) || 1,
+		speed: options.speed === undefined ? 1 : Math.round(options.speed),
 		frequency: options.frequency || 10,
 		amplitude: options.amplitude || 10
 	};
@@ -4717,99 +4681,57 @@ CLARITY.Wave = function(options){
 
 CLARITY.Wave.prototype = Object.create( CLARITY.Filter.prototype );
 
+//Rewritten as a gather (each output pixel reads its own source) rather than a scatter.
+//The old version wrote to a computed destination, so wherever the mapping wasn't onto
+//it left un-written holes - visible as tearing. A gather writes every output pixel
+//exactly once, needs no second buffer for the two-axis case, and is the form a
+//fragment shader would take.
 CLARITY.Wave.prototype.doProcess = function(frame){
+	var horizontal = this.properties.horizontal;
+	var vertical = this.properties.vertical;
+
+	if(!horizontal && !vertical){
+		return frame;
+	}
+
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
-	var output2 = CLARITY.ctx.createImageData(frame.width, frame.height);
 
-	var offset = ((new Date().getMilliseconds()/1000)*Math.PI*2)*this.properties.speed;
+	//performance.now() climbs monotonically. The old Date().getMilliseconds()
+	//wrapped at 1000ms, so the phase snapped back once every second.
+	var phase = ((performance.now()/1000)*Math.PI*2)*this.properties.speed;
 
-	if(this.properties.horizontal){
+	//hoisted out of the inner loop - each is a function of one axis only
+	var xOffsets = [];
+	if(horizontal){
 		for(var y = 0; y < frame.height; y++){
-			var offsetx = Math.floor(this.waveFunction(y/this.properties.frequency+offset)*this.properties.amplitude);
-			for(var x = 0; x < frame.width; x++){
-				var from = (y*frame.width + x)*4;
-				var toX = x + offsetx;
-				var toY = y;
-				if(toX >= frame.width){
-					toX -= frame.width;
-				}
-				else if(toX < 0){
-					toX += frame.width;
-				}
-				if(toY >= frame.height){
-					toY -= frame.height;
-				}
-				else if(toY < 0){
-					toY += frame.height;
-				}
-				var to = ((toY)*frame.width + toX)*4;
-				
-				output.data[to] = frame.data[from];
-				output.data[to+1] = frame.data[from+1];
-				output.data[to+2] = frame.data[from+2];
-
-				output.data[to+3] = 255;
-			}
-		}
-
-		if(this.properties.vertical){
-			for(var x = 0; x < frame.width; x++){
-				var offsety = Math.floor(this.waveFunction(x/this.properties.frequency+offset)*this.properties.amplitude);
-				for(var y = 0; y < frame.height; y++){
-					var from = (y*frame.width + x)*4;
-					var toX = x;
-					var toY = y + offsety;
-					if(toX >= frame.width){
-						toX -= frame.width;
-					}
-					else if(toX < 0){
-						toX += frame.width;
-					}
-					if(toY >= frame.height){
-						toY -= frame.height;
-					}
-					else if(toY < 0){
-						toY += frame.height;
-					}
-					var to = ((toY)*frame.width + toX)*4;
-					
-					output2.data[to]   = output.data[from];
-					output2.data[to+1] = output.data[from+1];
-					output2.data[to+2] = output.data[from+2];
-
-					output2.data[to+3] = 255;
-				}
-			}
-			return output2;
+			xOffsets[y] = Math.floor(this.waveFunction(y/this.properties.frequency+phase)*this.properties.amplitude);
 		}
 	}
-	else if(this.properties.vertical){
+	var yOffsets = [];
+	if(vertical){
 		for(var x = 0; x < frame.width; x++){
-			var offsety = Math.floor(this.waveFunction(x/this.properties.frequency+offset)*this.properties.amplitude);
-			for(var y = 0; y < frame.height; y++){
-				var from = (y*frame.width + x)*4;
-				var toX = x;
-				var toY = y + offsety;
-				if(toX >= frame.width){
-					toX -= frame.width;
-				}
-				else if(toX < 0){
-					toX += frame.width;
-				}
-				if(toY >= frame.height){
-					toY -= frame.height;
-				}
-				else if(toY < 0){
-					toY += frame.height;
-				}
-				var to = ((toY)*frame.width + toX)*4;
-				
-				output.data[to]   = frame.data[from];
-				output.data[to+1] = frame.data[from+1];
-				output.data[to+2] = frame.data[from+2];
+			yOffsets[x] = Math.floor(this.waveFunction(x/this.properties.frequency+phase)*this.properties.amplitude);
+		}
+	}
 
-				output.data[to+3] = 255;
-			}
+	for(var y = 0; y < frame.height; y++){
+		for(var x = 0; x < frame.width; x++){
+			var to = (y*frame.width + x)*4;
+
+			//vertical first, then horizontal reads from the displaced row -
+			//matches the order the old two-pass version applied them in
+			var fromY = vertical ? y - yOffsets[x] : y;
+			fromY = ((fromY % frame.height) + frame.height) % frame.height;
+
+			var fromX = horizontal ? x - xOffsets[fromY] : x;
+			fromX = ((fromX % frame.width) + frame.width) % frame.width;
+
+			var from = (fromY*frame.width + fromX)*4;
+
+			output.data[to  ] = frame.data[from  ];
+			output.data[to+1] = frame.data[from+1];
+			output.data[to+2] = frame.data[from+2];
+			output.data[to+3] = 255;
 		}
 	}
 

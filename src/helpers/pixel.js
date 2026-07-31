@@ -13,7 +13,7 @@ CLARITY.Pixel = function(r, g, b){
 
 CLARITY.Pixel.prototype = {
 	getColourValue: function(channel){
-		var channel = this.channel || channel || "grey";
+		var channel = channel || this.channel || "grey";
 
 		switch(channel){
 			case 'grey':
@@ -51,7 +51,7 @@ CLARITY.Pixel.prototype = {
 		min = CLARITY.Operations.minimum([this.r, this.g, this.b]);
 		max = CLARITY.Operations.maximum([this.r, this.g, this.b]);
 
-		this.v = max/256;
+		this.v = max/255;
 		delta = max - min;
 
 		if(max != 0){
@@ -75,21 +75,22 @@ CLARITY.Pixel.prototype = {
 			this.h += 360;
 	},
 
+	//h is in degrees (0-360), s and v are 0-1. r/g/b are written back as 0-255.
 	setFromHSV: function(h, s, v){
 		var i;
 		var f, p, q, t;
-		
+
 		this.h = h;
 		this.s = s;
 		this.v = v;
 
 		if(this.s == 0){//grey
-			this.r = this.g = this.b = this.v;
+			this.r = this.g = this.b = this.v*255;
 			return;
 		}
 
 		i =  Math.floor(this.h/60);
-		f = this.h - i;			// factorial part of h
+		f = this.h/60 - i;		// fractional part of h/60
 		p = this.v * (1 - this.s);
 		q = this.v * (1 - this.s * f);
 		t = this.v * (1 - this.s * (1 - f));
@@ -126,6 +127,10 @@ CLARITY.Pixel.prototype = {
 				this.b = q;
 				break;
 		}
+
+		this.r *= 255;
+		this.g *= 255;
+		this.b *= 255;
 	},
 
 	toRGBArray: function(){

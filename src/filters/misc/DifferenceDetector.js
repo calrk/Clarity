@@ -11,7 +11,10 @@ CLARITY.DifferenceDetector.prototype = Object.create( CLARITY.Filter.prototype )
 
 CLARITY.DifferenceDetector.prototype.doProcess = function(frame){
 		if(!this.original){
-			this.original = frame;
+			//keeps its own copy, otherwise later filters mutating the frame
+			//would drift the reference image out from under us
+			this.original = CLARITY.ctx.createImageData(frame.width, frame.height);
+			this.original.data.set(frame.data);
 			return frame;
 		}
 
@@ -23,7 +26,7 @@ CLARITY.DifferenceDetector.prototype.doProcess = function(frame){
 					frame.data[i+2] != this.original.data[i+2]){*/
 			var colour1 = [this.original.data[i], this.original.data[i+1], this.original.data[i+2]];
 			var colour2 = [frame.data[i], frame.data[i+1], frame.data[i+2]];
-			if(findDifference(colour2, colour1)){
+			if(this.findDifference(colour2, colour1)){
 				output.data[i]   = frame.data[i];
 				output.data[i+1] = frame.data[i+1];
 				output.data[i+2] = frame.data[i+2];

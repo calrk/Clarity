@@ -12,6 +12,8 @@ CLARITY.Operations = {
 		var minRGB = this.minimum([r, g, b]);
 		var maxRGB = this.maximum([r, g, b]);
 
+		var computedH, computedS, computedV;
+
 		if(minRGB == maxRGB) {
 			computedV = minRGB;
 			return [0,0,computedV];
@@ -109,7 +111,7 @@ CLARITY.Operations = {
 	},
 
 	colorDistance: function(from, to){
-		this.colourDistance(from, to);
+		return this.colourDistance(from, to);
 	},
 	colourDistance: function(from, to){
 		return Math.pow(from[0]-to[0], 2) + Math.pow(from[1]-to[1], 2) + Math.pow(from[2]-to[2], 2);

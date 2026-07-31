@@ -11,7 +11,7 @@ CLARITY.Mask.prototype.doProcess = function(frame1, frame2){
 	var output = CLARITY.ctx.createImageData(frame1.width, frame1.height);
 
 	for(var i = 0; i < frame1.width*frame1.height*4; i+=4){
-		if(frame2[i].data < 128){
+		if(frame2.data[i] < 128){
 			output.data[i+0] = frame1.data[i  ];
 			output.data[i+1] = frame1.data[i+1];
 			output.data[i+2] = frame1.data[i+2];

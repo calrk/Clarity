@@ -37,10 +37,12 @@ CLARITY.Invert.prototype.doProcess = function(frame){
 			}
 		}
 
+		//`max-min-value+min` cancels down to `max-value`, which pushes everything
+		//below `min` and clips. Reflecting within the range is `max+min-value`.
 		for(var i = 0; i < frame.width*frame.height*4; i+=4){
-			output.data[i  ] = max-min-(frame.data[i  ])+min;
-			output.data[i+1] = max-min-(frame.data[i+1])+min;
-			output.data[i+2] = max-min-(frame.data[i+2])+min;
+			output.data[i  ] = max+min-frame.data[i  ];
+			output.data[i+1] = max+min-frame.data[i+1];
+			output.data[i+2] = max+min-frame.data[i+2];
 			output.data[i+3] = 255;
 		}
 	}

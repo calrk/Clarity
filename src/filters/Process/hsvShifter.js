@@ -53,7 +53,7 @@ CLARITY.hsvShifter.prototype.doCreateControls = function(titleSet){
 		self.setFloat('saturation', e.srcElement.value);
 	});
 
-	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.lightness);
+	slider = CLARITY.Interface.createSlider(0, 2, 0.1, 'lightness', this.properties.value);
 	controls.appendChild(slider);
 	slider.getElementsByTagName('input')[0].addEventListener('change', function(e){
 		self.setFloat('value', e.srcElement.value);

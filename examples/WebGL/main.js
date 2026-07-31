@@ -17,7 +17,7 @@ var filters = [
 	{
 		name: "Edge Detector",
 		id: "edge",
-		filter: new CLARITY.EdgeDetector({efficient:true, enabled:false})
+		filter: new CLARITY.EdgeDetector({fast:true, enabled:false})
 	},
 	{
 		name: "Gradient Thresholder",
@@ -155,7 +155,7 @@ function shuffleChanged(){
 }
 
 function compareFilters(first, second){
-	return first.position > second.position;
+	return first.position - second.position;
 }
 
 function render(){

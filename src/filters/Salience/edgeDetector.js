@@ -21,6 +21,12 @@ CLARITY.EdgeDetector.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.EdgeDetector.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//the kernel loops skip a one pixel border, which would otherwise be left
+	//fully transparent rather than black
+	for(var a = 3; a < output.data.length; a += 4){
+		output.data[a] = 255;
+	}
+
 	if(!this.properties.fast){
 		for(var y = 4; y < frame.height*4-4; y+=4){
 			for(var x = 4; x < frame.width*4-4; x+=4){
@@ -46,10 +52,11 @@ CLARITY.EdgeDetector.prototype.doProcess = function(frame){
 		for(var y = 4; y < frame.height*4-4; y+=4){
 			for(var x = 4; x < frame.width*4-4; x+=4){
 				var i = y*frame.width + x;
-				output.data[i]   = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-				output.data[i+1] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-				output.data[i+2] = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
-			
+				var diff = Math.abs(this.getColourValue(frame, i+4)-this.getColourValue(frame, i))*5;
+				output.data[i]   = diff;
+				output.data[i+1] = diff;
+				output.data[i+2] = diff;
+
 				output.data[i+3] = 255;
 			}
 		}

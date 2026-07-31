@@ -35,33 +35,32 @@ CLARITY.Posteriser.prototype.doProcess = function(frame){
 	this.MCut.init(data);
 	this.palette = this.MCut.get_fixed_size_palette(this.properties.colours);
 
-	var prevDistance;
+	var prevPixel;
 	var prevColour;
-	var count = 0;
-	var total = 0;
 	for(var i = 0; i < frame.data.length; i+=4){
 		var pix = [frame.data[i],frame.data[i+1],frame.data[i+2]];
-		var tempDist;
+		var col;
 
-		//attempts to improve performance by assuming that this colour might
-		//be similar to the previous one, and thus don't search through
-		//whole colour array.
-		if(prevColour && tempDist < prevDistance + 5 && tempDist > prevDistance - 5){
-			tempDist = CLARITY.Operations.colourDistance(pix, prevColour);
+		//Flat regions repeat the same pixel value over and over, so an identical
+		//pixel must quantise to an identical palette entry - skip the search.
+		//The original tried to do this by proximity, but compared `tempDist`
+		//before it had been assigned, so the branch was never taken. Matching on
+		//equality instead keeps the result exact rather than approximate.
+		if(prevColour && pix[0] == prevPixel[0] && pix[1] == prevPixel[1] && pix[2] == prevPixel[2]){
 			col = prevColour;
 		}
 		else{
-			var col = this.palette[0];
+			col = this.palette[0];
 			var dist = CLARITY.Operations.colourDistance(pix, col);
 			for(var j = 1; j < this.palette.length; j++){
-				tempDist = CLARITY.Operations.colourDistance(pix, this.palette[j]);
+				var tempDist = CLARITY.Operations.colourDistance(pix, this.palette[j]);
 				if(tempDist < dist){
 					dist = tempDist;
 					col = this.palette[j];
 				}
 			}
+			prevPixel = pix;
 			prevColour = col;
-			prevDistance = dist;
 		}
 
 		output.data[i]   = col[0];

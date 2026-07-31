@@ -16,7 +16,7 @@ CLARITY.Filter.prototype = {
 		if(!this.enabled){
 			return frame;
 		}
-		if(frame.length){//if there are multiple frames in an array
+		if(Array.isArray(frame)){//if there are multiple frames in an array
 			return this.doProcess(frame[0], frame[1]);
 		}
 		return this.doProcess(frame);

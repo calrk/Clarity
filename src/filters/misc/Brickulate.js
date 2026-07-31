@@ -21,8 +21,8 @@ CLARITY.Brickulate.prototype.doProcess = function(frame){
 	var heightSegs = Math.round(frame.height/this.properties.verticalSegs);
 
 	var grooveSize = this.properties.grooveSize;
-	for(var y = 0; y < frame.height*4; y++){
-		for(var x = 0; x < frame.width*4; x++){
+	for(var y = 0; y < frame.height; y++){
+		for(var x = 0; x < frame.width; x++){
 			var i = (y*frame.width + x)*4;
 
 			var xasd = x%widthSegs;
@@ -35,7 +35,7 @@ CLARITY.Brickulate.prototype.doProcess = function(frame){
 					}
 				}
 			}
-			if((xasd <= grooveSize || xasd >= widthSegs-5) && (yasd <= grooveSize || yasd >= heightSegs-5)){
+			if((xasd <= grooveSize || xasd >= widthSegs-grooveSize) && (yasd <= grooveSize || yasd >= heightSegs-grooveSize)){
 				output.data[i  ] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
 				output.data[i+1] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
 				output.data[i+2] = Math.max(255*(grooveSize-xasd)/grooveSize, 255*(xasd-widthSegs+grooveSize)/grooveSize, 255*(grooveSize-yasd)/grooveSize, 255*(yasd-heightSegs+grooveSize)/grooveSize);
@@ -45,7 +45,7 @@ CLARITY.Brickulate.prototype.doProcess = function(frame){
 				output.data[i+1] = 255*(grooveSize-xasd)/grooveSize;
 				output.data[i+2] = 255*(grooveSize-xasd)/grooveSize;
 			}
-			else if(xasd >= widthSegs-5){
+			else if(xasd >= widthSegs-grooveSize){
 				output.data[i  ] = 255*(xasd-widthSegs+grooveSize)/grooveSize;
 				output.data[i+1] = 255*(xasd-widthSegs+grooveSize)/grooveSize;
 				output.data[i+2] = 255*(xasd-widthSegs+grooveSize)/grooveSize;
@@ -55,7 +55,7 @@ CLARITY.Brickulate.prototype.doProcess = function(frame){
 				output.data[i+1] = 255*(grooveSize-yasd)/grooveSize;
 				output.data[i+2] = 255*(grooveSize-yasd)/grooveSize;
 			}
-			else if(yasd >= heightSegs-5){
+			else if(yasd >= heightSegs-grooveSize){
 				output.data[i  ] = 255*(yasd-heightSegs+grooveSize)/grooveSize;
 				output.data[i+1] = 255*(yasd-heightSegs+grooveSize)/grooveSize;
 				output.data[i+2] = 255*(yasd-heightSegs+grooveSize)/grooveSize;

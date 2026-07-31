@@ -16,6 +16,12 @@ CLARITY.Sharpen.prototype = Object.create( CLARITY.Filter.prototype );
 CLARITY.Sharpen.prototype.doProcess = function(frame){
 	var output = CLARITY.ctx.createImageData(frame.width, frame.height);
 
+	//the kernel loop skips a one pixel border, which would otherwise be left
+	//fully transparent rather than black
+	for(var a = 3; a < output.data.length; a += 4){
+		output.data[a] = 255;
+	}
+
 	// for(var y = frame.height*4-4; y > 4; y -= 4){
 		// for(var x = frame.width*4-4; x > 4; x -= 4){
 	for(var y = 4; y < frame.height*4-4; y+=4){

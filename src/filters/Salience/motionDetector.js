@@ -60,10 +60,12 @@ CLARITY.MotionDetector.prototype.doCreateControls = function(titleSet){
 	var slider = CLARITY.Interface.createSlider(1, 24, 1, 'Frame Count', this.properties.frameCount);
 	controls.appendChild(slider);
 	slider.addEventListener('change', function(e){
-		self.setInt('frameCount', e.srcElement.value);
+		self.setInt('frameCount', e.target.value);
 
+		//has to match the constructor: preindex starts at frameCount, not
+		//frameCount-1, or the first comparison comes out as a frame against itself
 		self.index = 0;
-		self.preindex = e.srcElement.value-1;
+		self.preindex = self.properties.frameCount;
 		self.frames = [];
 	});
 

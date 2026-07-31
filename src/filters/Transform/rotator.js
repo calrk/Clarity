@@ -27,7 +27,8 @@ CLARITY.Rotator.prototype.doProcess = function(frame){
 	var height = frame.height;
 	var offset = 0;
 
-	if(this.properties.turns == 1 || this.properties.turns == 3 && frame.width != frame.height){
+	//&& binds tighter than ||, so this used to read `turns==1 || (turns==3 && w!=h)`
+	if((this.properties.turns == 1 || this.properties.turns == 3) && frame.width != frame.height){
 		var smallest = CLARITY.Operations.minimum([frame.width, frame.height]);
 		if(smallest == frame.width){
 			offset = Math.floor((frame.height-frame.width)/2);
@@ -46,25 +47,28 @@ CLARITY.Rotator.prototype.doProcess = function(frame){
 			var from = ((y-offset)*frame.width + (x+offset))*4;
 			var toX;
 			var toY;
+			//these used to be -y / -x and relied on the wrap below to bring them back
+			//into range, which landed every result one pixel out
 			if(this.properties.turns == 1){
-				toX = -y;
+				toX = frame.width-1-y;
 				toY = x;
 			}
 			else if(this.properties.turns == 2){
-				toX = -x;
-				toY = -y;
+				toX = frame.width-1-x;
+				toY = frame.height-1-y;
 			}
 			else if(this.properties.turns == 3){
 				toX = y;
-				toY = -x;
+				toY = frame.height-1-x;
 			}
-			if(toX > frame.width){
+			//`>` let an index of exactly width/height through, wrapping onto the next row
+			if(toX >= frame.width){
 				toX -= frame.width;
 			}
 			else if(toX < 0){
 				toX += frame.width;
 			}
-			if(toY > frame.height){
+			if(toY >= frame.height){
 				toY -= frame.height;
 			}
 			else if(toY < 0){
