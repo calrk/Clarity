@@ -2,3 +2,9 @@ node_modules
 clarity.sublime-workspace
 clarity.sublime-project
 aws.json
+
+# build output - regenerate with `npm run build`
+dist
+
+# codemod scratch
+.codemod-manifest.json

@@ -1,4 +1,5 @@
 <html>
+
 <head>
 	<title>Clarity - Height Map</title>
 
@@ -6,15 +7,16 @@
 	<script type="text/javascript" src="../js/jquery-ui-1.10.3.custom.min.js"></script>
 	<script type="text/javascript" src="../js/three.min.js"></script>
 
-	<script type="text/javascript" src="../js/clarity.min.js"></script>
+	<script type="text/javascript" src="../../dist/clarity.global.js"></script>
 
-	<script type="text/javascript" src="main.js"></script>
+	<script type="text/javascript" src="../HeightMap/main.js"></script>
 	<link rel="stylesheet" type="text/css" href="../css/style.css">
-	<link rel="icon" href="../favicon.png" type="image/png"/>
+	<link rel="icon" href="../favicon.png" type="image/png" />
 </head>
+
 <body>
 
-	<img id="image" style="display:none;" src="river.png"></img>
+	<img id="image" style="display:none;" src="../HeightMap/river.png"></img>
 	<canvas id="canvas" width="500" height="500" style="border:1px solid #d3d3d3;"></canvas>
 	<canvas id="normal" width="500" height="500" style="border:1px solid #d3d3d3;"></canvas>
 	<canvas id="three" width="500" height="500" style="border:1px solid #d3d3d3;"></canvas>
@@ -27,4 +29,5 @@
 	</div>
 	<img id="imageNorm" style="display:none;"></img>
 </body>
+
 </html>

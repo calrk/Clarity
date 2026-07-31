@@ -41,9 +41,28 @@ Cheap, self-contained, and it stops #3 from faithfully porting bugs into GLSL.
 
 ---
 
-## 2. Modern Build: ESM + Vite + a Publishable Package
+## ~~2. Modern Build: ESM + Vite + a Publishable Package~~ ✓
 
 **Effort: Medium**
+
+**Done.** `src/` is TypeScript ES modules; Vite emits ESM + UMD + a global `<script>` build plus 47 `.d.ts` files; `package.json` is publishable as **`@calrk/clarity`**. Gulp is gone.
+
+- **41 filters converted to classes** with a typed `<Name>Options` interface each. The port was done by codemod so the bodies — and the #1 fixes in them — carried across verbatim rather than being retyped.
+- **Three bundles**: `dist/clarity.js` (ESM, what `import` gets), `dist/clarity.umd.cjs` (what `require()` gets — `.cjs` because the package is `"type": "module"`), and `dist/clarity.global.js` (IIFE exposing the `CLARITY` global). The examples load the third, so all 8 still work with only their `<script src>` changed.
+- **`npm run dev`** serves `examples/` on port 8080, replacing the gulp-connect task that bound port 80 and needed admin.
+- **The DOM dependency at import time is gone** (pulled forward from #10). `src/clarity.js`'s `document.createElement('canvas')` is replaced by `core/imagedata.ts`, which prefers the `ImageData` constructor. Node has no global `ImageData`, so a `setImageDataFactory()` injection point covers headless use — which is what #6's golden-image tests will need.
+- **`npm test`** runs 55 assertions over the built bundle (every filter twice, plus targeted behaviour checks). Not the golden-image suite — that's still #6 — but enough to prove the migration is behaviour-preserving.
+- `build/` and `examples/js/clarity*.js` are deleted; `dist/` is generated and gitignored.
+
+**Bugs the type system found that the runtime sweep in #1 could not:**
+
+- **`ChannelSeparate`'s "fix vertical lines" loop used `left`/`right` that it never declared.** Under `var` they leaked out of the *previous* loop, so every pixel in that pass read the same two stale indices — whatever the horizontal loop happened to leave behind. Genuinely wrong output for a decade, invisible to any runtime check.
+- **`Contourer.setVar` and `Posteriser.setThresh` both read the loop counter after the loop**, relying on `var` hoisting. `let` broke them loudly; both now declare it outside.
+- **`HanoverBars` reassigned one `pix` variable through RGB → YUV → RGB**, so its type changed twice under it. Split into separate bindings.
+
+Two notes: the codemod initially dropped `doProcess` from `Sharpen` and `DifferenceDetector` — its brace matcher counted braces inside commented-out code — which the test suite caught. And the licence is now declared honestly as **GPL-3.0-or-later**, because MCut is still bundled; #7 is what makes it permissive.
+
+### Original write-up
 
 The current build is `gulpfile.js`: Gulp **3.8**, `gulp-concat`, `gulp-uglify` 0.3. This does not run on any Node released in the last decade — Gulp 3 depends on `graceful-fs@3`/`natives`, which throws on Node ≥ 12. Beyond that:
 
@@ -328,7 +347,7 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | ✓ | Correctness sweep | Low | Done — 4 crashing filters revived, 31→40 of 41 clean |
-| 2 | ESM + Vite + publishable package | Medium | Highest — unblocks everything; the library is currently un-installable |
+| ✓ | ESM + Vite + publishable package | Medium | Done — TS classes, 3 bundles, types, `npm test`; found 3 more bugs |
 | 7 | Licensing / replace GPL MCut | Low–Med | High — the difference between publishable and not |
 | 6 | Golden-image test suite | Medium | High — the acceptance criterion for the GPU port |
 | 4 | `Renderer` / pipeline object | Medium | High — kills seven copies of the same loop; home for FBO ping-pong |
@@ -340,6 +359,6 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | 12 | Pipeline fusion | High | Medium — big for UV-transform chains and weak GPUs; also fixes 8-bit precision loss. Classification metadata in #3, compiler later |
 | 10 | CPU path modernisation | Medium | Low–Medium — mostly superseded by #3; cherry-pick the allocation fix |
 
-**Suggested order of attack:** ~~1~~ → **2** → 7 → 6 → 4/8 → 3 (tier by tier) → 5 → 9/11 → 12.
+**Suggested order of attack:** ~~1~~ → ~~2~~ → **7** → 6 → 4/8 → 3 (tier by tier) → 5 → 9/11 → 12.
 
 *More features to be added.*

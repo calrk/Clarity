@@ -1,7 +1,87 @@
 Clarity
 =======
 
-Canvas image filter library
+Canvas image filter library. Every filter is a class that takes `ImageData` and
+returns `ImageData`, so filters compose into a pipeline by chaining them.
+
+Install
+-------
+
+```sh
+npm install @calrk/clarity
+```
+
+Usage
+-----
+
+```js
+import { Blur, EdgeDetector, Invert } from '@calrk/clarity';
+
+const ctx = canvas.getContext('2d');
+ctx.drawImage(image, 0, 0);
+
+const pipeline = [
+	new Blur({ radius: 8 }),
+	new EdgeDetector({ fast: true }),
+	new Invert()
+];
+
+let frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+for (const filter of pipeline) {
+	frame = filter.process(frame);
+}
+ctx.putImageData(frame, 0, 0);
+```
+
+Each filter takes a typed options bag, and exposes `properties` for live tweaking
+plus `enabled` to bypass it without removing it from the chain. The two-input
+filters (`AddSub`, `Blend`, `Mask`, `Multiply`) take `process([frameA, frameB])`.
+
+A plain `<script>` build is also published, exposing everything on a `CLARITY`
+global:
+
+```html
+<script src="dist/clarity.global.js"></script>
+<script>
+	const blur = new CLARITY.Blur({ radius: 8 });
+</script>
+```
+
+### Outside the browser
+
+Importing Clarity no longer needs a DOM. Node has no global `ImageData` though,
+so headless callers must supply one:
+
+```js
+import { setImageDataFactory } from '@calrk/clarity';
+
+setImageDataFactory((w, h) => new MyImageData(w, h));
+```
+
+The `Interface` helpers and every filter's `doCreateControls` still build real
+DOM nodes, so those remain browser-only.
+
+Development
+-----------
+
+```sh
+npm install
+npm run dev        # serves examples/ on http://localhost:8080
+npm run build      # emits dist/ (ESM + UMD + global) and .d.ts files
+npm run typecheck
+npm test
+```
+
+`dist/` is generated and not committed - the examples load it, so run
+`npm run build` once after cloning.
+
+Licence
+-------
+
+Currently **GPL-3.0-or-later**, because the bundled median-cut quantiser
+(`src/vendor/MCut.js`) is GPL and `Posteriser` depends on it. Replacing it with a
+from-scratch quantiser so the package can go permissive is tracked as #7 in
+[FEATURES.md](FEATURES.md). `src/vendor/StackBlur.js` is MIT (Mario Klingemann).
 
 Current Filters
 ===============
@@ -19,7 +99,7 @@ Multiplies an image with a greyscale
 ### Height Map
 #### Contourer
 Shows the contours in a height map
-####Normal Flip
+#### Normal Flip
 Will flip the x/y axis values, or swap the x/y axis with each other
 #### Normal Generator
 Generates a normal based on a height map
@@ -27,10 +107,10 @@ Generates a normal based on a height map
 Edits the intensity of a normal map
 
 ### Misc
-####Brickulate
+#### Brickulate
 Will draw a grid pattern over an image, to turn it into bricks/tiles
 #### Difference Detector
-Will detect differences in a scene, based on the first shot (not working)
+Will detect differences in a scene, based on the first shot
 #### Ghoster
 Adds a ghosting/onion skin effect to a video
 #### Puzzler
@@ -51,7 +131,7 @@ Blurs an image, and then adds this to the original, to create a glowing effect
 Applies Hanover Bars or Scan lines over an image
 #### HSV Shifter
 Allows editing an images hue/saturation/lightness values
-####Invert
+#### Invert
 Inverts an image's colour
 #### Noise
 Adds variable noise to an image, can be monochromatic
@@ -105,37 +185,36 @@ Translates the pixels of an image according to a mathematical function
 
 Filters to be made
 ==================
-####Skeletiser
+#### Skeletiser
 Will draw the skeleton of the image
-####Histogram
+#### Histogram
 Will output a visual histogram of an image, or just the histogram values
-####Bloat/Erode
+#### Bloat/Erode
 Will expand/reduce blobs in a binary image
-####Crackulate
+#### Crackulate
 Will draw procedural cracks over a texture
-####Laplace Edge
+#### Laplace Edge
 Implement edge detection with a faster algorithm
-####Sobel Edge
+#### Sobel Edge
 Implement edge detection with another more complex algorithm
-####Custom kernel
+#### Custom kernel
 Allow a custom 3x3 kernel to be used over an image.
-####Shot Detector
+#### Shot Detector
 Will detect scene changes in a video
-####Emboss
+#### Emboss
 Embosses an image
-####Sepia
+#### Sepia
 Applies a sepia effect to an image
-####Target finder
+#### Target finder
 Highlights a particular point of interest in an image
-####Screen burn
+#### Screen burn
 Adds screen burn effect to a video, similar to ghosting
-####Dot crawl
+#### Dot crawl
 Adds a dot crawl effect
 
 Other things to work on
 =======================
-	Make the difference detector work more generally
-	Add WebGL function to each filter to improve performance
-	Add a flag to each filter to only process the image if the input has changed, controls have changed or is forced to.
-	Create a renderer object that holds a canvas and it's filters for ease of use and improved functionality
-	Look into HSV for skin detection
+
+Now tracked properly in [FEATURES.md](FEATURES.md), which covers the GPU/shader
+backend, the renderer object, the dirty-flag skip, and the rest - each grounded
+in the code with an effort rating and a priority order.

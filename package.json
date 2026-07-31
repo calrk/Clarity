@@ -1,16 +1,45 @@
 {
+  "name": "@calrk/clarity",
+  "version": "0.1.0",
+  "description": "Canvas image filter library - composable, pipeline-style filters over ImageData",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "author": "Clark",
   "repository": {
     "type": "git",
-    "url": "git://github.com/calrk/clarity.git"
+    "url": "git+https://github.com/calrk/clarity.git"
   },
-  "dependencies": {
-    "gulp": "^3.8.6",
-    "gulp-concat": "^2.3.3",
-    "gulp-uglify": "^0.3.1",
-    "gulp-connect": "^2.0.6"
+  "keywords": [
+    "canvas",
+    "image",
+    "filter",
+    "imagedata",
+    "image-processing"
+  ],
+  "sideEffects": false,
+  "main": "./dist/clarity.umd.cjs",
+  "module": "./dist/clarity.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/clarity.js",
+      "require": "./dist/clarity.umd.cjs"
+    },
+    "./package.json": "./package.json"
   },
-  "scripts": {},
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.js"
+  },
   "devDependencies": {
-    "gulp-s3": "^0.3.0"
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vite-plugin-dts": "^4.4.0"
   }
 }
