@@ -4,24 +4,22 @@ import { Filter } from '../../core/Filter.js';
 import { Blur } from './Blur.js';
 import { Blend } from '../DualInput/Blend.js';
 import { Interface, controlValue } from '../../helpers/Interface.js';
-import { StackBlurProcess } from '../../vendor/StackBlur.js';
 import type { FilterOptions } from '../../core/Filter.js';
-import type { StackBlurProcessInstance } from '../../vendor/StackBlur.js';
 
 export interface GlowOptions extends FilterOptions {
 	radius?: number;
 }
 
+//Blurs the image and blends that back over the original. Delegates to Blur
+//rather than touching a blur implementation directly, so swapping the blur
+//out (FEATURES.md #3) only has to change one filter.
 export class Glow extends Filter {
 	override properties: {
 		radius: number;
 	};
-	processor!: StackBlurProcessInstance;
 
 	constructor(options: GlowOptions = {}) {
 		super(options);
-		this.processor = new (StackBlurProcess as unknown as new () => StackBlurProcessInstance)();
-
 		this.properties = {
 			radius: options.radius || 10
 		};
