@@ -87,11 +87,21 @@ export class Filter {
 				return data.data[pos + 2];
 			case 'grey':
 			default:
+				//Rec. 601 luma. The red weight used to be 0.2989, leaving the three
+				//weights summing to 0.9999 rather than 1, so a neutral grey came
+				//back slightly darker than it went in. Invisible on its own, but it
+				//means grey isn't idempotent, and on a filter with a hard decision
+				//boundary it flips the answer - a 128 grey reading as 127.99 falls
+				//on the wrong side of a threshold of 128.
+				//
+				//Correcting the weight isn't enough: 0.299 + 0.587 + 0.114 is not
+				//exactly 1 in binary floating point either. Scaling by 1000 keeps
+				//the sum exact, because 299 + 587 + 114 is exactly 1000.
 				return (
-					data.data[pos] * 0.2989 +
-					data.data[pos + 1] * 0.587 +
-					data.data[pos + 2] * 0.114
-				);
+					data.data[pos] * 299 +
+					data.data[pos + 1] * 587 +
+					data.data[pos + 2] * 114
+				) / 1000;
 		}
 	}
 

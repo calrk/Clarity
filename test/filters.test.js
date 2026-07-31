@@ -187,3 +187,65 @@ test('Puzzler numToPos returns [column, row]', () => {
 	const p = new CLARITY.Puzzler({ horizontalSegs: 4, verticalSegs: 2 });
 	assert.deepEqual(p.numToPos(6), [2, 1]);
 });
+
+test('grey is exact for neutral pixels', () => {
+	// The Rec. 601 weights have to sum to exactly 1, or a neutral grey reads
+	// back darker than it went in - which is invisible until a filter with a
+	// hard decision boundary lands on it and flips the wrong way.
+	const filter = new CLARITY.Filter();
+	const pixel = new NodeImageData(1, 1);
+
+	for (let v = 0; v <= 255; v++) {
+		pixel.data.set([v, v, v, 255]);
+		assert.equal(filter.getColourValue(pixel, 0), v, `grey(${v})`);
+	}
+});
+
+test('Mask keeps where the mask is light and cuts where it is dark', () => {
+	const source = new NodeImageData(3, 1);
+	source.data.set([200, 200, 200, 255, 200, 200, 200, 255, 200, 200, 200, 255]);
+	const mask = new NodeImageData(3, 1);
+	// straddling the default threshold of 128, including the boundary itself
+	mask.data.set([127, 127, 127, 255, 128, 128, 128, 255, 255, 255, 255, 255]);
+
+	const out = new CLARITY.Mask().process([source, mask]);
+	assert.deepEqual([out.data[0], out.data[4], out.data[8]], [0, 200, 200]);
+
+	const flipped = new CLARITY.Mask({ inverted: true }).process([source, mask]);
+	assert.deepEqual([flipped.data[0], flipped.data[4], flipped.data[8]], [200, 0, 0]);
+});
+
+test('Mask is a hard cut where Multiply attenuates', () => {
+	const source = new NodeImageData(1, 1);
+	source.data.set([200, 200, 200, 255]);
+	const grey = new NodeImageData(1, 1);
+	grey.data.set([64, 64, 64, 255]);
+
+	// the reason both filters exist: same inputs, categorically different results
+	assert.equal(new CLARITY.Mask().process([source, grey]).data[0], 0);
+	assert.equal(new CLARITY.Multiply().process([source, grey]).data[0], 50);
+});
+
+test('Tiler wraps seamlessly on an odd-sized frame', () => {
+	// 33x25 - neither dimension divides by the 2px step the old scatter used
+	const frame = new NodeImageData(33, 25);
+	for (let y = 0; y < 25; y++) {
+		for (let x = 0; x < 33; x++) {
+			const i = (y * 33 + x) * 4;
+			frame.data.set([x * 7, y * 9, 128, 255], i);
+		}
+	}
+
+	const out = new CLARITY.Tiler().process(frame);
+
+	// opposite edges must nearly match - that is the entire point of the filter
+	for (let y = 0; y < out.height; y++) {
+		const left = out.data[y * out.width * 4];
+		const right = out.data[(y * out.width + out.width - 1) * 4];
+		assert.ok(Math.abs(left - right) <= 8, `row ${y}: ${left} vs ${right}`);
+	}
+	// and every pixel must be written, rather than left at the initial zero
+	let opaque = 0;
+	for (let i = 3; i < out.data.length; i += 4) if (out.data[i] === 255) opaque++;
+	assert.equal(opaque, out.width * out.height);
+});
