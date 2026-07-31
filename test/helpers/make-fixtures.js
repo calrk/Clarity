@@ -96,7 +96,23 @@ const second = build(W, H, (x, y) => {
 	return disc ? [240, 240, 240] : [25, 25, 25];
 });
 
-// 7. `photo` with one region altered. The frame-differencing filters need an
+// 7. binary with salt-and-pepper noise. DotRemover is meant to run *after* an
+//    edge detector or thresholder, so it needs an already-binary image with
+//    isolated stray pixels - on a continuous-tone image it has nothing to do.
+const speckle = seededRandom(0xd07);
+const binary = build(W, H, (x, y) => {
+	const shape =
+		(x > 8 && x < 26 && y > 8 && y < 26) ||          // solid block
+		Math.hypot(x - 44, y - 30) < 10 ||               // solid disc
+		y === 40;                                         // 1px line
+	// isolated specks, on both the black and the white areas
+	const speck = speckle() < 0.06;
+	const on = speck ? !shape : shape;
+	const v = on ? 255 : 0;
+	return [v, v, v];
+});
+
+// 8. `photo` with one region altered. The frame-differencing filters need an
 //    input that is *mostly* the same as the previous frame - against a wholly
 //    different image they just echo it back, which demonstrates nothing.
 const moved = build(W, H, (x, y) => {
@@ -119,7 +135,7 @@ const clean = build(W, H, (x, y) => {
 	return [45 + hill, 105 + y * 0.4, 40];
 });
 
-const fixtures = { photo, edges, heightmap, alpha, odd, second, clean, moved };
+const fixtures = { photo, edges, heightmap, alpha, odd, second, binary, clean, moved };
 
 for (const [name, image] of Object.entries(fixtures)) {
 	const path = join(out, `${name}.png`);

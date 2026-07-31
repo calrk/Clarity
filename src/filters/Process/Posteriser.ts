@@ -86,22 +86,28 @@ export class Posteriser extends Filter {
 		return this.palette;
 	}
 
+	//The old, inaccurate-but-fast posterise: snap each channel to fixed evenly
+	//spaced bands rather than deriving a palette from the image.
 	oldMethod(frame: ImageData): ImageData {
 		let output = createImageData(frame.width, frame.height);
 		this.setThresh(Math.round(255/this.properties.colours));
 
+		//This used to step i by 4 while guarding with `(i+1) % 4 == 0`, a test
+		//that only makes sense stepping one byte at a time. Stepping by 4 makes
+		//it always false, so the alpha branch never ran and only the red channel
+		//was ever written - green, blue and alpha stayed 0, and the whole output
+		//was transparent.
 		for(let i = 0; i < frame.data.length; i+=4){
-			if(!((i+1)%4 == 0)){
+			for(let c = 0; c < 3; c++){
+				const value = frame.data[i+c];
 				for(let j = 0; j < this.threshes.length; j++){
-					if(frame.data[i] < this.threshes[j]){
-						output.data[i] = this.threshes[j] - this.difference/2;
+					if(value < this.threshes[j]){
+						output.data[i+c] = this.threshes[j] - this.difference/2;
 						break;
 					}
 				}
 			}
-			else{
-				output.data[i] = 255;
-			}
+			output.data[i+3] = 255;
 		}
 
 		return output;

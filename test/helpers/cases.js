@@ -48,11 +48,11 @@ export const cases = [
 	{ filter: 'Smoother', input: 'photo', options: { iterations: 2 }, gpu: KERNEL },
 	{ filter: 'Sharpen', input: 'photo', options: { intensity: 0.6 }, gpu: KERNEL },
 	{ filter: 'Pixelate', input: 'photo', options: { size: 8 }, gpu: POINTWISE },
-	// odd dimensions: Pixelate walks `size` down until it divides the height
+	// odd dimensions: 33 is not a multiple of 8, so the right column is partial
 	{ filter: 'Pixelate', name: 'odd', input: 'odd', options: { size: 8 }, gpu: POINTWISE },
 	{ filter: 'Posteriser', input: 'photo', options: { colours: 6 }, gpu: BOUNDARY },
 	{ filter: 'Posteriser', name: 'fast', input: 'photo', options: { method: 'fast', colours: 6 }, gpu: BOUNDARY },
-	{ filter: 'DotRemover', input: 'edges', options: {}, gpu: BOUNDARY },
+	{ filter: 'DotRemover', input: 'binary', options: {}, gpu: BOUNDARY },
 
 	// --- Thresholders (hard boundaries) ---------------------------------
 	{ filter: 'ValueThreshold', input: 'photo', options: { threshold: 120 }, gpu: BOUNDARY },

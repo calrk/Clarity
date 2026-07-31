@@ -24,19 +24,31 @@ export class Pixelate extends Filter {
 	override doProcess(frame: ImageData): ImageData {
 		let output = createImageData(frame.width, frame.height);
 
-		let size = this.properties.size;
-		//makes sure the tile size is a multiple of the width/height
-		while(frame.height%size != 0){
-			size --;
-		}
-		let size2 = Math.round(size/2);
+		//The old version shrank `size` until it divided the frame height, which
+		//says nothing about the width - so on a frame whose width isn't a
+		//multiple of the block size the last column of blocks ran off the end of
+		//each row. Both the sample point and the writes wrapped onto the
+		//following row, pulling in pixels from the opposite edge of the image.
+		//
+		//Clamping to the frame instead means partial blocks at the right and
+		//bottom edges are handled correctly, and the requested block size is
+		//honoured rather than quietly reduced.
+		const size = Math.max(1, Math.floor(this.properties.size));
+		const half = Math.floor(size/2);
+
 		for(let y = 0; y < frame.height; y += size){
 			for(let x = 0; x < frame.width; x += size){
+				//sample the block's centre, clamped inside the frame
+				const sampleX = Math.min(x + half, frame.width - 1);
+				const sampleY = Math.min(y + half, frame.height - 1);
+				const pos = (sampleY*frame.width + sampleX)*4;
 
-				let pos = ((y+size2)*frame.width + (x+size2))*4;
-				for(let ypos = 0; ypos < size; ypos++){
-					for(let xpos = 0; xpos < size; xpos++){
-						let i = ((ypos+y)*frame.width + xpos+x)*4;
+				const maxY = Math.min(y + size, frame.height);
+				const maxX = Math.min(x + size, frame.width);
+
+				for(let ypos = y; ypos < maxY; ypos++){
+					for(let xpos = x; xpos < maxX; xpos++){
+						const i = (ypos*frame.width + xpos)*4;
 						output.data[i  ] = frame.data[pos  ];
 						output.data[i+1] = frame.data[pos+1];
 						output.data[i+2] = frame.data[pos+2];

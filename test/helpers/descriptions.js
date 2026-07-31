@@ -58,8 +58,9 @@ export const descriptions = {
 		look: 'Fully grey. The sky/ground split stays legible.'
 	},
 	DotRemover: {
-		summary: 'Removes isolated pixels from a binary image.',
-		look: 'The 1px test lines should thin or vanish, blocks should survive.'
+		summary: 'Removes isolated pixels from a binary image - a clean-up pass for the output of an edge detector or thresholder.',
+		look: 'The scattered specks should be gone; the solid block, disc and line survive intact.',
+		note: 'Likely superseded by proper morphological bloat/erode (FEATURES.md #9), which generalises past binary images.'
 	},
 	Glow: {
 		summary: 'Blurs the image and blends the blur back over the original.',
@@ -79,7 +80,7 @@ export const descriptions = {
 	},
 	Pixelate: {
 		summary: 'Snaps the image to fixed-size blocks.',
-		look: 'Hard square blocks. On the odd-sized fixture the block size is reduced until it divides the height.'
+		look: 'Hard square blocks at exactly the requested size, with partial blocks at the right and bottom edges when the frame does not divide evenly.'
 	},
 	Posteriser: {
 		summary: 'Quantises to a fixed number of colours via median cut.',
