@@ -5,6 +5,18 @@ import dts from 'vite-plugin-dts';
 
 const root = dirname(fileURLToPath(import.meta.url));
 
+// Minification strips source comments, so the notice for the one piece of
+// third-party code we still bundle has to be re-attached here. MIT requires it
+// to travel with every copy.
+const banner = `/*!
+ * Clarity - canvas image filter library
+ * Copyright (c) Clark. MIT licensed.
+ * https://github.com/calrk/clarity
+ *
+ * Bundles StackBlur by Mario Klingemann <mario@quasimondo.com>
+ * https://www.quasimondo.com/StackBlurForCanvas - Copyright (c) 2010, MIT licensed.
+ */`;
+
 export default defineConfig({
 	server: {
 		port: 8080,
@@ -15,6 +27,9 @@ export default defineConfig({
 		outDir: 'dist',
 		emptyOutDir: true,
 		sourcemap: true,
+		rollupOptions: {
+			output: { banner }
+		},
 		lib: {
 			entry: resolve(root, 'src/index.ts'),
 			// the global the UMD and IIFE builds expose, so existing pages keep working

@@ -2,11 +2,10 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { Operations } from '../../helpers/Operations.js';
 import { Interface, controlValue } from '../../helpers/Interface.js';
-import { MCut } from '../../vendor/MCut.js';
+import { medianCut, nearestColourIndex } from '../../helpers/quantise.js';
 import type { FilterOptions } from '../../core/Filter.js';
-import type { MCutInstance } from '../../vendor/MCut.js';
+import type { RGBTriplet } from '../../helpers/quantise.js';
 
 export interface PosteriserOptions extends FilterOptions {
 	/** Number of colours to quantise to. Ignored when `method` is `'fast'`. */
@@ -20,11 +19,10 @@ export class Posteriser extends Filter {
 		colours: number;
 	};
 	/** The palette from the most recent `doProcess`, once median cut has run. */
-	palette: [number, number, number][] | undefined;
+	palette: RGBTriplet[] | undefined;
 	method: 'fast' | undefined;
 	threshes: number[] = [];
 	difference = 0;
-	MCut!: MCutInstance;
 
 	constructor(options: PosteriserOptions = {}) {
 		super(options);
@@ -37,9 +35,6 @@ export class Posteriser extends Filter {
 			this.difference = 32;
 			this.setThresh(64);
 		}
-		else{
-			this.MCut = new (MCut as unknown as new () => { MCut: MCutInstance })().MCut;
-		}
 	}
 
 	override doProcess(frame: ImageData): ImageData {
@@ -48,46 +43,38 @@ export class Posteriser extends Filter {
 		}
 		let output = createImageData(frame.width, frame.height);
 
-		let data = [];
-		for(let i = 0; i < frame.data.length; i+=4){
-			data.push([frame.data[i],frame.data[i+1],frame.data[i+2]]);
+		//medianCut histograms the frame itself. The old MCut needed an array of
+		//[r,g,b] triplets built per pixel first - 2 million of them at 1080p.
+		const palette = medianCut(frame.data, { colours: this.properties.colours });
+		this.palette = palette;
+
+		if(palette.length === 0){
+			return output;	//nothing opaque in the frame to quantise
 		}
 
-		this.MCut.init(data);
-		this.palette = this.MCut.get_fixed_size_palette(this.properties.colours);
+		const pix = [0, 0, 0];
+		let prevKey = -1;
+		let prevColour: RGBTriplet = palette[0];
 
-		const palette = this.palette;
-		let prevPixel: number[] | undefined;
-		let prevColour: number[] | undefined;
 		for(let i = 0; i < frame.data.length; i+=4){
-			let pix = [frame.data[i],frame.data[i+1],frame.data[i+2]];
-			let col: number[];
+			pix[0] = frame.data[i];
+			pix[1] = frame.data[i+1];
+			pix[2] = frame.data[i+2];
 
 			//Flat regions repeat the same pixel value over and over, so an identical
 			//pixel must quantise to an identical palette entry - skip the search.
 			//The original tried to do this by proximity, but compared `tempDist`
 			//before it had been assigned, so the branch was never taken. Matching on
 			//equality instead keeps the result exact rather than approximate.
-			if(prevColour && prevPixel && pix[0] == prevPixel[0] && pix[1] == prevPixel[1] && pix[2] == prevPixel[2]){
-				col = prevColour;
-			}
-			else{
-				col = palette[0];
-				let dist = Operations.colourDistance(pix, col);
-				for(let j = 1; j < palette.length; j++){
-					let tempDist = Operations.colourDistance(pix, palette[j]);
-					if(tempDist < dist){
-						dist = tempDist;
-						col = this.palette[j];
-					}
-				}
-				prevPixel = pix;
-				prevColour = col;
+			const key = (pix[0] << 16) | (pix[1] << 8) | pix[2];
+			if(key !== prevKey){
+				prevColour = palette[nearestColourIndex(pix, palette)];
+				prevKey = key;
 			}
 
-			output.data[i]   = col[0];
-			output.data[i+1] = col[1];
-			output.data[i+2] = col[2];
+			output.data[i]   = prevColour[0];
+			output.data[i+1] = prevColour[1];
+			output.data[i+2] = prevColour[2];
 			output.data[i+3] = 255;
 		}
 

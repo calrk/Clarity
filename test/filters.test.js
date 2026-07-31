@@ -61,7 +61,7 @@ const DUAL_INPUT = new Set(['AddSub', 'Blend', 'Mask', 'Multiply']);
 const NOT_FILTERS = new Set([
 	'Filter', 'Interface', 'Operations', 'Pixel',
 	'createImageData', 'cloneImageData', 'fillAlpha', 'setImageDataFactory',
-	'controlValue'
+	'controlValue', 'medianCut', 'nearestColourIndex'
 ]);
 
 const filterNames = Object.keys(CLARITY).filter(

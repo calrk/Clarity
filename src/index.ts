@@ -13,6 +13,8 @@ export type { RGB, YUV } from './helpers/Operations.js';
 export { Pixel } from './helpers/Pixel.js';
 export type { PixelChannel } from './helpers/Pixel.js';
 export { Interface, controlValue } from './helpers/Interface.js';
+export { medianCut, nearestColourIndex } from './helpers/quantise.js';
+export type { RGBTriplet, MedianCutOptions } from './helpers/quantise.js';
 
 // DualInput
 export { AddSub } from './filters/DualInput/AddSub.js';

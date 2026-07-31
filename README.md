@@ -78,10 +78,11 @@ npm test
 Licence
 -------
 
-Currently **GPL-3.0-or-later**, because the bundled median-cut quantiser
-(`src/vendor/MCut.js`) is GPL and `Posteriser` depends on it. Replacing it with a
-from-scratch quantiser so the package can go permissive is tracked as #7 in
-[FEATURES.md](FEATURES.md). `src/vendor/StackBlur.js` is MIT (Mario Klingemann).
+**MIT** - see [LICENSE](LICENSE).
+
+The one remaining piece of third-party code is `src/vendor/StackBlur.js`, by
+Mario Klingemann, which is also MIT. Its copyright notice is reproduced in
+LICENSE and is baked into every built bundle.
 
 Current Filters
 ===============

@@ -186,9 +186,31 @@ Value is concentrated in three places:
 
 ---
 
-## 7. Licensing — Replace the GPL Dependency
+## ~~7. Licensing — Replace the GPL Dependency~~ ✓
 
 **Effort: Low–Medium**
+
+**Done.** Clarity is **MIT** now. `src/vendor/MCut.js` is deleted and no GPL code remains.
+
+- **`src/helpers/quantise.ts`** is a from-scratch median cut — ~190 lines against MCut's 470, exported publicly as `medianCut()` and `nearestColourIndex()`. It histograms the frame's *distinct* colours instead of building an array of `[r,g,b]` triplets per pixel (2 million of them at 1080p), splits the widest box at the **population-weighted** median, and averages each box weighted by pixel count. The `// TODO fix NaNs` at the old `MCut.js:393` doesn't survive the rewrite.
+- **`LICENSE` added** — the repo never had one. MIT, plus a third-party notices section reproducing StackBlur's.
+- **A real compliance bug found and fixed:** minification was **stripping StackBlur's MIT copyright notice from all three bundles**. MIT requires the notice travel with every copy, so the distributed files were technically in breach. A rollup `output.banner` now bakes it into each bundle, verified by a grep in the build check.
+- `Posteriser`'s per-pixel search is now keyed on a packed 24-bit int rather than allocating a 3-element array per pixel.
+
+Measured against the old implementation (restored from git purely to benchmark):
+
+| Image | Distinct colours | Old | New | |
+|---|---|---|---|---|
+| 320×240 photo-like | 32,239 | 48ms | 26ms | 1.9× |
+| 640×480 photo-like | 106,726 | 172ms | 64ms | 2.7× |
+| 1280×720 photo-like | 294,668 | 427ms | 174ms | 2.5× |
+| 640×480 flat art | 44 | 93ms | 4ms | **21×** |
+
+Noisy photographic content is the *worst* case for a histogram approach — nearly every pixel is a distinct colour — and it still roughly doubles. Flat or already-posterised images, where the histogram collapses hard, are where it runs away.
+
+Note the palette differs slightly from the old implementation: it splits on unique colours weighted by population rather than sorting the raw pixel list, which is the better-behaved formulation. Output is deterministic, entries always fall inside the image's gamut, and 15 new tests cover it.
+
+### Original write-up
 
 There is **no LICENSE file** in the repo, and two pieces of vendored third-party code are compiled into the build:
 
@@ -348,7 +370,7 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 |---|---------|--------|-------|
 | ✓ | Correctness sweep | Low | Done — 4 crashing filters revived, 31→40 of 41 clean |
 | ✓ | ESM + Vite + publishable package | Medium | Done — TS classes, 3 bundles, types, `npm test`; found 3 more bugs |
-| 7 | Licensing / replace GPL MCut | Low–Med | High — the difference between publishable and not |
+| ✓ | Licensing / replace GPL MCut | Low–Med | Done — MIT, no GPL code, quantiser 2-21x faster |
 | 6 | Golden-image test suite | Medium | High — the acceptance criterion for the GPU port |
 | 4 | `Renderer` / pipeline object | Medium | High — kills seven copies of the same loop; home for FBO ping-pong |
 | 8 | Declarative filter schemas | Medium | High — removes ~600 lines, fixes the dead sliders, feeds #3/#5/#6/#11 |
@@ -359,6 +381,6 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | 12 | Pipeline fusion | High | Medium — big for UV-transform chains and weak GPUs; also fixes 8-bit precision loss. Classification metadata in #3, compiler later |
 | 10 | CPU path modernisation | Medium | Low–Medium — mostly superseded by #3; cherry-pick the allocation fix |
 
-**Suggested order of attack:** ~~1~~ → ~~2~~ → **7** → 6 → 4/8 → 3 (tier by tier) → 5 → 9/11 → 12.
+**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → **6** → 4/8 → 3 (tier by tier) → 5 → 9/11 → 12.
 
 *More features to be added.*

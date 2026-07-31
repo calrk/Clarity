@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Canvas image filter library - composable, pipeline-style filters over ImageData",
   "type": "module",
-  "license": "GPL-3.0-or-later",
+  "license": "MIT",
   "author": "Clark",
   "repository": {
     "type": "git",
@@ -29,7 +29,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "scripts": {
     "dev": "vite",
