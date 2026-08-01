@@ -1,156 +1,72 @@
+// Filters over a playing video.
+//
+// Same shape as the Image example, with two differences: the source is live, so
+// every frame is read fresh and the pipeline cache can never hit, and the
+// Renderer drives its own requestAnimationFrame loop rather than the example
+// hand-rolling one.
+
 var filters = [
-	{
-		name: "Average Thresholder",
-		id: "avThresh",
-		filter: new CLARITY.ValueThreshold({thresh:64, channel:'red', enabled:false})
-	},
-	{
-		name: "Smoother",
-		id: "smooth",
-		filter: new CLARITY.Smoother({enabled:false})
-	},
-	{
-		name: "Motion Detector",
-		id: "motion",
-		filter: new CLARITY.MotionDetector({enabled:false})
-	},
-	{
-		name: "Edge Detector",
-		id: "edge",
-		filter: new CLARITY.EdgeDetector({fast:true, enabled:false})
-	},
-	{
-		name: "Gradient Thresholder",
-		id: "gradThresh",
-		filter: new CLARITY.GradientThreshold({enabled:false})
-	},
-	{
-		name: "Median Thresholder",
-		id: "medThresh",
-		filter: new CLARITY.MedianThreshold({enabled:false})
-	},
-	{
-		name: "Posteriser",
-		id: "posterise",
-		filter: new CLARITY.Posteriser({enabled:false})
-	},
-	{
-		name: "Skin Detector",
-		id: "skin",
-		filter: new CLARITY.SkinDetector({enabled:false})
-	},
-	{
-		name: "Dot Remover (Black & White Only)",
-		id: "dot",
-		filter: new CLARITY.DotRemover({enabled:false})
-	},
-	{
-		name: "Ghoster",
-		id: "ghost",
-		filter: new CLARITY.Ghoster({enabled:false})
-	},
-	{
-		name: "Puzzler",
-		id: "puzzler",
-		filter: new CLARITY.Puzzler({enabled:false})
-	},
+	// was `{thresh: 64}`, which is not an option this filter has
+	{ name: 'Value Thresholder', filter: new CLARITY.ValueThreshold({ threshold: 64, channel: 'red', enabled: false }) },
+	{ name: 'Smoother', filter: new CLARITY.Smoother({ enabled: false }) },
+	{ name: 'Motion Detector', filter: new CLARITY.MotionDetector({ enabled: false }) },
+	{ name: 'Edge Detector', filter: new CLARITY.EdgeDetector({ fast: true, enabled: false }) },
+	{ name: 'Gradient Thresholder', filter: new CLARITY.GradientThreshold({ enabled: false }) },
+	{ name: 'Median Thresholder', filter: new CLARITY.MedianThreshold({ enabled: false }) },
+	{ name: 'Posteriser', filter: new CLARITY.Posteriser({ enabled: false }) },
+	{ name: 'Skin Detector', filter: new CLARITY.SkinDetector({ enabled: false }) },
+	{ name: 'Dot Remover (binary images only)', filter: new CLARITY.DotRemover({ enabled: false }) },
+	{ name: 'Ghoster', filter: new CLARITY.Ghoster({ enabled: false }) },
+	{ name: 'Puzzler', filter: new CLARITY.Puzzler({ enabled: false }) }
 ];
 
-var canvas;
-var ctx;
-var video;
-var width;
-var height;
+var renderer;
 
-function init(){
-	$("#shuffle").sortable({update:function(event, ui){shuffleChanged()}});
-	$("#shuffle").disableSelection();
-
-	for(var i = 0; i < filters.length; i++){
-		var newLi = document.createElement('li');
-		newLi.className = "listRed";
-		newLi.innerHTML = filters[i].name;
-		newLi.id = filters[i].id;
-		$("#shuffle")[0].appendChild(newLi);
-
-		newLi.onclick = function(e){
-			filters.forEach(function(filter){
-				if(filter.id == e.srcElement.id){
-		        	filter.filter.toggleEnabled();
-					if(filter.filter.enabled){
-						e.srcElement.className = "listGreen";
-					}
-					else{
-						e.srcElement.className = "listRed";
-					}
-				}
-			});
-		}
-
-		filters[i].position = i;
-		filters[i].active = false;
-	}
-
-	video = document.querySelector("#vid");
+function init() {
+	var canvas = document.querySelector('#canvas');
+	var video = document.querySelector('#vid');
 	video.volume = 0;
-	canvas = document.querySelector('#canvas');
-	ctx = canvas.getContext('2d');
-	width = canvas.width;
-	height = canvas.height;
 
-	canvas.onclick = function(e){
-		filters.forEach(function(filter){
-			if(typeof filter.setClick === 'function')
-				filter.filter.setClick([e.clientX, e.clientY]);
-		});
-	}
+	renderer = new CLARITY.Renderer(canvas);
+	filters.forEach(function (entry) {
+		renderer.add(entry.filter);
+	});
+	renderer.source(video);
 
-	requestAnimationFrame(render);
-}
+	ClarityList.create({
+		renderer: renderer,
+		names: filters.map(function (entry) {
+			return entry.name;
+		}),
+		list: document.getElementById('shuffle'),
+		controls: document.getElementById('controls')
+	});
 
-function shuffleChanged(){
-	var elements = document.getElementsByTagName('li');
-
-	for(var i = 0; i < elements.length; i++){
-		if(elements[i].id != filters[i].id){
-			for(var j in filters){
-				if(elements[i].id == filters[j].id){
-					filters[j].position = i;
-					break;
-				}
+	canvas.onclick = function (e) {
+		renderer.pipeline.filters.forEach(function (filter) {
+			// tested `filter.setClick` on the wrapper rather than the filter, so
+			// it never fired; clientX/Y are page coordinates, not canvas ones
+			if (typeof filter.setClick === 'function') {
+				filter.setClick([e.offsetX, e.offsetY]);
 			}
-		}
+		});
 	};
 
-	filters.sort(compareFilters);
+	renderer.start();
+	reportStats();
 }
 
-function compareFilters(first, second){
-	return first.position - second.position;
-}
-
-function printFilters(){
-	for(var i = 0; i < filters.length; i++){
-		console.log(filters[i].id);
-	}
-}
-
-function render(){
-	requestAnimationFrame(render);
-	
-	ctx.drawImage(video, 0, 0, width, height);
-
-	var frame = ctx.getImageData(0,0,width,height);
-
-	for(var i = 0; i < filters.length; i++){
-		frame = filters[i].filter.process(frame);
+function reportStats() {
+	var readout = document.getElementById('stats');
+	if (!readout) {
+		return;
 	}
 
-	ctx.putImageData(frame, 0, 0);
-}
-
-function onCameraFail(e){
-	console.log("Camera did not work: ", e);
+	setInterval(function () {
+		var stats = renderer.stats;
+		readout.textContent =
+			'last frame: ' + stats.total.toFixed(1) + 'ms over ' + renderer.pipeline.length + ' stages';
+	}, 500);
 }
 
 window.onload = init;

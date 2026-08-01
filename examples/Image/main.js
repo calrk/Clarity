@@ -1,155 +1,88 @@
+// Filters over a still image.
+//
+// The example is now the filter list plus a few lines of wiring: the Renderer
+// owns the canvas, the ordered chain and the frame loop, and ClarityList wires
+// drag-to-reorder and the enable toggles to it. The `shuffleChanged` /
+// `compareFilters` pair that used to live here - matching <li> ids back to a
+// `position` field and re-sorting the array - is gone; the Renderer holds the
+// order, so there is nothing to keep in step with it.
+//
+// Note `live: false` on the source. A still image is read once, so the same
+// frame object goes in every render and an unchanged chain costs nothing at
+// all - the readout under the canvas shows it.
+
 var filters = [
-	{
-		name: "Hanover",
-		id: "hanover",
-		filter: new CLARITY.HanoverBars({enabled:false})
-	},
-	{
-		name: "Average Thresholder",
-		id: "avThresh",
-		filter: new CLARITY.ValueThreshold({thresh:64, channel:'red', enabled:false})
-	},
-	{
-		name: "Smoother",
-		id: "smooth",
-		filter: new CLARITY.Smoother({enabled:false})
-	},
-	{
-		name: "Edge Detector",
-		id: "edge",
-		filter: new CLARITY.EdgeDetector({fast:true, enabled:false})
-	},
-	{
-		name: "Gradient Thresholder",
-		id: "gradThresh",
-		filter: new CLARITY.GradientThreshold({enabled:false})
-	},
-	{
-		name: "Median Thresholder",
-		id: "medThresh",
-		filter: new CLARITY.MedianThreshold({enabled:false})
-	},
-	{
-		name: "Posteriser",
-		id: "posterise",
-		filter: new CLARITY.Posteriser({colours:10, enabled:false})
-	},
-	{
-		name: "Skin Detector",
-		id: "skin",
-		filter: new CLARITY.SkinDetector({enabled:false})
-	},
-	{
-		name: "Dot Remover (Black & White Only)",
-		id: "dot",
-		filter: new CLARITY.DotRemover({enabled:false})
-	},
-	{
-		name: "Puzzler",
-		id: "puzzler",
-		filter: new CLARITY.Puzzler({enabled:false})
-	},
-	{
-		name: "Translator",
-		id: "trans",
-		filter: new CLARITY.Translator({enabled:false})
-	},
-	{
-		name: "Rotator",
-		id: "rotate1",
-		filter: new CLARITY.Rotator({turns:1, enabled:false})
-	},
-	{
-		name: "Mirror",
-		id: "mirror",
-		filter: new CLARITY.Mirror({enabled:false})
-	},
+	{ name: 'Hanover', filter: new CLARITY.HanoverBars({ enabled: false }) },
+	// was `{thresh: 64}`, which is not an option this filter has - it silently
+	// did nothing and the threshold stayed on auto
+	{ name: 'Value Thresholder', filter: new CLARITY.ValueThreshold({ threshold: 64, channel: 'red', enabled: false }) },
+	{ name: 'Smoother', filter: new CLARITY.Smoother({ enabled: false }) },
+	{ name: 'Edge Detector', filter: new CLARITY.EdgeDetector({ fast: true, enabled: false }) },
+	{ name: 'Gradient Thresholder', filter: new CLARITY.GradientThreshold({ enabled: false }) },
+	{ name: 'Median Thresholder', filter: new CLARITY.MedianThreshold({ enabled: false }) },
+	{ name: 'Posteriser', filter: new CLARITY.Posteriser({ colours: 10, enabled: false }) },
+	{ name: 'Skin Detector', filter: new CLARITY.SkinDetector({ enabled: false }) },
+	{ name: 'Dot Remover (binary images only)', filter: new CLARITY.DotRemover({ enabled: false }) },
+	{ name: 'Puzzler', filter: new CLARITY.Puzzler({ enabled: false }) },
+	{ name: 'Translator', filter: new CLARITY.Translator({ enabled: false }) },
+	{ name: 'Rotator', filter: new CLARITY.Rotator({ turns: 1, enabled: false }) },
+	{ name: 'Mirror', filter: new CLARITY.Mirror({ enabled: false }) }
 ];
 
-var canvas;
-var ctx;
-var width;
-var height;
+var renderer;
 
-function init(){
-	$("#shuffle").sortable({update:function(event, ui){shuffleChanged()}});
-	$("#shuffle").disableSelection();
+function init() {
+	var canvas = document.querySelector('#canvas');
 
-	for(var i = 0; i < filters.length; i++){
-		var newLi = document.createElement('li');
-		newLi.className = "listRed";
-		newLi.innerHTML = filters[i].name;
-		newLi.id = filters[i].id;
-		$("#shuffle")[0].appendChild(newLi);
+	renderer = new CLARITY.Renderer(canvas);
+	filters.forEach(function (entry) {
+		renderer.add(entry.filter);
+	});
+	renderer.source(document.getElementById('image'), { live: false });
 
-		newLi.onclick = function(e){
-			filters.forEach(function(filter){
-				if(filter.id == e.srcElement.id){
-		        	filter.filter.toggleEnabled();
-					if(filter.filter.enabled){
-						e.srcElement.className = "listGreen";
-					}
-					else{
-						e.srcElement.className = "listRed";
-					}
-				}
-			});
-			render();
-		}
+	ClarityList.create({
+		renderer: renderer,
+		names: filters.map(function (entry) {
+			return entry.name;
+		}),
+		list: document.getElementById('shuffle'),
+		controls: document.getElementById('controls')
+	});
 
-		filters[i].position = i;
-		filters[i].active = false;
-	}
-
-	canvas = document.querySelector('#canvas');
-	ctx = canvas.getContext('2d');
-	width = canvas.width;
-	height = canvas.height;
-
-	canvas.onclick = function(e){
-		filters.forEach(function(filter){
-			if(typeof filter.setClick === 'function')
-				filter.filter.setClick([e.clientX, e.clientY]);
-		});
-		render();
-	}
-
-	render();
-}
-
-function shuffleChanged(){
-	var elements = document.getElementsByTagName('li');
-
-	for(var i = 0; i < elements.length; i++){
-		if(elements[i].id != filters[i].id){
-			for(var j in filters){
-				if(elements[i].id == filters[j].id){
-					filters[j].position = i;
-					break;
-				}
+	canvas.onclick = function (e) {
+		renderer.pipeline.filters.forEach(function (filter) {
+			// this used to test `filter.setClick` on the *wrapper* object rather
+			// than on the filter, so it was never true and clicking Puzzler did
+			// nothing. offsetX/Y are canvas coordinates; clientX/Y are not.
+			if (typeof filter.setClick === 'function') {
+				filter.setClick([e.offsetX, e.offsetY]);
+				filter.dirty = true;
 			}
-		}
+		});
+		renderer.render();
 	};
 
-	filters.sort(compareFilters);
+	renderer.render();
+	reportStats();
 }
 
-function compareFilters(first, second){
-	return first.position - second.position;
-}
-
-function render(){
-	var img = document.getElementById("image");
-	
-	ctx.drawImage(img, 0, 0, width, height);
-
-	var frame = ctx.getImageData(0,0,width,height);
-
-	for(var i = 0; i < filters.length; i++){
-		frame = filters[i].filter.process(frame);
+/** Re-renders once a second, to show the cache holding on a still image. */
+function reportStats() {
+	var readout = document.getElementById('stats');
+	if (!readout) {
+		return;
 	}
 
-	ctx.putImageData(frame, 0, 0);
+	setInterval(function () {
+		renderer.render();
+
+		var stats = renderer.stats;
+		readout.textContent =
+			stats.from === -1
+				? 'last render: nothing to do, all ' + stats.skipped + ' stages cached'
+				: 'last render: ' + stats.total.toFixed(1) + 'ms, recomputed from stage ' +
+					stats.from + ' of ' + renderer.pipeline.length + ' (' + stats.skipped + ' cached)';
+	}, 1000);
 }
 
 window.onload = init;

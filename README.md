@@ -15,22 +15,27 @@ Usage
 -----
 
 ```js
-import { Blur, EdgeDetector, Invert } from '@calrk/clarity';
+import { Renderer, Blur, EdgeDetector, Invert } from '@calrk/clarity';
 
-const ctx = canvas.getContext('2d');
-ctx.drawImage(image, 0, 0);
+const renderer = new Renderer(canvas)
+	.source(video)
+	.add(new Blur({ radius: 8 }))
+	.add(new EdgeDetector({ fast: true }))
+	.add(new Invert());
 
-const pipeline = [
-	new Blur({ radius: 8 }),
-	new EdgeDetector({ fast: true }),
-	new Invert()
-];
+renderer.start();
+```
 
-let frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-for (const filter of pipeline) {
-	frame = filter.process(frame);
-}
-ctx.putImageData(frame, 0, 0);
+`Renderer` owns the canvas, the source, the ordered chain and the frame loop.
+`start()` runs a `requestAnimationFrame` loop; `render()` does one frame.
+`move(from, to)`, `insert`, `remove` and `clear` reorder the chain live.
+
+A single filter is just a function from `ImageData` to `ImageData`, so you can
+skip all of that:
+
+```js
+const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+ctx.putImageData(new Blur({ radius: 8 }).process(frame), 0, 0);
 ```
 
 Each filter takes a typed options bag, exposes `enabled` to bypass it without
@@ -47,6 +52,50 @@ global:
 	const blur = new CLARITY.Blur({ radius: 8 });
 </script>
 ```
+
+Pipelines
+---------
+
+`Pipeline` is the headless half of `Renderer` — an ordered filter list with no
+canvas, no DOM and no frame loop. Use it directly outside the browser, or as the
+chain behind your own render loop:
+
+```js
+const pipeline = new Pipeline([new Desaturate(), new ValueThreshold({ threshold: 120 })]);
+const out = pipeline.run(frame);
+```
+
+It only recomputes what can have changed. Everything upstream of the first stage
+that is dirty, impure or newly reordered comes out of a cache, so tweaking the
+last filter in a long chain doesn't redo the ones before it — and an unchanged
+chain on an unchanged frame does no work at all. `pipeline.stats` reports where
+the time went and how many stages were skipped.
+
+That requires knowing which filters are safe to cache, so each declares itself:
+
+- `static stateful` — output depends on frames already seen (`Ghoster`,
+  `MotionDetector`, `DifferenceDetector`). Must see every frame, in order.
+- `static varying` — output changes between calls on identical input, because
+  the filter reads the clock or the random source (`Wave`, `Noise`, `Cloud`).
+
+Neither is ever cached. Everything else is pure and is.
+
+### Two-input filters
+
+`Add`, `Subtract`, `Blend`, `Mask` and `Multiply` need a second frame, which a
+stage supplies:
+
+```js
+const maskChain = new Pipeline([new Desaturate(), new ValueThreshold()]);
+
+new Pipeline()
+	.add(new Blur({ radius: 6 }))
+	.add(new Mask(), { second: maskChain });
+```
+
+`second` takes an `ImageData`, a function returning one, or another `Pipeline` —
+which is fed the outer run's *source*, so it branches off the input rather than
+continuing the chain.
 
 Property schemas
 ----------------

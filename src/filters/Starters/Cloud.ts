@@ -15,6 +15,9 @@ export interface CloudOptions extends FilterOptions {
 }
 
 export class Cloud extends Filter {
+	//Regenerates its noise field every call.
+	static override varying = true;
+
 	static override schema: FilterSchema = {
 		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 0 },
 		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 0 },

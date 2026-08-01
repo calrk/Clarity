@@ -11,6 +11,9 @@ export interface NoiseOptions extends FilterOptions {
 }
 
 export class Noise extends Filter {
+	//Fresh noise every call - caching it would freeze the grain.
+	static override varying = true;
+
 	static override schema: FilterSchema = {
 		intensity: { type: 'float', label: 'Intensity', min: 0, max: 100, step: 0.1, default: 1 },
 		monochromatic: { type: 'bool', label: 'Monochromatic', default: false }

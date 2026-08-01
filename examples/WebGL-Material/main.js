@@ -75,10 +75,18 @@ var cube;
 var material;
 var needsUpdate = true;
 
+//The texture and its normal map are two chains over the same source, so each is
+//a Pipeline rather than another copy of the same for-loop.
+var texPipeline = new CLARITY.Pipeline();
+var normalPipeline = new CLARITY.Pipeline();
+
 function init(){
 	canvas = document.querySelector('#canvas');
 	canvasTex = document.querySelector('#canvasTex');
 	canvasUV = document.querySelector('#canvasUV');
+
+	texFilters.forEach(function(entry){ texPipeline.add(entry.filter); });
+	normalFilters.forEach(function(entry){ normalPipeline.add(entry.filter); });
 
 	for(var i = 0; i < texFilters.length; i++){
 		var controls = ClarityControls.createControls(texFilters[i].filter, texFilters[i].name);
@@ -161,9 +169,7 @@ function updateTexture(){
 
 	var frame = ctx.getImageData(0,0,width,height);
 
-	for(var i = 0; i < texFilters.length; i++){
-		frame = texFilters[i].filter.process(frame);
-	}
+	frame = texPipeline.run(frame);
 
 	ctx.putImageData(frame, 0, 0);
 
@@ -181,9 +187,7 @@ function updateNorm(){
 	ctx.drawImage(canvasTex, 0, 0, width, height);
 	var frame = ctx.getImageData(0,0,width,height);
 
-	for(var i = 0; i < normalFilters.length; i++){
-		frame = normalFilters[i].filter.process(frame);
-	}
+	frame = normalPipeline.run(frame);
 
 	ctx.putImageData(frame, 0, 0);
 

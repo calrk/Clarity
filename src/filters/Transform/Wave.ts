@@ -15,6 +15,9 @@ export interface WaveOptions extends FilterOptions {
 }
 
 export class Wave extends Filter {
+	//Phase comes from the clock, so the output moves on its own.
+	static override varying = true;
+
 	static override schema: FilterSchema = {
 		horizontal: { type: 'bool', label: 'Horizontal', default: false },
 		vertical: { type: 'bool', label: 'Vertical', default: false },

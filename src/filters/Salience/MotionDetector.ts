@@ -10,6 +10,9 @@ export interface MotionDetectorOptions extends FilterOptions {
 }
 
 export class MotionDetector extends Filter {
+	//Compares against a frame N back, so the ring has to keep filling.
+	static override stateful = true;
+
 	static override schema: FilterSchema = {
 		frameCount: { type: 'int', label: 'Frame count', min: 1, max: 24, step: 1, default: 1, description: 'How many frames back to compare against.' }
 	};

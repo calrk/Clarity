@@ -51,13 +51,62 @@ export class Filter {
 	 */
 	static schema: FilterSchema = {};
 
-	channel: Channel;
-	enabled: boolean;
-	properties: FilterProperties = {};
+	/**
+	 * Output depends on frames this filter has already seen, not just the one
+	 * being handed to it - `Ghoster`'s trail, `MotionDetector`'s ring,
+	 * `DifferenceDetector`'s reference frame.
+	 *
+	 * A stateful filter must see every frame, in order, exactly once. A
+	 * {@link Pipeline} therefore can neither cache it nor skip it, and #3 has to
+	 * give it a retained previous-frame texture rather than a plain ping-pong.
+	 */
+	static stateful = false;
 
 	/**
-	 * Set whenever a property changes, so a renderer can skip filters whose
-	 * output can't have moved. Nothing clears it yet - that's FEATURES.md #4.
+	 * Output changes between calls on identical input, because the filter reads
+	 * the clock or the random source - `Wave`, `Noise`, `Cloud`.
+	 *
+	 * Same practical consequence as {@link stateful} for caching, but a
+	 * different cause, and the difference matters to the GPU backend: varying
+	 * filters need a time or seed uniform, stateful ones need storage.
+	 */
+	static varying = false;
+
+	/**
+	 * Whether this filter is a pure function of its input frame and properties,
+	 * and so may be cached. Derived - declare `stateful` or `varying` instead.
+	 */
+	static get pure(): boolean {
+		return !this.stateful && !this.varying;
+	}
+
+	channel: Channel;
+	properties: FilterProperties = {};
+
+	private _enabled = true;
+
+	/**
+	 * Bypasses the filter without removing it from the chain.
+	 *
+	 * An accessor rather than a plain field so that toggling it marks the filter
+	 * dirty. Host apps assign to this directly - the example control panel does
+	 * - and a bypass that didn't invalidate the cache would show a stale frame.
+	 */
+	get enabled(): boolean {
+		return this._enabled;
+	}
+
+	set enabled(value: boolean) {
+		if (value !== this._enabled) {
+			this._enabled = value;
+			this.dirty = true;
+		}
+	}
+
+	/**
+	 * Set whenever a property changes, so a {@link Pipeline} can reuse the
+	 * cached output of any stage upstream of the first dirty one. Cleared by the
+	 * pipeline once the filter has been re-run.
 	 */
 	dirty = true;
 

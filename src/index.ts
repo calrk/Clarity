@@ -8,6 +8,10 @@
 export { Filter } from './core/Filter.js';
 export type { FilterOptions, FilterProperties, Channel } from './core/Filter.js';
 export { createImageData, cloneImageData, fillAlpha, setImageDataFactory } from './core/imagedata.js';
+export { Pipeline } from './core/Pipeline.js';
+export type { PipelineStats, StageOptions, SecondInput } from './core/Pipeline.js';
+export { Renderer } from './core/Renderer.js';
+export type { RenderSource, SourceOptions } from './core/Renderer.js';
 export { seededRandom, defaultClock } from './core/random.js';
 export type { RandomSource, Clock } from './core/random.js';
 export { Operations } from './helpers/Operations.js';

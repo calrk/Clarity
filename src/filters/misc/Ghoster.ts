@@ -8,6 +8,9 @@ export interface GhosterOptions extends FilterOptions {
 }
 
 export class Ghoster extends Filter {
+	//Onion-skins the last N frames, so it has to see every one of them.
+	static override stateful = true;
+
 	static override schema: FilterSchema = {
 		length: { type: 'int', label: 'Trail length', min: 1, max: 30, step: 1, default: 10, description: 'How many frames are onion-skinned together.' }
 	};

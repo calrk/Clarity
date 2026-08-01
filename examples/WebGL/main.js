@@ -2,7 +2,7 @@ var filters = [
 	{
 		name: "Average Thresholder",
 		id: "avThresh",
-		filter: new CLARITY.ValueThreshold({thresh:64, channel:'red', enabled:false})
+		filter: new CLARITY.ValueThreshold({threshold:64, channel:'red', enabled:false})
 	},
 	{
 		name: "Smoother",
@@ -71,44 +71,35 @@ var spherer;
 var sphereg;
 var sphereb;
 
+var clarity;
+
 function init(){
-	$("#shuffle").sortable({update:function(event, ui){shuffleChanged()}});
-	$("#shuffle").disableSelection();
-
-	for(var i = 0; i < filters.length; i++){
-		var newLi = document.createElement('li');
-		newLi.className = "listRed";
-		newLi.innerHTML = filters[i].name;
-		newLi.id = filters[i].id;
-		$("#shuffle")[0].appendChild(newLi);
-
-		newLi.onclick = function(e){
-			filters.forEach(function(filter){
-				if(filter.id == e.srcElement.id){
-		        	filter.filter.toggleEnabled();
-					if(filter.filter.enabled){
-						e.srcElement.className = "listGreen";
-					}
-					else{
-						e.srcElement.className = "listRed";
-					}
-				}
-			});
-		}
-
-		filters[i].position = i;
-		filters[i].active = false;
-	}
-
 	canvas = document.querySelector('#canvas');
-	ctx2 = document.querySelector('#canvas2').getContext('2d');
+	var target = document.querySelector('#canvas2');
 	width = canvas.width;
 	height = canvas.height;
 
+	//The three.js canvas is the source: the Clarity renderer draws it into its
+	//own scratch each frame and puts the filtered result on #canvas2. A canvas
+	//source is live by default, which is right here - something else is drawing
+	//into it every frame.
+	clarity = new CLARITY.Renderer(target).source(canvas);
+	filters.forEach(function(entry){
+		clarity.add(entry.filter);
+	});
+
+	ClarityList.create({
+		renderer: clarity,
+		names: filters.map(function(entry){ return entry.name; }),
+		list: document.getElementById('shuffle'),
+		controls: document.getElementById('controls')
+	});
+
 	canvas.onclick = function(e){
-		filters.forEach(function(filter){
-			if(typeof filter.setClick === 'function')
-				filter.filter.setClick([e.clientX, e.clientY]);
+		clarity.pipeline.filters.forEach(function(filter){
+			if(typeof filter.setClick === 'function'){
+				filter.setClick([e.offsetX, e.offsetY]);
+			}
 		});
 	}
 
@@ -135,29 +126,12 @@ function init(){
 	sphereb.position.x = 12;
 
 	render();
+	reportStats();
 }
 
-function shuffleChanged(){
-	var elements = document.getElementsByTagName('li');
-
-	for(var i = 0; i < elements.length; i++){
-		if(elements[i].id != filters[i].id){
-			for(var j in filters){
-				if(elements[i].id == filters[j].id){
-					filters[j].position = i;
-					break;
-				}
-			}
-		}
-	};
-
-	filters.sort(compareFilters);
-}
-
-function compareFilters(first, second){
-	return first.position - second.position;
-}
-
+//Still a hand-rolled loop, because the scene has to be animated and rendered
+//before Clarity reads it. clarity.render() is the one-shot form; clarity.start()
+//would own the loop instead, which is what the Image and Video examples do.
 function render(){
 	requestAnimationFrame(render);
 
@@ -167,16 +141,17 @@ function render(){
 	sphereb.position.y = -Math.sin(pos*2)*5;
 
 	renderer.render(scene, camera);
+	clarity.render();
+}
 
-	ctx2.drawImage(canvas, 0, 0);
+function reportStats(){
+	var readout = document.getElementById('stats');
+	if(!readout) return;
 
-	var frame = ctx2.getImageData(0,0,width,height);
-
-	for(var i = 0; i < filters.length; i++){
-		frame = filters[i].filter.process(frame);
-	}
-
-	ctx2.putImageData(frame, 0, 0);
+	setInterval(function(){
+		readout.textContent = 'last frame: ' + clarity.stats.total.toFixed(1) +
+			'ms over ' + clarity.pipeline.length + ' stages';
+	}, 500);
 }
 
 window.onload = init;

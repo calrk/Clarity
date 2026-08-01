@@ -51,35 +51,17 @@ var camera;
 var renderer;
 var clock;
 
+//Two chains: the one you see on the left, and the one that turns the same
+//source into a normal map for the three.js material. Each is a Pipeline, so the
+//ordering and the caching are handled rather than being two more for-loops.
+var visiblePipeline = new CLARITY.Pipeline();
+var normalPipeline = new CLARITY.Pipeline();
+
 function init(){
-	$("#shuffle").sortable({update:function(event, ui){shuffleChanged()}});
-	$("#shuffle").disableSelection();
+	filters.forEach(function(entry){ visiblePipeline.add(entry.filter); });
+	normalFilters.forEach(function(entry){ normalPipeline.add(entry.filter); });
 
-	for(var i = 0; i < filters.length; i++){
-		var newLi = document.createElement('li');
-		newLi.className = "listRed";
-		newLi.innerHTML = filters[i].name;
-		newLi.id = filters[i].id;
-		$("#shuffle")[0].appendChild(newLi);
-
-		newLi.onclick = function(e){
-			filters.forEach(function(filter){
-				if(filter.id == e.srcElement.id){
-					filter.filter.toggleEnabled();
-					if(filter.filter.enabled){
-						e.srcElement.className = "listGreen";
-					}
-					else{
-						e.srcElement.className = "listRed";
-					}
-				}
-			});
-			render();
-		}
-
-		filters[i].position = i;
-		filters[i].active = false;
-	}
+	buildList(visiblePipeline, filters, document.getElementById('shuffle'));
 
 	for(var i = 0; i < normalFilters.length; i++){
 		var controls = ClarityControls.createControls(normalFilters[i].filter, normalFilters[i].name);
@@ -127,10 +109,9 @@ function init(){
 	render();
 }
 
-function compareFilters(first, second){
-	return first.position - second.position;
-}
-
+//Kept as a hand-rolled render rather than a Renderer, because it drives two
+//chains into two canvases and has to push the second into a three.js texture
+//afterwards. The chains themselves are Pipelines.
 function render(){
 	var img = document.getElementById("image");
 	
@@ -140,13 +121,8 @@ function render(){
 	normFrame = ctx.getImageData(0,0,width,height);
 	// normFrame = new CLARITY.NormalIntensity({intensity:1}).process(normFrame);
 
-	for(var i = 0; i < filters.length; i++){
-		frame = filters[i].filter.process(frame);
-	}
-
-	for(var i = 0; i < normalFilters.length; i++){
-		normFrame = normalFilters[i].filter.process(normFrame);
-	}
+	frame = visiblePipeline.run(frame);
+	normFrame = normalPipeline.run(normFrame);
 
 	// normFrame = new CLARITY.Smoother().process(normFrame);
 
@@ -239,25 +215,38 @@ function loadTerrain(norm){
 	return terrain;
 }
 
-function shuffleChanged(){
-	var elements = document.getElementsByTagName('li');
+//This example needs a re-render after every list change rather than running a
+//loop, so it wires the list itself rather than using ClarityList. The old
+//`shuffleChanged` that matched <li> ids back to a `position` field, plus the
+//two identical copies of `compareFilters` this file had accumulated, are gone -
+//the Pipeline owns the order.
+function buildList(pipeline, entries, list){
+	entries.forEach(function(entry, index){
+		var item = document.createElement('li');
+		item.className = entry.filter.enabled ? 'listGreen' : 'listRed';
+		item.textContent = entry.name;
 
-	for(var i = 0; i < elements.length; i++){
-		if(elements[i].id != filters[i].id){
-			for(var j in filters){
-				if(elements[i].id == filters[j].id){
-					filters[j].position = i;
-					break;
-				}
+		item.onclick = function(){
+			var filter = pipeline.at(Array.prototype.indexOf.call(list.children, item));
+			filter.enabled = !filter.enabled;
+			item.className = filter.enabled ? 'listGreen' : 'listRed';
+			render();
+		};
+
+		list.appendChild(item);
+		void index;
+	});
+
+	var startedAt = -1;
+	$(list)
+		.sortable({
+			start: function(event, ui){ startedAt = ui.item.index(); },
+			update: function(event, ui){
+				pipeline.move(startedAt, ui.item.index());
+				render();
 			}
-		}
-	};
-
-	filters.sort(compareFilters);
-}
-
-function compareFilters(first, second){
-	return first.position - second.position;
+		})
+		.disableSelection();
 }
 
 window.onload = init;

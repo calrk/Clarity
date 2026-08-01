@@ -37,6 +37,13 @@ a, h1{
 	height: 500px;
 	overflow-y: auto;
 }
+/* per-render readout from Renderer.stats, so the caching is visible */
+.stats{
+	font-family: monospace;
+	font-size: 0.85em;
+	opacity: 0.7;
+	margin: 4px 0;
+}
 .clarity-controlGroup{
 	background-color: white;
 	padding:10px;

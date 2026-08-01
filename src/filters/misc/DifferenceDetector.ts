@@ -10,6 +10,9 @@ export interface DifferenceDetectorOptions extends FilterOptions {
 }
 
 export class DifferenceDetector extends Filter {
+	//Compares against the first frame it ever saw.
+	static override stateful = true;
+
 	/** The reference frame, captured on the first call. */
 	original: ImageData | null = null;
 

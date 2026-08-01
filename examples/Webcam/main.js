@@ -101,58 +101,50 @@ var filters = [
 	},
 ];
 
-var canvas;
-var ctx;
-var localMediaStream = null;
-var video;
-var width;
-var height;
+var renderer;
 
-function init(){
-	for(var i = 0; i < filters.length; i++){
-		var controls = ClarityControls.createControls(filters[i].filter, filters[i].name);
-		document.getElementById('controls').appendChild(controls);
-	}
+function init() {
+	var canvas = document.querySelector('#canvas');
+	var video = document.querySelector('#vid');
 
-	video = document.querySelector("#vid");
-	canvas = document.querySelector('#canvas');
-	ctx = canvas.getContext('2d');
-	width = canvas.width;
-	height = canvas.height;
+	renderer = new CLARITY.Renderer(canvas);
+	filters.forEach(function (entry) {
+		renderer.add(entry.filter);
+	});
+	renderer.source(video);
 
-	canvas.onclick = function(e){
-		filters.forEach(function(filter){
-			if(typeof filter.setClick === 'function')
-				filter.filter.setClick([e.clientX, e.clientY]);
+	ClarityList.create({
+		renderer: renderer,
+		names: filters.map(function (entry) {
+			return entry.name;
+		}),
+		list: document.getElementById('shuffle'),
+		controls: document.getElementById('controls')
+	});
+
+	canvas.onclick = function (e) {
+		renderer.pipeline.filters.forEach(function (filter) {
+			if (typeof filter.setClick === 'function') {
+				filter.setClick([e.offsetX, e.offsetY]);
+			}
 		});
-	}
+	};
 
-	navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
-	window.URL = window.URL || window.webkitURL;
-	navigator.getUserMedia({video:true}, function (stream){
-		video.src = window.URL.createObjectURL(stream);
-		localMediaStream = stream;
-	}, onCameraFail);
+	//getUserMedia + createObjectURL is the 2014 spelling; srcObject is the one
+	//that still works, and the old form throws in current browsers
+	navigator.mediaDevices
+		.getUserMedia({ video: true })
+		.then(function (stream) {
+			video.srcObject = stream;
+			video.play();
+		})
+		.catch(onCameraFail);
 
-	requestAnimationFrame(render);
+	renderer.start();
 }
 
-function render(){
-	requestAnimationFrame(render);
-	
-	ctx.drawImage(video, 0, 0, width, height);
-
-	var frame = ctx.getImageData(0,0,width,height);
-
-	for(var i = 0; i < filters.length; i++){
-		frame = filters[i].filter.process(frame);
-	}
-
-	ctx.putImageData(frame, 0, 0);
-}
-
-function onCameraFail(e){
-	console.log("Camera did not work: ", e);
+function onCameraFail(e) {
+	console.log('Camera did not work: ', e);
 }
 
 window.onload = init;

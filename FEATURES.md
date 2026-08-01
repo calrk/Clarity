@@ -139,9 +139,36 @@ Keep the CPU path as the reference implementation, not dead weight: it's the ora
 
 ---
 
-## 4. A `Renderer` / `Pipeline` Object
+## ~~4. A `Renderer` / `Pipeline` Object~~ ✓
 
 **Effort: Medium** *(pairs with #3)*
+
+**Done.** Split in two, which was the main design call:
+
+- **`Pipeline`** — the ordered filter list, the caching, and nothing else. No canvas, no DOM, no frame loop. #2 and #8 went to some trouble to make the library importable outside a browser, and a `Renderer(canvas)` that everything had to route through would have quietly undone that. Keeping the ordering logic headless also means it is testable in Node rather than only in a browser.
+- **`Renderer`** — owns the canvas, the source and the `requestAnimationFrame` loop, and delegates to a `Pipeline`.
+
+The caching is the part worth getting right, because a stale cache doesn't look like a bug — it looks like a working render that stopped responding. Everything upstream of the first stage that is dirty, impure or newly reordered comes out of the cache; everything from there down re-runs. So tweaking the last filter of a long chain doesn't redo the ones before it, and an unchanged chain on an unchanged frame does **no work at all**. `pipeline.stats` reports the per-stage timings, the total, how many stages were skipped and where the recompute started, which is also what #5's timing panel wants.
+
+That needs to know which filters are safe to cache, so **each declares itself**:
+
+- `static stateful` — output depends on frames already seen: `Ghoster`, `MotionDetector`, `DifferenceDetector`. Must see every frame, in order, exactly once.
+- `static varying` — output changes between calls on identical input, because the filter reads the clock or the random source: `Wave`, `Noise`, `Cloud`.
+
+Both are excluded from the cache, but the distinction is not cosmetic — it is exactly the split #3 needs, where a stateful filter wants retained storage and a varying one wants a time or seed uniform. `Puzzler` looks varying and isn't: it shuffles once, in its constructor.
+
+Things that came up doing it:
+
+- **`enabled` had to become an accessor.** Host apps assign to it directly — the example control panel does — and a bypass that didn't mark the filter dirty would show a stale frame. It now sets `dirty` on change, and only on an actual change.
+- **The source has to be read *once* for a still image.** Read it every frame and you hand the pipeline an equal-but-different `ImageData` each time, `source !== lastSource` is always true, and the cache can never hit. `Renderer.source(input, { live })` decides, defaulting to live for video and canvas.
+- **`Renderer` re-introduced a runtime DOM dependency by accident.** `input instanceof ImageData` is a `ReferenceError` in Node, not a `false` — and it would also reject a caller's own ImageData-alike from `setImageDataFactory`. Every DOM global it touches is now looked up defensively and `ImageData` is duck-typed.
+- **Nesting a pipeline as a second input needed a decision.** It is fed the outer run's *source*, not the frame at the point it is used: that is the more predictable reading of "mask this chain with that one", and the only one where the inner pipeline's cache can ever hit.
+
+**The examples lost the duplication they were called out for.** `shuffleChanged` and `compareFilters` — the pair that walked the DOM matching `<li>` ids back to a `position` field and re-sorted the array — are gone from all four copies, along with the hand-rolled `getImageData`/loop/`putImageData` in seven. `examples/js/pipeline-list.js` wires drag-to-reorder to `renderer.move()` once. Three bugs fell out of the rewrite: `HeightMap` had accumulated **two identical copies of `compareFilters`**; every canvas click handler tested `setClick` on the wrapper object rather than on the filter, so clicking Puzzler never did anything; and three examples passed `{thresh: 64}` to `ValueThreshold`, which has no such option.
+
+`Renderer` still reads back through a scratch canvas, which is exactly the CPU round-trip #3 exists to delete — but the seam is now in one place instead of seven.
+
+### Original write-up
 
 Also straight off the README's own to-do list: *"Create a renderer object that holds a canvas and its filters."* Right now every example hand-rolls the same loop:
 
@@ -456,7 +483,7 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | ✓ | ESM + Vite + publishable package | Medium | Done — TS classes, 3 bundles, types, `npm test`; found 3 more bugs |
 | ✓ | Licensing / replace GPL MCut | Low–Med | Done — MIT, no GPL code, quantiser 2-21x faster |
 | ✓ | Golden-image test suite | Medium | Done — 56 goldens, contact sheet, determinism plumbing, GPU parity harness ready |
-| 4 | `Renderer` / pipeline object | Medium | High — kills seven copies of the same loop; home for FBO ping-pong |
+| ✓ | `Renderer` / pipeline object | Medium | Done — headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
 | ✓ | Declarative filter schemas | Medium | Done — 717 lines out, DOM dependency gone, `setProperty` is the one write path |
 | 3 | GPU shader backend | High | Highest payoff, highest cost — do it in the three tiers, not in one go |
 | 5 | Demo site / pipeline playground | Med–High | High — the thing you show people; current examples are broken anyway |
@@ -465,6 +492,6 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | 12 | Pipeline fusion | High | Medium — big for UV-transform chains and weak GPUs; also fixes 8-bit precision loss. Classification metadata in #3, compiler later |
 | 10 | CPU path modernisation | Medium | Low–Medium — mostly superseded by #3; cherry-pick the allocation fix |
 
-**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → ~~8~~ → **4** → 3 (tier by tier) → 5 → 9/11 → 12.
+**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → ~~8~~ → ~~4~~ → **3** (tier by tier) → 5 → 9/11 → 12.
 
 *More features to be added.*
