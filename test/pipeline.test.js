@@ -325,3 +325,59 @@ test('invalidate forces a full recompute', () => {
 	pipeline.run(frame);
 	assert.equal(pipeline.stats.from, 0);
 });
+
+// A trail, a ring or a reference frame is only meaningful if it was built from
+// an unbroken run of frames through the same filter in the same place with the
+// same settings. These are the four things that break that, and each one has to
+// throw the history away rather than blending the old with the new.
+test('retained frames are dropped when the history stops being trustworthy', () => {
+	const ghoster = new CLARITY.Ghoster({ length: 4 });
+	const pipeline = new CLARITY.Pipeline([ghoster], { gpu: false });
+
+	for (let i = 0; i < 4; i++) pipeline.run(makeFrame(i));
+	assert.equal(ghoster.frames.length, 4, 'the trail filled up');
+
+	//a property change
+	ghoster.setProperty('length', 6);
+	pipeline.run(makeFrame(9));
+	assert.equal(ghoster.frames.length, 1, 'a property change starts the trail again');
+
+	//the chain being edited
+	for (let i = 0; i < 3; i++) pipeline.run(makeFrame(i));
+	pipeline.add(new CLARITY.Invert({}));
+	pipeline.run(makeFrame(9));
+	assert.equal(ghoster.frames.length, 1, 'editing the chain starts the trail again');
+
+	//leaving the chain, so that coming back does not resume a stale trail
+	for (let i = 0; i < 3; i++) pipeline.run(makeFrame(i));
+	pipeline.remove(ghoster);
+	assert.equal(ghoster.frames.length, 0, 'removal drops it immediately');
+});
+
+test('a rebuilt chain gives a stateful filter the same output as a fresh one', () => {
+	const kept = new CLARITY.DifferenceDetector({});
+	const pipeline = new CLARITY.Pipeline([kept], { gpu: false });
+
+	pipeline.run(makeFrame(0));
+	pipeline.run(makeFrame(1));
+
+	//the reference frame came from makeFrame(0); after an edit it must come from
+	//whatever is fed next instead, exactly as a filter that had never run
+	pipeline.invalidate();
+	const after = bytes(pipeline.run(makeFrame(5)));
+
+	const fresh = new CLARITY.Pipeline([new CLARITY.DifferenceDetector({})], { gpu: false });
+	assert.deepEqual(after, bytes(fresh.run(makeFrame(5))));
+});
+
+test('MotionDetector.reset restores the indices the constructor set', () => {
+	const detector = new CLARITY.MotionDetector({ frameCount: 3 });
+	const pipeline = new CLARITY.Pipeline([detector], { gpu: false });
+
+	for (let i = 0; i < 6; i++) pipeline.run(makeFrame(i));
+	detector.reset();
+
+	assert.equal(detector.frames.length, 0);
+	assert.equal(detector.index, 0);
+	assert.equal(detector.preindex, 3, 'preindex starts at frameCount, not frameCount-1');
+});

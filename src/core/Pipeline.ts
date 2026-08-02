@@ -33,6 +33,12 @@ interface Stage {
 	 * run keeps a frame.
 	 */
 	computed?: boolean;
+	/**
+	 * Which backend produced the retained state a `stateful` filter is holding,
+	 * so that moving between the two can throw it away. Undefined until the
+	 * stage has run once.
+	 */
+	historyOnGPU?: boolean;
 }
 
 /** Where the last run's time went, and how much of it was avoided. */
@@ -173,7 +179,10 @@ export class Pipeline {
 	remove(target: Filter | number): this {
 		const index = typeof target === 'number' ? target : this.indexOf(target);
 		if (index >= 0 && index < this.stages.length) {
-			this.stages.splice(index, 1);
+			const [stage] = this.stages.splice(index, 1);
+			//A filter that leaves the chain and comes back should start clean,
+			//rather than resuming a trail from whenever it was last in.
+			stage.filter.reset();
 			this.structureDirty = true;
 		}
 		return this;
@@ -191,6 +200,9 @@ export class Pipeline {
 	}
 
 	clear(): this {
+		for (const stage of this.stages) {
+			stage.filter.reset();
+		}
 		this.stages = [];
 		this.structureDirty = true;
 		return this;
@@ -224,6 +236,7 @@ export class Pipeline {
 	 */
 	run(source: ImageData): ImageData {
 		const backend = this.gl;
+		this.dropStaleHistory(backend);
 		const from = this.firstStaleStage(source, backend);
 		const timings = new Array<number>(this.stages.length).fill(0);
 
@@ -331,6 +344,40 @@ export class Pipeline {
 		};
 
 		return frame;
+	}
+
+	/**
+	 * Throws away the retained frames of any `stateful` filter whose history can
+	 * no longer be trusted.
+	 *
+	 * A trail, a ring or a reference frame is only meaningful if it was built
+	 * from an unbroken run of frames through the same filter, in the same place,
+	 * with the same settings. Four things break that, and all four are cheap to
+	 * detect:
+	 *
+	 * - the chain was edited, so the frames feeding this stage are not the ones
+	 *   that built its history (`structureDirty`; `remove` and `clear` reset the
+	 *   departing filter directly, since it is no longer here to be swept)
+	 * - a property changed, which is exactly what `dirty` means
+	 * - the filter moved between the CPU and the GPU, leaving two divergent
+	 *   copies of the history
+	 *
+	 * In practice most callers build a chain once and run it forever, so this
+	 * fires on the first frame and then never again.
+	 */
+	private dropStaleHistory(backend: GLBackend | null): void {
+		for (const stage of this.stages) {
+			if (!(stage.filter.constructor as typeof Filter).stateful) {
+				continue;
+			}
+			const onGPU = this.onGPU(stage.filter, backend);
+			const moved = stage.historyOnGPU !== undefined && stage.historyOnGPU !== onGPU;
+
+			if (this.structureDirty || stage.filter.dirty || moved) {
+				stage.filter.reset();
+			}
+			stage.historyOnGPU = onGPU;
+		}
 	}
 
 	/** Whether this filter would run as a shader right now. */

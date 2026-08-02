@@ -59,12 +59,16 @@ export class MotionDetector extends Filter {
 	//any other way left indices pointing into a differently-sized buffer.
 	override propertyChanged(key: string): void {
 		if(key === 'frameCount'){
-			this.frames = [];
-			this.index = 0;
-			//has to match the constructor: preindex starts at frameCount, not
-			//frameCount-1, or the first comparison comes out as a frame against itself
-			this.preindex = this.properties.frameCount;
+			this.reset();
 		}
+	}
+
+	override reset(): void {
+		this.frames = [];
+		this.index = 0;
+		//has to match the constructor: preindex starts at frameCount, not
+		//frameCount-1, or the first comparison comes out as a frame against itself
+		this.preindex = this.properties.frameCount;
 	}
 
 	pushFrame(frame: ImageData) {

@@ -261,6 +261,18 @@ export class Filter {
 	 */
 	propertyChanged(_key: string): void {}
 
+	/**
+	 * Drops anything retained from previous frames.
+	 *
+	 * Only the `stateful` filters have anything to drop. A {@link Pipeline} calls
+	 * this whenever the history can no longer be trusted: the chain was edited,
+	 * the filter was removed, one of its properties changed, or it moved between
+	 * backends. The last of those is the reason this has to be explicit - a
+	 * filter that ran as a shader for a while and then fell back to the CPU has
+	 * two histories that have diverged, and blending them makes the trail jump.
+	 */
+	reset(): void {}
+
 	toggleEnabled(): void {
 		this.enabled = !this.enabled;
 	}

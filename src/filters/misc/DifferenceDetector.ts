@@ -51,8 +51,13 @@ export class DifferenceDetector extends Filter {
 		return output;
 	}
 
-	resetOriginal(): void {
+	override reset(): void {
 		this.original = null;
+	}
+
+	/** @deprecated Use {@link reset}, which every stateful filter now has. */
+	resetOriginal(): void {
+		this.reset();
 	}
 
 	findDifference(pix1: number[], pix2: number[]): boolean {

@@ -29,6 +29,10 @@ export class Ghoster extends Filter {
 		this.frames = new Array();
 	}
 
+	override reset(): void {
+		this.frames = [];
+	}
+
 	override doProcess(frame: ImageData): ImageData {
 		//keeps its own copy so a later filter mutating the frame can't corrupt the trail
 		let kept = createImageData(frame.width, frame.height);
