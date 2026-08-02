@@ -1,5 +1,6 @@
 import { PRELUDE, PRELUDE_LINES, VERTEX_SHADER } from './glsl.js';
 import { createImageData } from '../core/imagedata.js';
+import { seedFrom } from '../helpers/hash.js';
 import type { Filter } from '../core/Filter.js';
 import type { SchemaField } from '../core/schema.js';
 
@@ -457,6 +458,13 @@ export function uniformsFor(filter: Filter): Record<string, number | number[]> {
 		uTime: filter.now(),
 		uChannel: channelIndex(filter.channel)
 	};
+
+	//One draw per stage per frame, which is exactly what the CPU implementations
+	//take - so a seeded source produces the same frame on both backends. Only
+	//for `varying` filters, so nothing else quietly advances its own stream.
+	if ((filter.constructor as typeof Filter).varying) {
+		uniforms.uSeed = seedFrom(filter.random);
+	}
 
 	const schema = filter.schema;
 	for (const [key, field] of Object.entries(schema)) {

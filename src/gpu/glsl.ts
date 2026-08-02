@@ -70,6 +70,12 @@ uniform vec2 uTexel;
 uniform vec2 uOutSize;
 /** Milliseconds, from the filter's injected clock. */
 uniform float uTime;
+/**
+ * One draw from the filter's random source, for the hashed randomness below.
+ * Only supplied to a filter declaring itself 'varying', since those are the
+ * only ones that should be consuming the stream.
+ */
+uniform float uSeed;
 /** Channel selector: 0 grey, 1 red, 2 green, 3 blue. */
 uniform int uChannel;
 
@@ -139,6 +145,37 @@ void writeRGB(vec3 colour){
  */
 vec2 reduction(){
 	return texelFetch(uReduce, ivec2(0), 0).rg * 255.0;
+}
+
+// --- hashed randomness ----------------------------------------------------
+//
+// The twin of src/helpers/hash.ts, which carries the explanation. Both are
+// 32-bit integer arithmetic so the two agree exactly; keep them in step.
+
+uint hash32(uint h){
+	h ^= h >> 16;
+	h *= 0x7feb352du;
+	h ^= h >> 15;
+	h *= 0x846ca68bu;
+	h ^= h >> 16;
+	return h;
+}
+
+uint hashMix(int x, int y, int lane, float seed){
+	return uint(x) * 0x9e3779b9u
+		^ uint(y) * 0x85ebca6bu
+		^ uint(lane + 1) * 0xc2b2ae35u
+		^ uint(seed);
+}
+
+/** 0-1, uniform. 24 bits, which is what a float32 holds exactly. */
+float hashedRandom(int x, int y, int lane, float seed){
+	return float(hash32(hashMix(x, y, lane, seed)) >> 8) / 16777216.0;
+}
+
+/** 0-255, uniform - the top byte, so no float is involved at all. */
+float hashedByte(int x, int y, int lane, float seed){
+	return float(hash32(hashMix(x, y, lane, seed)) >> 24);
 }
 
 /** Uint8ClampedArray rounding, which is what every CPU write goes through. */

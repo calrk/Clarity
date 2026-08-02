@@ -17,6 +17,7 @@ export type { ShaderDefinition, ShaderPass } from './gpu/GLBackend.js';
 export { seededRandom, defaultClock } from './core/random.js';
 export type { RandomSource, Clock } from './core/random.js';
 export { Operations } from './helpers/Operations.js';
+export { hash32, hashedRandom, hashedByte, seedFrom } from './helpers/hash.js';
 export type { RGB, YUV } from './helpers/Operations.js';
 export { Pixel } from './helpers/Pixel.js';
 export type { PixelChannel } from './helpers/Pixel.js';
