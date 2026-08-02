@@ -147,9 +147,9 @@ export const descriptions = {
 	},
 
 	// --- Transform ---
-	ChannelSeparate: {
-		summary: 'Offsets the R and G channels in opposite directions.',
-		look: 'Colour fringing on edges, like chromatic aberration.'
+	ChromaticAberration: {
+		summary: 'Displaces the R and G channels in opposite directions.',
+		look: 'Colour fringing on edges. Absent at the centre and growing toward the corners, unless fixed, which displaces uniformly.'
 	},
 	Mirror: {
 		summary: 'Flips the image horizontally, vertically, or both.',
@@ -202,7 +202,7 @@ export const categories = {
 	EdgeDetector: 'Salience', MotionDetector: 'Salience', SkinDetector: 'Salience',
 	Cloud: 'Starters', FillHSV: 'Starters', FillRGB: 'Starters',
 	GradientThreshold: 'Thresholders', MedianThreshold: 'Thresholders', ValueThreshold: 'Thresholders',
-	ChannelSeparate: 'Transform', Mirror: 'Transform', Rotator: 'Transform', Tiler: 'Transform',
+	ChromaticAberration: 'Transform', Mirror: 'Transform', Rotator: 'Transform', Tiler: 'Transform',
 	Translator: 'Transform', Wave: 'Transform',
 	Brickulate: 'Misc', DifferenceDetector: 'Misc', Ghoster: 'Misc', Puzzler: 'Misc'
 };

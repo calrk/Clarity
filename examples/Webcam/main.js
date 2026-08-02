@@ -1,7 +1,7 @@
 var filters = [
 	{
 		name: "Channel Separate",
-		filter: new CLARITY.ChannelSeparate({enabled:false})
+		filter: new CLARITY.ChromaticAberration({enabled:false})
 	},
 	{
 		name: "Hanover Bars",

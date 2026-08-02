@@ -108,8 +108,8 @@ export { ValueThreshold } from './filters/Thresholders/ValueThreshold.js';
 export type { ValueThresholdOptions } from './filters/Thresholders/ValueThreshold.js';
 
 // Transform
-export { ChannelSeparate } from './filters/Transform/ChannelSeparate.js';
-export type { ChannelSeparateOptions } from './filters/Transform/ChannelSeparate.js';
+export { ChromaticAberration } from './filters/Transform/ChromaticAberration.js';
+export type { ChromaticAberrationOptions } from './filters/Transform/ChromaticAberration.js';
 export { Mirror } from './filters/Transform/Mirror.js';
 export type { MirrorOptions } from './filters/Transform/Mirror.js';
 export { Rotator } from './filters/Transform/Rotator.js';

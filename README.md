@@ -299,7 +299,8 @@ Scrambles up the image like a puzzle
 
 ### Process
 #### Bleed
-Adds a small colour bleed effect to an image
+Composite-video colour bleed - chroma is smeared sideways while luma stays
+sharp, so colour runs past edges without softening detail
 #### Blur
 Blurs an image
 #### De-saturate
@@ -347,11 +348,13 @@ Thresholds over changes in gradient in an image, resulting in edge detection
 #### Median Thresholder
 Colour quantisation over median and quartile pixel values
 #### Value Thresholder
-Thresholds the image based on a calculated or given pixel value
+Thresholds the image at a given value, or at the midpoint of the frame's own
+range
 
 ### Transform
-#### Channel Separate
-Translates the RGB channels of an image individually
+#### Chromatic Aberration
+Displaces the red and green channels in opposite directions, growing toward the
+edges of the frame like a lens does - or uniformly, with `fixed`
 #### Mirror
 Flips the image in horizontal or vertical axis
 #### Rotator

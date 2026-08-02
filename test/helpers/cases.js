@@ -103,7 +103,9 @@ export const cases = [
 	{ filter: 'Translator', input: 'photo', options: { horizontal: 0.25, vertical: 0.1 }, gpu: POINTWISE },
 	{ filter: 'Tiler', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Tiler', name: 'odd', input: 'odd', options: {}, gpu: POINTWISE },
-	{ filter: 'ChannelSeparate', input: 'photo', options: { xdistance: 4, ydistance: 2, fixed: true }, gpu: POINTWISE },
+	{ filter: 'ChromaticAberration', input: 'photo', options: { xdistance: 4, ydistance: 2, fixed: true }, gpu: POINTWISE },
+	//the ramped mode had no case at all, so the inverted ramp went unnoticed
+	{ filter: 'ChromaticAberration', name: 'ramped', input: 'photo', options: { xdistance: 6, ydistance: 3 }, gpu: POINTWISE },
 	// Wave floors a sine to pick which texel to read, which is a hard decision
 	// boundary in the same sense a thresholder is: the GPU works in 32-bit
 	// floats where the CPU has 64, so a value sitting a fraction either side of
