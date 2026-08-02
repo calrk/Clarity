@@ -1,4 +1,4 @@
-import { GLBackend, REDUCE_STEP, uniformsFor } from './GLBackend.js';
+import { GLBackend, COPY_PASS, REDUCE_STEP, uniformsFor } from './GLBackend.js';
 import type { ShaderPass, Target } from './GLBackend.js';
 import type { Filter } from '../core/Filter.js';
 
@@ -108,6 +108,7 @@ export function executeChain(
 
 		const uniforms = uniformsFor(filter);
 		const secondTexture = second ? backend.uploadSecond(second) : null;
+		const originalTexture = keepOriginal(backend, passes!, gpuTarget ? gpuTarget.texture : gpuTexture!, width, height);
 		let failed: string | null = null;
 		let reduceTexture: WebGLTexture | null = null;
 
@@ -142,6 +143,7 @@ export function executeChain(
 					source: gpuTarget ? gpuTarget.texture : gpuTexture!,
 					second: secondTexture,
 					reduce: reduceTexture,
+					original: originalTexture,
 					into,
 					width,
 					height,
@@ -169,6 +171,50 @@ export function executeChain(
 	toCPU();
 	result.frame = cpuFrame ?? source;
 	return result;
+}
+
+/**
+ * Copies a stage's input somewhere its later passes can still read it, when any
+ * of them mentions `uOriginal`.
+ *
+ * The copy is not optional. Passes ping-pong between two pooled targets, so on
+ * a three-pass filter the third draw renders into the same target the input
+ * arrived in - by the time the pass that wants the original runs, the original
+ * has been overwritten by the filter's own working. Stashing it in a slot
+ * outside the ping-pong pair costs one draw for the filters that ask.
+ *
+ * Detected by looking at the shader source rather than by a declaration, so it
+ * cannot fall out of step with what the GLSL actually reads. A stray mention in
+ * a comment costs a needless blit and nothing else.
+ */
+function keepOriginal(
+	backend: GLBackend,
+	passes: ShaderPass[],
+	source: WebGLTexture,
+	width: number,
+	height: number
+): WebGLTexture | null {
+	if (!passes.some((pass) => READS_ORIGINAL.test(pass.source))) {
+		return null;
+	}
+
+	const program = backend.program(COPY_PASS, 'original');
+	if (!program) {
+		return null;	//draw() falls back to binding uSrc, which is right for pass 1
+	}
+
+	const into = backend.target(ORIGINAL, width, height);
+	backend.draw({
+		program,
+		source,
+		into,
+		width,
+		height,
+		sourceWidth: width,
+		sourceHeight: height,
+		uniforms: {}
+	});
+	return into.texture;
 }
 
 /**
@@ -245,6 +291,11 @@ function runReduction(
 const REDUCE_A = 8;
 const REDUCE_B = 9;
 const REDUCE_C = 10;
+/** Where a stage's input is stashed for `uOriginal`. Also outside the pair. */
+const ORIGINAL = 11;
+
+/** The three ways a shader can reach the stage's input. See `keepOriginal`. */
+const READS_ORIGINAL = /\buOriginal\b|\boriginal(?:Pixel|Texel)\s*\(/;
 
 /** Why this filter cannot run on the GPU right now, or null if it can. */
 export function gpuBlocker(

@@ -12,8 +12,11 @@ export interface BlurOptions extends FilterOptions {
 	radius?: number;
 }
 
-/** Shared by the two passes; only the step direction differs. */
-const BLUR_PASS = (axis: string) => /* glsl */ `
+/**
+ * Shared by the two passes; only the step direction differs. Exported because
+ * `Bleed` blurs with the same kernel and should not grow a second copy of it.
+ */
+export const BLUR_PASS = (axis: string) => /* glsl */ `
 uniform float u_radius;
 
 void main(){

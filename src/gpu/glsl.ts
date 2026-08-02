@@ -51,6 +51,18 @@ uniform sampler2D uSrc2;
  */
 uniform sampler2D uReduce;
 
+/**
+ * The frame as it entered this filter, for a multi-pass filter whose last pass
+ * needs to combine its own working with what it started from - Glow adds a blur
+ * back onto the original, Bleed keeps the original's luma.
+ *
+ * By that point uSrc is the previous pass's output, and the input texture has
+ * usually been recycled as a ping-pong target, so the executor copies it aside
+ * before the first pass. Bound to uSrc when no pass mentions it, so reading it
+ * from a single-pass filter is a no-op rather than a black frame.
+ */
+uniform sampler2D uOriginal;
+
 /** Size of the input in pixels, and its reciprocal. */
 uniform vec2 uSize;
 uniform vec2 uTexel;
@@ -70,6 +82,16 @@ vec4 srcPixel(vec2 uv){
 
 vec4 src2Pixel(vec2 uv){
 	return texture(uSrc2, uv) * 255.0;
+}
+
+/** The frame as it entered this filter. See uOriginal. */
+vec4 originalPixel(vec2 uv){
+	return texture(uOriginal, uv) * 255.0;
+}
+
+vec4 originalTexel(ivec2 pixel){
+	ivec2 clamped = clamp(pixel, ivec2(0), ivec2(uSize) - 1);
+	return texelFetch(uOriginal, clamped, 0) * 255.0;
 }
 
 /** Sample by integer pixel coordinate, clamped to the frame. */
@@ -185,15 +207,11 @@ vec3 rgb2yuv(vec3 rgb){
 	);
 }
 
-/**
- * Operations.YUVtoRGB. Note the green term: the CPU spells it
- * 'y - -0.39465*u + -0.5806*v', so the U coefficient comes out positive where
- * the textbook has it negative. Kept, because matching is the job.
- */
+/** Operations.YUVtoRGB. */
 vec3 yuv2rgb(vec3 yuv){
 	return vec3(
 		yuv.x + 1.13983 * yuv.z,
-		yuv.x + 0.39465 * yuv.y - 0.5806 * yuv.z,
+		yuv.x - 0.39465 * yuv.y - 0.5806 * yuv.z,
 		yuv.x + 2.03211 * yuv.y
 	);
 }

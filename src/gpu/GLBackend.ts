@@ -3,6 +3,9 @@ import { createImageData } from '../core/imagedata.js';
 import type { Filter } from '../core/Filter.js';
 import type { SchemaField } from '../core/schema.js';
 
+/** Uniforms that are texture units rather than values, so they go via uniform1i. */
+const SAMPLERS = new Set(['uSrc', 'uSrc2', 'uReduce', 'uOriginal']);
+
 /** One render target: a texture, and the framebuffer that draws into it. */
 interface Target {
 	texture: WebGLTexture;
@@ -65,7 +68,16 @@ export interface ShaderPass {
 /** What a filter declares to be runnable on the GPU. */
 export type ShaderDefinition = string | ShaderPass[];
 
-const MAX_TEXTURE_UNITS = 2;
+/**
+ * Copies a texture verbatim, for stashing a filter's input where its later
+ * passes can still reach it. `texelFetch` rather than a 0-255 round trip, so
+ * the copy is bit-identical.
+ */
+export const COPY_PASS = /* glsl */ `
+void main(){
+	fragColor = texelFetch(uSrc, outPixel(), 0);
+}
+`;
 
 /**
  * WebGL2 executor for the filter chain.
@@ -322,6 +334,8 @@ export class GLBackend {
 		second?: WebGLTexture | null;
 		/** 1x1 reduction result, bound to uReduce. */
 		reduce?: WebGLTexture | null;
+		/** The stage's input, bound to uOriginal for a filter that asked for it. */
+		original?: WebGLTexture | null;
 		into: Target | null;
 		width: number;
 		height: number;
@@ -341,10 +355,13 @@ export class GLBackend {
 		gl.bindTexture(gl.TEXTURE_2D, options.second ?? options.source);
 		gl.activeTexture(gl.TEXTURE2);
 		gl.bindTexture(gl.TEXTURE_2D, options.reduce ?? options.source);
+		gl.activeTexture(gl.TEXTURE3);
+		gl.bindTexture(gl.TEXTURE_2D, options.original ?? options.source);
 
 		this.setUniform(options.program, 'uSrc', 0);
 		this.setUniform(options.program, 'uSrc2', 1);
 		this.setUniform(options.program, 'uReduce', 2);
+		this.setUniform(options.program, 'uOriginal', 3);
 		this.setUniform(options.program, 'uSize', [options.sourceWidth, options.sourceHeight]);
 		this.setUniform(options.program, 'uTexel', [1 / options.sourceWidth, 1 / options.sourceHeight]);
 		this.setUniform(options.program, 'uOutSize', [options.width, options.height]);
@@ -379,7 +396,7 @@ export class GLBackend {
 			//through uniform1i - passing a float to an int uniform is an error, not
 			//a coercion. Every generated `u_*` uniform is declared float, so the
 			//list of exceptions is fixed and short.
-			if (name === 'uSrc' || name === 'uSrc2' || name === 'uReduce' || name === 'uChannel') {
+			if (SAMPLERS.has(name) || name === 'uChannel') {
 				gl.uniform1i(location, value);
 			} else {
 				gl.uniform1f(location, value);
@@ -425,7 +442,6 @@ export class GLBackend {
 }
 
 export type { Target };
-export { MAX_TEXTURE_UNITS };
 
 /**
  * Uniform values for a filter, taken from its schema.

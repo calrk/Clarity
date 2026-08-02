@@ -72,10 +72,17 @@ export const Operations = {
 		};
 	},
 
+	/**
+	 * The U coefficient on green used to be spelled `- -0.39465`, so it came out
+	 * positive where it should be negative, and RGB -> YUV -> RGB was not the
+	 * identity: green came back shifted by 0.789 * u. HanoverBars round-trips
+	 * every dark scanline through here, so with `offset` switched off - where it
+	 * should be doing nothing at all - it was tinting them.
+	 */
 	YUVtoRGB(yuv: YUV): RGB {
 		return {
 			r: yuv.y + 1.13983 * yuv.v,
-			g: yuv.y - -0.39465 * yuv.u + -0.5806 * yuv.v,
+			g: yuv.y - 0.39465 * yuv.u - 0.5806 * yuv.v,
 			b: yuv.y + 2.03211 * yuv.u
 		};
 	},
