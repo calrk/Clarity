@@ -310,7 +310,8 @@ Cleans up outlying pixels in a binary image
 #### Glow
 Blurs an image, and then adds this to the original, to create a glowing effect
 #### Hanover Bars
-Applies Hanover Bars or Scan lines over an image
+Treats every third and fourth line differently - rotating their chroma, which is
+the PAL delay-line artefact, or darkening them into scan lines
 #### HSV Shifter
 Allows editing an images hue/saturation/lightness values
 #### Invert

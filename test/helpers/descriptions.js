@@ -71,8 +71,8 @@ export const descriptions = {
 		look: 'Bright areas bloom outwards; edges stay roughly in place.'
 	},
 	HanoverBars: {
-		summary: 'Applies Hanover bars / scan lines by rotating chroma on alternate line pairs.',
-		look: 'Horizontal banding every 4 rows, colour-shifted rather than darkened.'
+		summary: 'Rotates the chroma of every third and fourth line, or darkens them.',
+		look: 'Horizontal banding every 4 rows - colour-shifted in hanover mode, darkened in scanlines mode. Either way it must not be identical to the input.'
 	},
 	Invert: {
 		summary: 'Inverts colour. In dynamic mode it reflects within the image\'s own range.',

@@ -50,7 +50,7 @@ export const cases = [
 	{ filter: 'Desaturate', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'hsvShifter', input: 'photo', options: { hue: 120, saturation: 1.4, value: 0.9 }, gpu: POINTWISE },
 	{ filter: 'HanoverBars', input: 'photo', options: {}, gpu: POINTWISE },
-	{ filter: 'HanoverBars', name: 'offset', input: 'photo', options: { offset: true }, gpu: POINTWISE },
+	{ filter: 'HanoverBars', name: 'scanlines', input: 'photo', options: { mode: 'scanlines' }, gpu: POINTWISE },
 	{ filter: 'Noise', input: 'photo', options: { intensity: 40 }, seed: 1, gpu: POINTWISE },
 	{ filter: 'Noise', name: 'mono', input: 'photo', options: { intensity: 40, monochromatic: true }, seed: 1, gpu: POINTWISE },
 
