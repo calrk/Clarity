@@ -109,6 +109,8 @@ export function executeChain(
 		const uniforms = uniformsFor(filter);
 		const secondTexture = second ? backend.uploadSecond(second) : null;
 		const originalTexture = keepOriginal(backend, passes!, gpuTarget ? gpuTarget.texture : gpuTexture!, width, height);
+		const { width: outWidth, height: outHeight } =
+			(filter.constructor as typeof Filter).outputSize(filter, width, height);
 		let failed: string | null = null;
 		let reduceTexture: WebGLTexture | null = null;
 
@@ -137,7 +139,11 @@ export function executeChain(
 
 			const repeats = Math.max(1, pass.repeat ? pass.repeat(filter) : 1);
 			for (let n = 0; n < repeats; n++) {
-				const into = backend.target(ping, width, height);
+				//A filter is allowed to change the frame's size - Rotator turns a
+				//640x480 frame into a 480x640 one. Only the first draw of a stage
+				//resizes; after that the frame is already the new shape, so uSize and
+				//the target agree again.
+				const into = backend.target(ping, outWidth, outHeight);
 				backend.draw({
 					program,
 					source: gpuTarget ? gpuTarget.texture : gpuTexture!,
@@ -145,14 +151,16 @@ export function executeChain(
 					reduce: reduceTexture,
 					original: originalTexture,
 					into,
-					width,
-					height,
+					width: outWidth,
+					height: outHeight,
 					sourceWidth: width,
 					sourceHeight: height,
 					uniforms: { ...uniforms, ...(pass.uniforms ?? {}), uPass: n }
 				});
 				gpuTarget = into;
 				ping = ping === 0 ? 1 : 0;
+				width = outWidth;
+				height = outHeight;
 			}
 		}
 

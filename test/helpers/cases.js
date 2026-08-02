@@ -100,6 +100,9 @@ export const cases = [
 	{ filter: 'Mirror', name: 'both-odd', input: 'odd', options: { Horizontal: true, Vertical: true }, gpu: POINTWISE },
 	{ filter: 'Rotator', input: 'photo', options: { turns: 1 }, gpu: POINTWISE },
 	{ filter: 'Rotator', name: 'half', input: 'photo', options: { turns: 2 }, gpu: POINTWISE },
+	//the two fits only differ on a non-square frame, and the fixture is 4:3
+	{ filter: 'Rotator', name: 'crop', input: 'photo', options: { turns: 1, fit: 'crop' }, gpu: POINTWISE },
+	{ filter: 'Rotator', name: 'anticlockwise', input: 'photo', options: { turns: 3 }, gpu: POINTWISE },
 	{ filter: 'Translator', input: 'photo', options: { horizontal: 0.25, vertical: 0.1 }, gpu: POINTWISE },
 	{ filter: 'Tiler', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Tiler', name: 'odd', input: 'odd', options: {}, gpu: POINTWISE },

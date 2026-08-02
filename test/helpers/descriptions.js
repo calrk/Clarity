@@ -157,8 +157,7 @@ export const descriptions = {
 	},
 	Rotator: {
 		summary: 'Rotates in 90 degree steps.',
-		look: 'Content turned a quarter or half turn.',
-		note: 'On a non-square frame the crop path is still approximate - see FEATURES.md #1. Expect a cropped region rather than a clean rotation here.'
+		look: 'Content turned a quarter or half turn. A quarter turn of the 4:3 fixture comes back 3:4 - taller than it is wide - unless fit is crop, which returns a square.'
 	},
 	Tiler: {
 		summary: 'Mirrors the image into four quadrants, so opposite edges match and the result tiles seamlessly.',

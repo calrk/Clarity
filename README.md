@@ -358,7 +358,8 @@ edges of the frame like a lens does - or uniformly, with `fixed`
 #### Mirror
 Flips the image in horizontal or vertical axis
 #### Rotator
-Rotates an image in 90 degree increments. Will crop a rectangular image to be square
+Rotates an image in 90 degree increments. A quarter turn of a non-square frame
+swaps its dimensions, or crops it to a centred square with `fit: 'crop'`
 #### Tiler
 Will tile an image so it's edges all line up
 #### Translator

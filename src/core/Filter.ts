@@ -109,6 +109,19 @@ export class Filter {
 		return true;
 	}
 
+	/**
+	 * The size this filter's output will be, given an input size.
+	 *
+	 * Almost every filter hands back a frame the size it was given, which is the
+	 * default. `Rotator` is the exception: a quarter turn of a 640x480 frame is
+	 * 480x640, and the GPU executor has to know that before it allocates the
+	 * target to render into. The CPU path works it out for itself when it
+	 * allocates the output.
+	 */
+	static outputSize(_filter: Filter, width: number, height: number): { width: number; height: number } {
+		return { width, height };
+	}
+
 	channel: Channel;
 	properties: FilterProperties = {};
 

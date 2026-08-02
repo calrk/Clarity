@@ -381,3 +381,34 @@ test('MotionDetector.reset restores the indices the constructor set', () => {
 	assert.equal(detector.index, 0);
 	assert.equal(detector.preindex, 3, 'preindex starts at frameCount, not frameCount-1');
 });
+
+// The reason `resize` is the default fit: it is the only one where a rotation
+// can be undone. Under `crop` the trimmed edges are gone for good, so a chain
+// that rotates, does something, and rotates back cannot get the frame it
+// started with.
+test('a quarter turn and back is the identity', () => {
+	const there = new CLARITY.Rotator({ turns: 1 });
+	const back = new CLARITY.Rotator({ turns: 3 });
+	const frame = makeFrame();
+
+	const turned = there.process(frame);
+	assert.equal(turned.width, H, 'a quarter turn swaps the dimensions');
+	assert.equal(turned.height, W);
+
+	const returned = back.process(turned);
+	assert.equal(returned.width, W);
+	assert.equal(returned.height, H);
+	assert.deepEqual(bytes(returned), bytes(frame));
+});
+
+test('a GPU stage may change the frame size', () => {
+	const pipeline = new CLARITY.Pipeline([new CLARITY.Rotator({ turns: 1 })], { gpu: false });
+	const out = pipeline.run(makeFrame());
+
+	//the CPU half of the same contract the GPU executor relies on: outputSize()
+	//has to agree with what the filter actually produces, because the executor
+	//allocates its render target from it before the shader runs
+	const declared = CLARITY.Rotator.outputSize(pipeline.at(0), W, H);
+	assert.equal(out.width, declared.width);
+	assert.equal(out.height, declared.height);
+});

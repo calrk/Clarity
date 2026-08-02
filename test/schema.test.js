@@ -128,7 +128,17 @@ for (const name of filterNames) {
 				filter.setProperty(key, value);
 				const out = run(filter);
 
-				assert.equal(out.data.length, 16 * 12 * 4, `${name}.${key}=${value} changed the frame size`);
+				// A filter may change the frame's size, but only the size it said it
+				// would - the GPU executor allocates its target from outputSize()
+				// before the shader runs, so a disagreement there is a corrupt frame
+				const expected = Ctor.outputSize(filter, 16, 12);
+				assert.equal(out.width, expected.width, `${name}.${key}=${value} width does not match outputSize`);
+				assert.equal(out.height, expected.height, `${name}.${key}=${value} height does not match outputSize`);
+				assert.equal(
+					out.data.length,
+					expected.width * expected.height * 4,
+					`${name}.${key}=${value} frame size does not match its dimensions`
+				);
 				for (let i = 0; i < out.data.length; i++) {
 					assert.ok(!Number.isNaN(out.data[i]), `${name}.${key}=${value} produced NaN at byte ${i}`);
 				}
