@@ -247,9 +247,33 @@ This is also where the ping-pong FBO management from #3 lives, so it's worth des
 
 ---
 
-## 5. The Demo Site — A Live Pipeline Playground
+## ~~5. The Demo Site — A Live Pipeline Playground~~ ✓
 
-**Effort: Medium–High** *(depends on #2, best after #3/#4)*
+**Effort: Medium–High** *(depended on #2, best after #3/#4)*
+
+> **Done.** `site/` is one page that does more than the eight it replaced, and `examples/` is gone — along with the vendored jQuery 1.10, the jQuery UI, the checked-in `three.min.js`, the `ccv.js`, and the `.ogv`.
+>
+> **The playground builds nothing the library does not already expose.** The palette comes from `CATALOGUE`, the controls from each filter's schema, the code panel from the chain itself. That is the real test of the metadata #8 landed: if adding a filter needed the playground edited, the metadata was not enough. It doesn't, so it was.
+>
+> - **Sources became a list**, not a page each: sample, drag-and-drop, file, webcam. `Renderer.source()` takes an image, a video or a canvas and works the rest out, which is what collapses eight render loops into none.
+> - **Drag-to-reorder** over `renderer.pipeline`, so the list is a *view* of the chain rather than the place the ordering lives — the DOM and the pipeline cannot disagree about the order.
+> - **Shareable URLs**, readable rather than compact: `#photo/Blur.radius=8/Invert`. Only values that differ from a filter's default are written, so a default chain gives a short link and the link stays stable when a default changes underneath it.
+> - **`Compare backends`** times the same chain both ways over 24 frames and reports the ratio. The most persuasive argument for #3 is an honest number, including the caveat that the GPU figure pays for an upload and a readback a canvas-bound chain would not.
+> - **A `Filter.reset()`-aware benchmark**: stateful filters have their history dropped between runs, or the second measurement would be timing a filter that had already seen 24 frames.
+>
+> `Renderer` gained one thing: **`sourceFrame`**, the frame it last read. A two-input filter masking against the *unfiltered* source needs exactly those bytes, and re-deriving them means drawing into a scratch canvas and reading it back a second time.
+>
+> **Deployment is an assets-only Cloudflare Worker** (`wrangler.jsonc`) — no server code, nothing to run per request, `npm run deploy`.
+>
+> **`test/site.test.js` drives the built page in headless Chrome.** This is the part that matters: the pages it replaced didn't fail loudly, they rotted quietly, and by the time anyone looked the demo had been broken for years. So the test adds filters, reorders them, follows shared links, toggles a bypass and asserts the pixels actually changed — and it caught two bugs while being written:
+>
+> - **A pasted link did nothing.** Changing the hash on an already-open page is a *same-document* navigation, so nothing reloads and `applyHash` never ran again. The one way a shareable link must not fail.
+> - **Every `=` was percent-escaped** into `%3D` by encoding whole URL segments, which defeats the point of choosing a readable format over a compact one. Only values are escaped now.
+>
+> One thing the test also disproved: it flagged `Mirror.Horizontal=true` as missing from a generated link, and it was right to be missing — `Horizontal` defaults to true, so the omission was the "only non-defaults" rule working correctly.
+
+<details>
+<summary>The original write-up</summary>
 
 `examples/` is eight static HTML pages with a brown gradient, vendored jQuery 1.10 + jQuery UI 1.10, a checked-in `three.min.js`, and a randomly-chosen tagline. It also **no longer works**: `examples/Webcam/main.js:130-133` uses the callback form of `navigator.getUserMedia` plus `URL.createObjectURL(stream)`, both removed from every current browser (it's `navigator.mediaDevices.getUserMedia()` → `video.srcObject = stream` now, and it needs HTTPS or localhost). The video example ships a `.ogv`.
 
@@ -263,6 +287,10 @@ Replace the whole folder with **one app** that's a better demo than eight pages 
 - **Side-by-side CPU vs GPU timing** — an honest ms-per-frame readout for each backend is the most persuasive possible argument for #3.
 
 Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task). SvelteKit or plain Vite + a small framework; the library itself must stay framework-free.
+
+*(Built as plain Vite and vanilla DOM in the end, and deployed to Cloudflare Workers rather than Pages. No framework: the page is one screen with three panels, the schemas already describe the controls, and a page whose whole argument is "this library needs no framework" is a strange place to load one.)*
+
+</details>
 
 ---
 
@@ -535,12 +563,14 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | ✓ | `Renderer` / pipeline object | Medium | Done — headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
 | ✓ | Declarative filter schemas | Medium | Done — 717 lines out, DOM dependency gone, `setProperty` is the one write path |
 | ✓ | GPU shader backend | High | Done — every filter has a shader, 60/60 parity cases on the GPU, and 6 more bugs found. WebGPU compute now an optimisation rather than a requirement |
-| 5 | Demo site / pipeline playground | Med–High | High — the thing you show people; current examples are broken anyway |
+| ✓ | Demo site / pipeline playground | Med–High | Done — one page replaces eight, driven by a browser test. Deploy with `npm run deploy` |
 | 9 | Finish the filter wishlist | Low each | Medium — cheap and fun once the kernel template exists |
 | 11 | Docs & types | Low–Med | Medium — matters the moment anyone else looks at it |
 | 12 | Pipeline fusion | High | Medium — big for UV-transform chains and weak GPUs; also fixes 8-bit precision loss. Classification metadata in #3, compiler later |
 | 10 | CPU path modernisation | Medium | Low–Medium — mostly superseded by #3; cherry-pick the allocation fix |
 
-**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → ~~8~~ → ~~4~~ → 3 (tiers 1-2 done) → **5** → 9/11 → 12.
+**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → ~~8~~ → ~~4~~ → ~~3~~ → ~~5~~ → **9/11** → 12.
+
+Everything on the original list is done. What is left is additive: more filters (#9), the docs pass now that there is a site to hang them off (#11), and pipeline fusion (#12), which is a performance idea rather than a gap.
 
 *More features to be added.*
