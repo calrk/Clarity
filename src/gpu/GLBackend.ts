@@ -4,8 +4,15 @@ import { seedFrom } from '../helpers/hash.js';
 import type { Filter } from '../core/Filter.js';
 import type { SchemaField } from '../core/schema.js';
 
-/** Uniforms that are texture units rather than values, so they go via uniform1i. */
-const SAMPLERS = new Set(['uSrc', 'uSrc2', 'uReduce', 'uOriginal', 'uData']);
+/**
+ * Prelude uniforms declared as `int` - the sampler bindings and the few counts.
+ * Passing a float to an int uniform is an error rather than a coercion, and
+ * every generated `u_*` uniform is a float, so the list is fixed and short.
+ */
+const INT_UNIFORMS = new Set([
+	'uSrc', 'uSrc2', 'uReduce', 'uOriginal', 'uData', 'uHistory',
+	'uChannel', 'uHistoryHead', 'uHistoryCount', 'uHistoryLength'
+]);
 
 /** One render target: a texture, and the framebuffer that draws into it. */
 interface Target {
@@ -83,6 +90,42 @@ export interface FilterData {
 	bytes: Uint8Array;
 }
 
+/** What a stateful filter needs kept for it. See `Filter.retains`. */
+export interface RetainedFrames {
+	/** How many frames the shader can reach back through, including this one. */
+	length: number;
+	/**
+	 * `ring` keeps the last `length` frames, overwriting the oldest.
+	 * `first` captures one frame and holds it - DifferenceDetector's reference.
+	 */
+	mode?: 'ring' | 'first';
+}
+
+/** One filter's retained frames: a texture array and where the newest is. */
+export interface History {
+	texture: WebGLTexture;
+	framebuffer: WebGLFramebuffer;
+	width: number;
+	height: number;
+	length: number;
+	/** Layer holding the newest frame. */
+	head: number;
+	/** How many layers have been written, up to `length`. */
+	count: number;
+	/**
+	 * How many had been written *before* this frame's push - which is what the
+	 * shader is given as `uHistoryCount`.
+	 *
+	 * The CPU implementations all decide what to do based on how much history
+	 * they had when the frame arrived, and the push has already happened by the
+	 * time the shader runs, so the post-push count would be one frame ahead of
+	 * every comparison they make.
+	 */
+	before: number;
+	/** The filter's `historyEpoch` when this was built. */
+	epoch: number;
+}
+
 /**
  * Copies a texture verbatim, for stashing a filter's input where its later
  * passes can still reach it. `texelFetch` rather than a 0-255 round trip, so
@@ -115,6 +158,8 @@ export class GLBackend {
 	private sourceTexture: WebGLTexture | null = null;
 	private extraTexture: WebGLTexture | null = null;
 	private dataTexture: WebGLTexture | null = null;
+	private histories = new Map<Filter, History>();
+	private blankArray: WebGLTexture | null = null;
 	private readBuffer: Uint8Array | undefined;
 
 	/** Shaders that failed to compile, so a broken filter is reported once. */
@@ -288,6 +333,107 @@ export class GLBackend {
 		);
 	}
 
+	// --- retained frames ------------------------------------------------------
+
+	/**
+	 * The retained frames held for a filter, built or rebuilt as needed.
+	 *
+	 * A texture array rather than N textures: Ghoster reaches back thirty frames,
+	 * and thirty samplers is past what a fragment shader is guaranteed to have.
+	 * Rebuilt when the frame size changes or when the filter's `historyEpoch`
+	 * moves, which is how `Filter.reset` reaches storage it cannot see.
+	 */
+	history(filter: Filter, spec: RetainedFrames, width: number, height: number): History {
+		const gl = this.gl;
+		const length = Math.max(1, spec.length);
+		const existing = this.histories.get(filter);
+
+		if (
+			existing &&
+			existing.width === width &&
+			existing.height === height &&
+			existing.length === length &&
+			existing.epoch === filter.historyEpoch
+		) {
+			return existing;
+		}
+
+		if (existing) {
+			gl.deleteFramebuffer(existing.framebuffer);
+			gl.deleteTexture(existing.texture);
+		}
+
+		const texture = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
+		gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, width, height, length);
+		gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+		const built: History = {
+			texture,
+			framebuffer: gl.createFramebuffer(),
+			width,
+			height,
+			length,
+			//so the first push lands on layer 0, matching the CPU's ring
+			head: length - 1,
+			count: 0,
+			before: 0,
+			epoch: filter.historyEpoch
+		};
+		this.histories.set(filter, built);
+		return built;
+	}
+
+	/** Copies a frame into one layer of a history, as the newest. */
+	pushHistory(history: History, source: WebGLTexture): void {
+		const gl = this.gl;
+		const program = this.program(COPY_PASS, 'history');
+		if (!program) {
+			return;
+		}
+
+		history.head = (history.head + 1) % history.length;
+		history.count = Math.min(history.count + 1, history.length);
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, history.framebuffer);
+		gl.framebufferTextureLayer(
+			gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, history.texture, 0, history.head
+		);
+
+		this.draw({
+			program,
+			source,
+			into: { texture: history.texture, framebuffer: history.framebuffer, width: history.width, height: history.height },
+			width: history.width,
+			height: history.height,
+			sourceWidth: history.width,
+			sourceHeight: history.height,
+			uniforms: {}
+		});
+	}
+
+	/**
+	 * A 1x1x1 array texture, bound whenever a shader has no history of its own.
+	 *
+	 * `uHistory` is declared in the prelude, so it exists in every program even
+	 * though almost nothing samples it. Leaving its unit with no array texture
+	 * bound is the kind of thing that works everywhere until it does not.
+	 */
+	private blankHistory(): WebGLTexture {
+		const gl = this.gl;
+		if (!this.blankArray) {
+			this.blankArray = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.blankArray);
+			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, 1, 1, 1);
+			gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		}
+		return this.blankArray;
+	}
+
 	/** Reads a target back into an ImageData. */
 	download(target: Target): ImageData {
 		const gl = this.gl;
@@ -373,6 +519,8 @@ export class GLBackend {
 		original?: WebGLTexture | null;
 		/** Per-instance data, bound to uData. */
 		data?: WebGLTexture | null;
+		/** Retained frames, bound to uHistory. */
+		history?: History | null;
 		into: Target | null;
 		width: number;
 		height: number;
@@ -396,12 +544,19 @@ export class GLBackend {
 		gl.bindTexture(gl.TEXTURE_2D, options.original ?? options.source);
 		gl.activeTexture(gl.TEXTURE4);
 		gl.bindTexture(gl.TEXTURE_2D, options.data ?? options.source);
+		gl.activeTexture(gl.TEXTURE5);
+		gl.bindTexture(gl.TEXTURE_2D_ARRAY, options.history?.texture ?? this.blankHistory());
+		gl.activeTexture(gl.TEXTURE0);
 
 		this.setUniform(options.program, 'uSrc', 0);
 		this.setUniform(options.program, 'uSrc2', 1);
 		this.setUniform(options.program, 'uReduce', 2);
 		this.setUniform(options.program, 'uOriginal', 3);
 		this.setUniform(options.program, 'uData', 4);
+		this.setUniform(options.program, 'uHistory', 5);
+		this.setUniform(options.program, 'uHistoryHead', options.history?.head ?? 0);
+		this.setUniform(options.program, 'uHistoryCount', options.history?.before ?? 0);
+		this.setUniform(options.program, 'uHistoryLength', options.history?.length ?? 1);
 		this.setUniform(options.program, 'uSize', [options.sourceWidth, options.sourceHeight]);
 		this.setUniform(options.program, 'uTexel', [1 / options.sourceWidth, 1 / options.sourceHeight]);
 		this.setUniform(options.program, 'uOutSize', [options.width, options.height]);
@@ -432,11 +587,7 @@ export class GLBackend {
 		}
 
 		if (typeof value === 'number') {
-			//Sampler bindings and anything declared `int` in the prelude have to go
-			//through uniform1i - passing a float to an int uniform is an error, not
-			//a coercion. Every generated `u_*` uniform is declared float, so the
-			//list of exceptions is fixed and short.
-			if (SAMPLERS.has(name) || name === 'uChannel') {
+			if (INT_UNIFORMS.has(name)) {
 				gl.uniform1i(location, value);
 			} else {
 				gl.uniform1f(location, value);
@@ -472,12 +623,22 @@ export class GLBackend {
 		for (const program of this.programs.values()) {
 			gl.deleteProgram(program);
 		}
-		if (this.sourceTexture) {
-			gl.deleteTexture(this.sourceTexture);
+		for (const history of this.histories.values()) {
+			gl.deleteFramebuffer(history.framebuffer);
+			gl.deleteTexture(history.texture);
+		}
+		for (const texture of [this.sourceTexture, this.extraTexture, this.dataTexture, this.blankArray]) {
+			if (texture) {
+				gl.deleteTexture(texture);
+			}
 		}
 		this.targets = [];
 		this.programs.clear();
+		this.histories.clear();
 		this.sourceTexture = null;
+		this.extraTexture = null;
+		this.dataTexture = null;
+		this.blankArray = null;
 	}
 }
 

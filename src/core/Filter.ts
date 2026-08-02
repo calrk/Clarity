@@ -2,7 +2,7 @@ import { defaultClock } from './random.js';
 import { coerceValue } from './schema.js';
 import type { Clock, RandomSource } from './random.js';
 import type { FilterSchema, PropertyValue } from './schema.js';
-import type { FilterData, ShaderDefinition } from '../gpu/GLBackend.js';
+import type { FilterData, RetainedFrames, ShaderDefinition } from '../gpu/GLBackend.js';
 
 /** Channel selectors accepted by `getColourValue`. */
 export type Channel =
@@ -135,6 +135,23 @@ export class Filter {
 		return null;
 	}
 
+	/**
+	 * Previous frames this filter needs kept for it on the GPU.
+	 *
+	 * The ping-pong pair cannot express a history: it holds the frame coming in
+	 * and the frame going out, and nothing else. A `stateful` filter that
+	 * declares this gets a `sampler2DArray` of retained frames instead, read in
+	 * the shader with `historyTexel(age, p)` - age 0 being the frame currently
+	 * being processed.
+	 *
+	 * Storage is per filter instance and is thrown away whenever
+	 * {@link reset} is called, which is what keeps the two backends from
+	 * blending histories that have diverged.
+	 */
+	static retains(_filter: Filter): RetainedFrames | null {
+		return null;
+	}
+
 	channel: Channel;
 	properties: FilterProperties = {};
 
@@ -164,6 +181,12 @@ export class Filter {
 	 * pipeline once the filter has been re-run.
 	 */
 	dirty = true;
+
+	/**
+	 * Bumped by {@link reset}, so the GPU backend can tell that the retained
+	 * frames it is holding for this filter are no longer valid.
+	 */
+	historyEpoch = 0;
 
 	/** Injectable so filter output can be made reproducible - see FEATURES.md #6. */
 	random: RandomSource;
@@ -297,7 +320,17 @@ export class Filter {
 	 * filter that ran as a shader for a while and then fell back to the CPU has
 	 * two histories that have diverged, and blending them makes the trail jump.
 	 */
-	reset(): void {}
+	reset(): void {
+		//The GPU's copy of the history lives on the backend rather than on the
+		//filter, so it cannot be cleared from here directly. Bumping a counter the
+		//backend compares against does the same job without the filter needing to
+		//know a backend exists.
+		this.historyEpoch++;
+		this.dropState();
+	}
+
+	/** Where a stateful filter throws away whatever it is holding. */
+	protected dropState(): void {}
 
 	toggleEnabled(): void {
 		this.enabled = !this.enabled;

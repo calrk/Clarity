@@ -4,6 +4,7 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import type { RetainedFrames } from '../../gpu/GLBackend.js';
 
 export interface DifferenceDetectorOptions extends FilterOptions {
 	/** No filter-specific options. */
@@ -12,6 +13,32 @@ export interface DifferenceDetectorOptions extends FilterOptions {
 export class DifferenceDetector extends Filter {
 	//Compares against the first frame it ever saw.
 	static override stateful = true;
+
+	//One retained frame, captured once and held - the reference it opened on,
+	//not the previous frame.
+	static override retains(): RetainedFrames {
+		return { length: 1, mode: 'first' };
+	}
+
+	static override shader = /* glsl */ `
+void main(){
+	ivec2 p = outPixel();
+
+	//the opening frame is handed straight back - there is nothing yet to compare
+	//it against, and it is what becomes the reference
+	if(uHistoryCount == 0){
+		writePixel(srcTexel(p));
+		return;
+	}
+
+	//age 0 is the reference: 'first' mode captures once, so the ring never moves
+	vec3 now = srcTexel(p).rgb;
+	vec3 reference = historyTexel(0, p).rgb;
+
+	bool same = all(lessThan(abs(now - reference), vec3(75.0)));
+	writeRGB(same ? vec3(0.0) : now);
+}
+`;
 
 	/** The reference frame, captured on the first call. */
 	original: ImageData | null = null;
@@ -51,7 +78,7 @@ export class DifferenceDetector extends Filter {
 		return output;
 	}
 
-	override reset(): void {
+	protected override dropState(): void {
 		this.original = null;
 	}
 

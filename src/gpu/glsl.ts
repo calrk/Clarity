@@ -70,6 +70,24 @@ uniform sampler2D uOriginal;
  */
 uniform sampler2D uData;
 
+/**
+ * Frames this filter has already seen, for the stateful ones - Ghoster's trail,
+ * MotionDetector's ring, DifferenceDetector's reference frame. Supplied when a
+ * filter declares static retains(); read with historyTexel below.
+ */
+uniform highp sampler2DArray uHistory;
+/** Layer holding the newest frame, and the ring size. */
+uniform int uHistoryHead;
+uniform int uHistoryLength;
+/**
+ * How many frames had been retained *before* this one arrived.
+ *
+ * The push happens before the shader runs, so the post-push count would be a
+ * frame ahead of every test the CPU implementations make - they all decide
+ * what to do from how much history they had when the frame turned up.
+ */
+uniform int uHistoryCount;
+
 /** Size of the input in pixels, and its reciprocal. */
 uniform vec2 uSize;
 uniform vec2 uTexel;
@@ -106,6 +124,18 @@ vec4 dataTexel(int x, int y){
 /** Its red channel, which is where a single value per texel goes. */
 float dataValue(int x, int y){
 	return dataTexel(x, y).r;
+}
+
+/**
+ * A retained frame, by age: 0 is the one being processed, 1 the one before it.
+ * In 0-255, and clamped to the frame like srcTexel.
+ */
+vec4 historyTexel(int age, ivec2 pixel){
+	//the ring wraps backwards, so a plain % would give a negative layer
+	int layer = uHistoryHead - age;
+	layer = ((layer % uHistoryLength) + uHistoryLength) % uHistoryLength;
+	ivec2 clamped = clamp(pixel, ivec2(0), ivec2(uSize) - 1);
+	return texelFetch(uHistory, ivec3(clamped, layer), 0) * 255.0;
 }
 
 /** The frame as it entered this filter. See uOriginal. */

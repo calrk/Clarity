@@ -2,6 +2,7 @@ import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
+import type { RetainedFrames } from '../../gpu/GLBackend.js';
 
 export interface GhosterOptions extends FilterOptions {
 	length?: number;
@@ -10,6 +11,35 @@ export interface GhosterOptions extends FilterOptions {
 export class Ghoster extends Filter {
 	//Onion-skins the last N frames, so it has to see every one of them.
 	static override stateful = true;
+
+	static override retains(filter: any): RetainedFrames {
+		return { length: filter.properties.length };
+	}
+
+	static override shader = /* glsl */ `
+uniform float u_length;
+
+void main(){
+	ivec2 p = outPixel();
+	//how many frames the trail actually has, which is fewer than the full ring
+	//until it has filled
+	int count = min(uHistoryCount + 1, uHistoryLength);
+	vec3 sum = vec3(0.0);
+
+	//the schema caps the trail at 30, and a loop bound has to be a constant
+	for(int j = 0; j < 30; j++){
+		if(j >= count){
+			break;
+		}
+		//age 0 is the newest, so it gets the heaviest weight.
+		//weights sum to (count+1)/count, i.e. ~1.
+		float weight = 2.0 * float(count - j) / float(count * count);
+		sum += historyTexel(j, p).rgb * weight;
+	}
+
+	writeRGB(sum);
+}
+`;
 
 	static override schema: FilterSchema = {
 		length: { type: 'int', label: 'Trail length', min: 1, max: 30, step: 1, default: 10, description: 'How many frames are onion-skinned together.' }
@@ -29,7 +59,7 @@ export class Ghoster extends Filter {
 		this.frames = new Array();
 	}
 
-	override reset(): void {
+	protected override dropState(): void {
 		this.frames = [];
 	}
 

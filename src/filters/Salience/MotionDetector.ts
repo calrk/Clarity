@@ -4,6 +4,7 @@ import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
+import type { RetainedFrames } from '../../gpu/GLBackend.js';
 
 export interface MotionDetectorOptions extends FilterOptions {
 	frameCount?: number;
@@ -12,6 +13,31 @@ export interface MotionDetectorOptions extends FilterOptions {
 export class MotionDetector extends Filter {
 	//Compares against a frame N back, so the ring has to keep filling.
 	static override stateful = true;
+
+	//A ring one longer than the gap being compared across, so the oldest layer
+	//is exactly the frame `frameCount` back.
+	static override retains(filter: any): RetainedFrames {
+		return { length: filter.properties.frameCount + 1 };
+	}
+
+	static override shader = /* glsl */ `
+uniform float u_frameCount;
+
+void main(){
+	//the CPU waits for the ring to fill before comparing anything, and hands
+	//back an empty frame until it has
+	if(uHistoryCount < int(u_frameCount)){
+		fragColor = vec4(0.0);
+		return;
+	}
+
+	ivec2 p = outPixel();
+	float now = channelValue(historyTexel(0, p));
+	float then = channelValue(historyTexel(int(u_frameCount), p));
+
+	writeRGB(vec3(abs(now - then)));
+}
+`;
 
 	static override schema: FilterSchema = {
 		frameCount: { type: 'int', label: 'Frame count', min: 1, max: 24, step: 1, default: 1, description: 'How many frames back to compare against.' }
@@ -63,7 +89,7 @@ export class MotionDetector extends Filter {
 		}
 	}
 
-	override reset(): void {
+	protected override dropState(): void {
 		this.frames = [];
 		this.index = 0;
 		//has to match the constructor: preindex starts at frameCount, not

@@ -155,6 +155,51 @@ window.sampleDiff = async (entry, count) => {
 	return out;
 };
 
+/**
+ * The GPU half of "retained frames are dropped when the history stops being
+ * trustworthy". The frames live in a texture array on the backend rather than
+ * on the filter, so `Filter.reset` cannot clear them directly - it bumps a
+ * counter the backend compares against. That indirection is exactly the kind
+ * of thing that silently stops working.
+ *
+ * Runs a stateful filter over a sequence, invalidates, runs one more frame, and
+ * checks the result matches a pipeline that had never seen anything.
+ */
+window.historyResets = async () => {
+	const build = () => new CLARITY.Pipeline([new CLARITY.DifferenceDetector({})], { gpu: true });
+	const clean = await fixture('clean');
+	const moved = await fixture('moved');
+
+	const used = build();
+	used.run(clean);
+	used.run(moved);
+	used.invalidate();
+	//the reference frame must now come from `moved`, not from `clean`
+	const after = used.run(moved);
+
+	const fresh = build();
+	const expected = fresh.run(moved);
+
+	let differing = 0;
+	for (let i = 0; i < after.data.length; i++) {
+		if (after.data[i] !== expected.data[i]) differing++;
+	}
+
+	//and it must genuinely be different from carrying the old reference on
+	const stale = build();
+	stale.run(clean);
+	const carried = stale.run(moved);
+	let movedBy = 0;
+	for (let i = 0; i < carried.data.length; i++) {
+		if (carried.data[i] !== expected.data[i]) movedBy++;
+	}
+
+	used.dispose();
+	fresh.dispose();
+	stale.dispose();
+	return { differing, movedBy, total: after.data.length };
+};
+
 window.gpuAvailable = () => CLARITY.GLBackend.create() !== null;
 
 window.runCase = async (entry) => {

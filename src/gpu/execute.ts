@@ -113,6 +113,24 @@ export function executeChain(
 			(filter.constructor as typeof Filter).outputSize(filter, width, height);
 		const data = (filter.constructor as typeof Filter).data(filter);
 		const dataTexture = data ? backend.uploadData(data) : null;
+
+		//Retained frames are pushed *before* the draw, so age 0 is the frame being
+		//processed - which is what the CPU implementations see, since they all
+		//push the incoming frame into their buffer first. `first` mode captures
+		//once and holds: DifferenceDetector compares against the frame it opened
+		//on, not the previous one.
+		const retains = (filter.constructor as typeof Filter).retains(filter);
+		let history = null;
+		if (retains) {
+			history = backend.history(filter, retains, width, height);
+			//recorded whether or not a push follows: in 'first' mode there is no
+			//push after the opening frame, and the shader still has to be able to
+			//tell that frame apart from the ones after it
+			history.before = history.count;
+			if (retains.mode !== 'first' || history.count === 0) {
+				backend.pushHistory(history, gpuTarget ? gpuTarget.texture : gpuTexture!);
+			}
+		}
 		let failed: string | null = null;
 		let reduceTexture: WebGLTexture | null = null;
 
@@ -153,6 +171,7 @@ export function executeChain(
 					reduce: reduceTexture,
 					original: originalTexture,
 					data: dataTexture,
+					history,
 					into,
 					width: outWidth,
 					height: outHeight,
@@ -318,10 +337,11 @@ export function gpuBlocker(
 	if (!passes) {
 		return 'no shader';
 	}
-	if (type.stateful) {
-		//A ring of previous frames wants a texture pool rather than a ping-pong
-		//pair. Doable, but it is a different design - see FEATURES.md #3.
-		return 'stateful - needs retained frames';
+	if (type.stateful && !type.retains(filter)) {
+		//A history cannot live in the ping-pong pair, which holds the frame coming
+		//in and the frame going out and nothing else. A stateful filter has to say
+		//how far back it reaches so the backend can keep a texture array for it.
+		return 'stateful - declares no retained frames';
 	}
 	if (!type.supportsGPU(filter)) {
 		//A filter can have a shader that covers only some of its options -

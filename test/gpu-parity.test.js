@@ -77,6 +77,15 @@ if (!harness) {
 		});
 	}
 
+	test('retained frames on the GPU are dropped when the history is invalidated', async () => {
+		const { differing, movedBy, total } = await harness.historyResets();
+
+		assert.equal(differing, 0, `${differing} of ${total} bytes differ from a filter that had never run`);
+		// guards the test itself: if carrying the stale reference happened to
+		// produce the same frame, the assertion above would pass for free
+		assert.ok(movedBy > 0, 'the stale reference would have produced the same frame anyway');
+	});
+
 	test('summary', (t) => {
 		const cpuOnly = report.filter((row) => !row.gpu);
 		t.diagnostic(`${report.length - cpuOnly.length}/${report.length} cases ran as shaders`);

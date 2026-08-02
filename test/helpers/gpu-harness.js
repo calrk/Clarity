@@ -137,6 +137,7 @@ export async function openHarness() {
 		page,
 		run: (entry) => page.evaluate((e) => window.runCase(e), entry),
 		renderGPU: (entry) => page.evaluate((e) => window.renderGPU(e), entry),
+		historyResets: () => page.evaluate(() => window.historyResets()),
 		async close() {
 			await browser.close();
 			server.close();
