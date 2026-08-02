@@ -48,7 +48,20 @@ if (!harness) {
 			assert.ok(!result.sizeMismatch, `${name}: ${result.sizeMismatch}`);
 
 			const ratio = result.differing / result.total;
-			if (metric.mode === 'population') {
+
+			if (metric.mode === 'banded') {
+				//For a filter that quantises into bands, the interior of a band
+				//agrees to rounding while the edges can flip a whole band. Neither
+				//of the other two metrics describes that: a tolerance fails on the
+				//edge pixels, a population budget fails on the interior ones.
+				const flipped = result.exceeding[metric.tolerance] / result.total;
+				assert.ok(
+					flipped <= metric.maxFlippedRatio,
+					`${name}: ${(flipped * 100).toFixed(2)}% of pixels differ by more than ` +
+						`${metric.tolerance}, budget ${(metric.maxFlippedRatio * 100).toFixed(2)}%; ` +
+						`largest channel delta ${result.maxDelta}`
+				);
+			} else if (metric.mode === 'population') {
 				assert.ok(
 					ratio <= metric.maxDifferentRatio,
 					`${name}: ${(ratio * 100).toFixed(2)}% of pixels differ, budget ` +

@@ -4,7 +4,7 @@
 // Run with `npm run test:sheet`. Reads the committed goldens, so it reflects
 // exactly what the test suite is asserting - regenerate the goldens first if
 // you have changed a filter.
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -15,9 +15,16 @@ import { readPNG, encodePNG } from './image.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', 'contact-sheet');
+const gpuDir = join(here, '..', 'gpu-output');
 
 const dataURI = (buffer) => `data:image/png;base64,${buffer.toString('base64')}`;
 const fileURI = (path) => dataURI(readFileSync(path));
+
+// Written by make-gpu-output.js, which needs a browser. Absent is fine - the
+// sheet just loses its third column rather than failing to build.
+const gpuManifest = existsSync(join(gpuDir, 'manifest.json'))
+	? JSON.parse(readFileSync(join(gpuDir, 'manifest.json'), 'utf8'))
+	: null;
 
 /**
  * How much the filter actually changed, as a percentage of pixels touched and
@@ -108,6 +115,33 @@ for (const [category, entries] of grouped) {
 				? `<span class="stat bad">no pixels changed</span>`
 				: `<span class="stat">${stats.changed.toFixed(1)}% of pixels changed &middot; mean &Delta;${stats.meanDelta.toFixed(1)}</span>`;
 
+		// third panel: the same case run as a shader, next to the CPU result it
+		// has to agree with. A visible difference here is a shader bug - the CPU
+		// path is the reference.
+		let gpuPanel = '';
+		if (gpuManifest) {
+			const entryManifest = gpuManifest[name];
+			const gpuPath = join(gpuDir, `${name}.png`);
+
+			if (entryManifest?.ranOnGPU && existsSync(gpuPath)) {
+				const agreement = changeStats(readPNG(goldenPath), readPNG(gpuPath));
+				const agrees = agreement.changed < 0.01;
+				gpuPanel = `
+			<div class="arrow">&#8214;</div>
+			<div class="side"><figure><img src="${fileURI(gpuPath)}" alt="${escape(name)} on the GPU"><figcaption class="${agrees ? 'match' : 'differs'}">GPU${
+				agreement.resized
+					? ' &middot; wrong size'
+					: agrees
+						? ' &middot; identical'
+						: ` &middot; ${agreement.changed.toFixed(1)}% differ, mean &Delta;${agreement.meanDelta.toFixed(2)}`
+			}</figcaption></figure></div>`;
+			} else {
+				gpuPanel = `
+			<div class="arrow">&#8214;</div>
+			<div class="side"><figure><div class="nogpu">CPU<br>only</div><figcaption class="cpuonly">${escape(entryManifest?.reason ?? 'no shader')}</figcaption></figure></div>`;
+			}
+		}
+
 		return `
 	<article class="card${didNothing ? ' flagged' : ''}">
 		<header>
@@ -120,7 +154,7 @@ for (const [category, entries] of grouped) {
 		<div class="images">
 			<div class="side">${beforeImgs}</div>
 			<div class="arrow">&rarr;</div>
-			<div class="side"><figure><img src="${fileURI(goldenPath)}" alt="${escape(name)} output"><figcaption>output</figcaption></figure></div>
+			<div class="side"><figure><img src="${fileURI(goldenPath)}" alt="${escape(name)} output"><figcaption>${gpuManifest ? 'CPU' : 'output'}</figcaption></figure></div>${gpuPanel}
 		</div>
 		<p class="options"><code>${escape(formatOptions(entry.options))}</code>${entry.sequence ? ' <em>(fed as a frame sequence)</em>' : ''}</p>
 	</article>`;
@@ -190,6 +224,14 @@ const html = `<!doctype html>
 		background-size: 12px 12px;
 		background-position: 0 0, 6px 6px;
 	}
+	figcaption.match { color: #15803d; opacity: 1; }
+	figcaption.differs { color: #a16207; opacity: 1; }
+	figcaption.cpuonly { opacity: .5; max-width: 128px; }
+	.nogpu {
+		width: 128px; height: 96px; border-radius: 4px; display: grid; place-items: center;
+		font-size: .8rem; text-align: center; opacity: .45;
+		border: 1px dashed color-mix(in srgb, CanvasText 30%, transparent);
+	}
 	.options { margin: 0; font-size: .75rem; opacity: .65; }
 	code { font-family: ui-monospace, monospace; }
 	.summary-bar {
@@ -208,6 +250,11 @@ const html = `<!doctype html>
 <div class="summary-bar">
 	<strong>${cards}</strong> cases across <strong>${new Set(cases.map((c) => c.filter)).size}</strong> filters.
 	${suspicious ? `<strong style="color:#c2410c">${suspicious} changed no pixels</strong> and are highlighted below.` : 'Every filter changed at least some pixels.'}
+	${
+		gpuManifest
+			? `<br><strong>${Object.values(gpuManifest).filter((row) => row.ranOnGPU).length}</strong> ran as shaders; the third panel is the GPU result next to the CPU one it has to agree with.`
+			: '<br>Run <code>npm run test:sheet</code> with a browser installed to add the GPU column.'
+	}
 </div>
 ${sections.join('\n')}
 </body>

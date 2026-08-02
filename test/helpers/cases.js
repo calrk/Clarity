@@ -34,6 +34,11 @@ const ACCUMULATING = { mode: 'tolerance', tolerance: 3 };
 const KERNEL = { mode: 'tolerance', tolerance: 2 };
 /** Hard decision boundaries - see the note above. */
 const BOUNDARY = { mode: 'population', maxDifferentRatio: 0.02 };
+/**
+ * Quantised into bands: interiors agree to rounding, edges can flip a whole
+ * band. Neither of the other two metrics describes that shape.
+ */
+const BANDED = { mode: 'banded', tolerance: 1, maxFlippedRatio: 0.01 };
 
 /** NormalIntensity and NormalFlip take a normal map, not a height map. */
 const NORMAL = [{ filter: 'NormalGenerator', options: { intensity: 1 } }];
@@ -41,7 +46,7 @@ const NORMAL = [{ filter: 'NormalGenerator', options: { intensity: 1 } }];
 export const cases = [
 	// --- Process: pointwise ---------------------------------------------
 	{ filter: 'Invert', input: 'photo', options: {}, gpu: POINTWISE },
-	{ filter: 'Invert', name: 'dynamic', input: 'photo', options: { dynamic: true }, gpu: POINTWISE },
+	{ filter: "Invert", name: "dynamic", input: "photo", options: { dynamic: true }, gpu: POINTWISE },
 	{ filter: 'Desaturate', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'hsvShifter', input: 'photo', options: { hue: 120, saturation: 1.4, value: 0.9 }, gpu: POINTWISE },
 	{ filter: 'HanoverBars', input: 'photo', options: {}, gpu: POINTWISE },
@@ -84,7 +89,11 @@ export const cases = [
 	{ filter: 'NormalGenerator', input: 'heightmap', options: { intensity: 1 }, gpu: KERNEL },
 	{ filter: 'NormalIntensity', input: 'heightmap', pre: NORMAL, options: { intensity: 1.5 }, gpu: POINTWISE },
 	{ filter: 'NormalFlip', input: 'heightmap', pre: NORMAL, options: { red: true, swap: true }, gpu: POINTWISE },
-	{ filter: 'Contourer', input: 'heightmap', options: { contours: 6 }, gpu: BOUNDARY },
+	// Banding needs its own metric: within a band the two paths agree to
+	// rounding, but a pixel sitting on a band edge can land in the neighbouring
+	// band and be out by a whole step. A tolerance fails on the edges, a
+	// population budget fails on the interiors.
+	{ filter: 'Contourer', input: 'heightmap', options: { contours: 6 }, gpu: BANDED },
 
 	// --- Transform (gather/scatter; odd sizes matter) --------------------
 	{ filter: 'Mirror', input: 'photo', options: { Horizontal: true }, gpu: POINTWISE },

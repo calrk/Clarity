@@ -43,6 +43,14 @@ uniform sampler2D uSrc;
 /** Second frame, for the two-input filters. Bound to uSrc when unused. */
 uniform sampler2D uSrc2;
 
+/**
+ * A 1x1 texture holding the result of a whole-image reduction, for the filters
+ * that need to know something about the frame before they can process a pixel.
+ * Red is the minimum, green the maximum. Only bound when the filter declared a
+ * 'reduce' pass; see reduction() below.
+ */
+uniform sampler2D uReduce;
+
 /** Size of the input in pixels, and its reciprocal. */
 uniform vec2 uSize;
 uniform vec2 uTexel;
@@ -99,6 +107,16 @@ void writePixel(vec4 colour){
 
 void writeRGB(vec3 colour){
 	fragColor = vec4(colour / 255.0, 1.0);
+}
+
+/**
+ * The frame's minimum and maximum, in 0-255, as (x, y).
+ *
+ * Computed by a pyramid of halving passes before the filter runs, so this is a
+ * single texel fetch rather than a loop over the image.
+ */
+vec2 reduction(){
+	return texelFetch(uReduce, ivec2(0), 0).rg * 255.0;
 }
 
 /** Uint8ClampedArray rounding, which is what every CPU write goes through. */

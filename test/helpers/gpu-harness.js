@@ -6,7 +6,9 @@
 // on the CPU, so this runs anywhere without a GPU, CI included.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
+import { readPNG } from './image.js';
+import { FIXTURES } from './run.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
 
@@ -112,12 +114,29 @@ export async function openHarness() {
 
 	await page.goto(`http://127.0.0.1:${port}/test/gpu/index.html`, { waitUntil: 'networkidle0' });
 
+	//Fixtures go in as raw RGBA rather than being fetched and decoded in the
+	//page, so both sides of the comparison start from byte-identical input. See
+	//the note on installFixtures for why a canvas cannot be in that path.
+	const raw = {};
+	for (const file of readdirSync(FIXTURES)) {
+		if (!file.endsWith('.png')) continue;
+		const frame = readPNG(join(FIXTURES, file));
+		raw[file.replace(/\.png$/, '')] = {
+			width: frame.width,
+			height: frame.height,
+			data: Buffer.from(frame.data.buffer, frame.data.byteOffset, frame.data.length).toString('base64')
+		};
+	}
+	await page.evaluate((data) => window.installFixtures(data), raw);
+
 	const available = await page.evaluate(() => window.gpuAvailable?.() ?? false);
 
 	return {
 		available,
 		errors,
+		page,
 		run: (entry) => page.evaluate((e) => window.runCase(e), entry),
+		renderGPU: (entry) => page.evaluate((e) => window.renderGPU(e), entry),
 		async close() {
 			await browser.close();
 			server.close();

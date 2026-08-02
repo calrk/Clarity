@@ -1,4 +1,4 @@
-import { GLBackend, uniformsFor } from './GLBackend.js';
+import { GLBackend, REDUCE_STEP, uniformsFor } from './GLBackend.js';
 import type { ShaderPass, Target } from './GLBackend.js';
 import type { Filter } from '../core/Filter.js';
 
@@ -109,8 +109,25 @@ export function executeChain(
 		const uniforms = uniformsFor(filter);
 		const secondTexture = second ? backend.uploadSecond(second) : null;
 		let failed: string | null = null;
+		let reduceTexture: WebGLTexture | null = null;
 
 		for (const pass of passes!) {
+			if (pass.reduce) {
+				reduceTexture = runReduction(
+					backend,
+					pass.reduce,
+					gpuTarget ? gpuTarget.texture : gpuTexture!,
+					width,
+					height,
+					uniforms,
+					filter.constructor.name
+				);
+				if (!reduceTexture) {
+					failed = backend.failures.get(pass.reduce) ?? 'reduction shader failed to compile';
+					break;
+				}
+			}
+
 			const program = backend.program(pass.source, filter.constructor.name);
 			if (!program) {
 				failed = backend.failures.get(pass.source) ?? 'shader failed to compile';
@@ -124,6 +141,7 @@ export function executeChain(
 					program,
 					source: gpuTarget ? gpuTarget.texture : gpuTexture!,
 					second: secondTexture,
+					reduce: reduceTexture,
 					into,
 					width,
 					height,
@@ -152,6 +170,81 @@ export function executeChain(
 	result.frame = cpuFrame ?? source;
 	return result;
 }
+
+/**
+ * Collapses the frame to a single texel holding its minimum and maximum.
+ *
+ * A fragment shader cannot loop over an image, but it can look at four pixels
+ * and write one - so doing that repeatedly walks a pyramid down to 1x1 in
+ * log2(size) draws. On a 1080p frame that is eleven tiny draws, against a
+ * `readPixels` of eight megabytes and a JS loop, which is what the CPU does.
+ *
+ * Targets 8 and 9 in the pool are reserved for the ping-pong, so a reduction
+ * cannot collide with the chain it is running inside.
+ */
+function runReduction(
+	backend: GLBackend,
+	seed: string,
+	source: WebGLTexture,
+	width: number,
+	height: number,
+	uniforms: Record<string, number | number[]>,
+	label: string
+): WebGLTexture | null {
+	const seedProgram = backend.program(seed, `${label} (reduce)`);
+	const stepProgram = backend.program(REDUCE_STEP, 'reduce step');
+	if (!seedProgram || !stepProgram) {
+		return null;
+	}
+
+	//The seed maps each pixel to the quantity being reduced, into red for the
+	//minimum and green for the maximum. Halving from there needs no knowledge of
+	//what is being reduced.
+	let from = backend.target(REDUCE_A, width, height);
+	backend.draw({
+		program: seedProgram,
+		source,
+		into: from,
+		width,
+		height,
+		sourceWidth: width,
+		sourceHeight: height,
+		uniforms
+	});
+
+	let currentWidth = width;
+	let currentHeight = height;
+	let slot = REDUCE_B;
+
+	while (currentWidth > 1 || currentHeight > 1) {
+		const nextWidth = Math.max(1, Math.ceil(currentWidth / 2));
+		const nextHeight = Math.max(1, Math.ceil(currentHeight / 2));
+		const into = backend.target(slot, nextWidth, nextHeight);
+
+		backend.draw({
+			program: stepProgram,
+			source: from.texture,
+			into,
+			width: nextWidth,
+			height: nextHeight,
+			sourceWidth: currentWidth,
+			sourceHeight: currentHeight,
+			uniforms: {}
+		});
+
+		from = into;
+		currentWidth = nextWidth;
+		currentHeight = nextHeight;
+		slot = slot === REDUCE_B ? REDUCE_C : REDUCE_B;
+	}
+
+	return from.texture;
+}
+
+/** Pool slots the reduction owns, kept clear of the chain's ping-pong pair. */
+const REDUCE_A = 8;
+const REDUCE_B = 9;
+const REDUCE_C = 10;
 
 /** Why this filter cannot run on the GPU right now, or null if it can. */
 export function gpuBlocker(

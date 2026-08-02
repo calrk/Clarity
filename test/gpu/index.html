@@ -17,18 +17,34 @@ import * as CLARITY from '/dist/clarity.js';
 
 const fixtures = new Map();
 
-async function fixture(name) {
-	if (!fixtures.has(name)) {
-		const response = await fetch(`/test/fixtures/${name}.png`);
-		const bitmap = await createImageBitmap(await response.blob());
-		const canvas = document.createElement('canvas');
-		canvas.width = bitmap.width;
-		canvas.height = bitmap.height;
-		const context = canvas.getContext('2d', { willReadFrequently: true });
-		context.drawImage(bitmap, 0, 0);
-		fixtures.set(name, context.getImageData(0, 0, bitmap.width, bitmap.height));
+/**
+ * Fixtures are handed in as raw bytes by whatever is driving this page, rather
+ * than decoded here.
+ *
+ * The obvious approach - fetch the PNG, createImageBitmap, drawImage,
+ * getImageData - goes through a canvas, and a canvas stores *premultiplied*
+ * alpha. Anywhere alpha is below 255 the colour comes back degraded, so the
+ * browser's copy of the alpha fixture silently differed from the one Node was
+ * comparing against. Nothing decodes an image anywhere in this path now.
+ */
+window.installFixtures = (raw) => {
+	for (const [name, { width, height, data }] of Object.entries(raw)) {
+		const binary = atob(data);
+		const frame = new ImageData(width, height);
+		for (let i = 0; i < binary.length; i++) {
+			frame.data[i] = binary.charCodeAt(i);
+		}
+		fixtures.set(name, frame);
 	}
+	return fixtures.size;
+};
+
+async function fixture(name) {
 	const source = fixtures.get(name);
+	if (!source) {
+		throw new Error(`fixture "${name}" was never installed`);
+	}
+	//filters are allowed to mutate their input, so every caller gets a copy
 	const copy = new ImageData(source.width, source.height);
 	copy.data.set(source.data);
 	return copy;
@@ -56,7 +72,7 @@ function compare(a, b) {
 	}
 	let differing = 0;
 	let maxDelta = 0;
-	let overTolerance = 0;
+	const overBy = [];
 	for (let i = 0; i < a.data.length; i += 4) {
 		let pixelDelta = 0;
 		for (let c = 0; c < 4; c++) {
@@ -65,15 +81,76 @@ function compare(a, b) {
 		}
 		if (pixelDelta > maxDelta) maxDelta = pixelDelta;
 		if (pixelDelta > 0) differing++;
-		if (pixelDelta > 3) overTolerance++;
+		overBy.push(pixelDelta);
+	}
+	// how many pixels exceed each tolerance the metrics use, so the Node side
+	// can apply whichever one the case declared without a second pass
+	const exceeding = {};
+	for (const tolerance of [1, 2, 3]) {
+		exceeding[tolerance] = overBy.filter((delta) => delta > tolerance).length;
 	}
 	return {
 		differing,
-		overTolerance,
+		exceeding,
 		maxDelta,
 		total: a.width * a.height
 	};
 }
+
+/** GPU output for a case, as a PNG data URL, for the contact sheet. */
+window.renderGPU = async (entry) => {
+	const inputs = Array.isArray(entry.input) ? entry.input : [entry.input];
+	const pipeline = new CLARITY.Pipeline([], { gpu: true });
+	const stageOptions =
+		Array.isArray(entry.input) && !entry.sequence
+			? { second: await inputFrame(entry, inputs[1]) }
+			: {};
+	pipeline.add(build(entry), stageOptions);
+
+	let out;
+	if (entry.sequence) {
+		for (const name of inputs) out = pipeline.run(await inputFrame(entry, name));
+	} else {
+		out = pipeline.run(await inputFrame(entry, inputs[0]));
+	}
+
+	// Raw bytes, not canvas.toDataURL(). A canvas stores premultiplied alpha, so
+	// round-tripping through one loses colour wherever alpha is below 255 - and
+	// the alpha fixture exists precisely to exercise those pixels. Node encodes
+	// the PNG instead, from the exact bytes the pipeline produced.
+	let binary = '';
+	const bytes = new Uint8Array(out.data.buffer, out.data.byteOffset, out.data.length);
+	for (let i = 0; i < bytes.length; i += 0x8000) {
+		binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+	}
+
+	const stats = pipeline.stats;
+	const result = {
+		width: out.width,
+		height: out.height,
+		data: btoa(binary),
+		ranOnGPU: stats.onGPU.length > 0,
+		reason: stats.fallbacks[0]?.reason ?? null
+	};
+	pipeline.dispose();
+	return result;
+};
+
+window.sampleDiff = async (entry, count) => {
+	const cpuFilter = build(entry);
+	const cpu = cpuFilter.process(await inputFrame(entry, entry.input));
+	const pipeline = new CLARITY.Pipeline([build(entry)], { gpu: true });
+	const gpu = pipeline.run(await inputFrame(entry, entry.input));
+	const src = await inputFrame(entry, entry.input);
+	const out = [];
+	for (let i = 0; i < cpu.data.length && out.length < count; i += 4) {
+		if (Math.abs(cpu.data[i] - gpu.data[i]) > 1) {
+			out.push({ i: i / 4, src: src.data[i], cpu: cpu.data[i], gpu: gpu.data[i] });
+		}
+	}
+	pipeline.dispose();
+	return out;
+};
 
 window.gpuAvailable = () => CLARITY.GLBackend.create() !== null;
 

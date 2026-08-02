@@ -103,6 +103,12 @@ Colours are handled in **0–255 space**, matching what the CPU implementations
 compare against. `static supportsGPU(filter)` says when a shader covers only
 some of the filter's options; an array of passes handles the multi-draw cases.
 
+A pass may also declare a `reduce` shader, for filters that need to know
+something about the whole frame first. It maps each pixel to the quantity being
+reduced; a pyramid of halving passes collapses that to one texel, which the
+filter reads back with `reduction()` as (min, max). That is how `Invert`'s
+dynamic mode and `Contourer` get the frame's range without a readback.
+
 Pipelines
 ---------
 

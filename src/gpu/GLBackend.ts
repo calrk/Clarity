@@ -11,10 +11,48 @@ interface Target {
 	height: number;
 }
 
+/**
+ * Halves a reduction target, keeping the smallest red and the largest green of
+ * each 2x2 block.
+ *
+ * Run repeatedly this collapses the frame to a single texel holding its minimum
+ * and maximum - the standard pyramid reduction. A fragment shader cannot loop
+ * over an image, but it can look at four pixels, and doing that log2(size)
+ * times gets to the same answer in about a dozen draws.
+ */
+export const REDUCE_STEP = /* glsl */ `
+void main(){
+	ivec2 limit = ivec2(uSize) - 1;
+	ivec2 p = outPixel() * 2;
+
+	vec4 a = texelFetch(uSrc, min(p,                 limit), 0);
+	vec4 b = texelFetch(uSrc, min(p + ivec2(1, 0),   limit), 0);
+	vec4 c = texelFetch(uSrc, min(p + ivec2(0, 1),   limit), 0);
+	vec4 d = texelFetch(uSrc, min(p + ivec2(1, 1),   limit), 0);
+
+	//an odd size makes the clamp re-read a pixel that is already in the block,
+	//which is harmless for a min or a max
+	fragColor = vec4(
+		min(min(a.r, b.r), min(c.r, d.r)),
+		max(max(a.g, b.g), max(c.g, d.g)),
+		0.0,
+		1.0
+	);
+}
+`;
+
 /** A single draw. Most filters are one; Blur is two, Glow three. */
 export interface ShaderPass {
 	/** GLSL body. Compiled against the prelude in `glsl.ts`. */
 	source: string;
+	/**
+	 * GLSL that seeds a whole-image reduction, run before this pass.
+	 *
+	 * It maps each source pixel to the quantity being reduced, writing it into
+	 * red (for the minimum) and green (for the maximum). The result collapses to
+	 * one texel that the pass reads with `reduction()`.
+	 */
+	reduce?: string;
 	/** Extra uniforms for this pass, on top of the ones from the schema. */
 	uniforms?: Record<string, number | number[]>;
 	/**
@@ -282,6 +320,8 @@ export class GLBackend {
 		program: WebGLProgram;
 		source: WebGLTexture;
 		second?: WebGLTexture | null;
+		/** 1x1 reduction result, bound to uReduce. */
+		reduce?: WebGLTexture | null;
 		into: Target | null;
 		width: number;
 		height: number;
@@ -299,9 +339,12 @@ export class GLBackend {
 		gl.bindTexture(gl.TEXTURE_2D, options.source);
 		gl.activeTexture(gl.TEXTURE1);
 		gl.bindTexture(gl.TEXTURE_2D, options.second ?? options.source);
+		gl.activeTexture(gl.TEXTURE2);
+		gl.bindTexture(gl.TEXTURE_2D, options.reduce ?? options.source);
 
 		this.setUniform(options.program, 'uSrc', 0);
 		this.setUniform(options.program, 'uSrc2', 1);
+		this.setUniform(options.program, 'uReduce', 2);
 		this.setUniform(options.program, 'uSize', [options.sourceWidth, options.sourceHeight]);
 		this.setUniform(options.program, 'uTexel', [1 / options.sourceWidth, 1 / options.sourceHeight]);
 		this.setUniform(options.program, 'uOutSize', [options.width, options.height]);
@@ -336,7 +379,7 @@ export class GLBackend {
 			//through uniform1i - passing a float to an int uniform is an error, not
 			//a coercion. Every generated `u_*` uniform is declared float, so the
 			//list of exceptions is fixed and short.
-			if (name === 'uSrc' || name === 'uSrc2' || name === 'uChannel') {
+			if (name === 'uSrc' || name === 'uSrc2' || name === 'uReduce' || name === 'uChannel') {
 				gl.uniform1i(location, value);
 			} else {
 				gl.uniform1f(location, value);
@@ -359,7 +402,13 @@ export class GLBackend {
 
 	dispose(): void {
 		const gl = this.gl;
+		//The pool is sparse - the reduction owns high slots the chain never
+		//touches - and `for...of` walks holes as undefined rather than skipping
+		//them, so the gaps have to be filtered out explicitly.
 		for (const target of this.targets) {
+			if (!target) {
+				continue;
+			}
 			gl.deleteFramebuffer(target.framebuffer);
 			gl.deleteTexture(target.texture);
 		}

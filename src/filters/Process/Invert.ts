@@ -11,20 +11,37 @@ export interface InvertOptions extends FilterOptions {
 }
 
 export class Invert extends Filter {
-	static override shader = /* glsl */ `
+	static override shader = [
+		{
+			//Dynamic mode reflects within the frame's own range, so it needs the
+			//minimum and maximum before it can touch a pixel. The reduction seed
+			//maps each pixel to the value being compared; the pyramid in
+			//`runReduction` collapses that to one texel this shader reads back.
+			reduce: /* glsl */ `
+void main(){
+	float value = channelValue(srcPixel(vUv)) / 255.0;
+	fragColor = vec4(value, value, 0.0, 1.0);
+}
+`,
+			source: /* glsl */ `
 uniform float u_dynamic;
 
 void main(){
-	//Only the static form. Dynamic mode reflects within the frame's own min and
-	//max, which is a whole-image reduction rather than a per-pixel operation -
-	//see supportsGPU below.
-	writeRGB(vec3(255.0) - srcPixel(vUv).rgb);
-}
-`;
+	vec3 c = srcPixel(vUv).rgb;
 
-	static override supportsGPU(filter: any): boolean {
-		return !filter.properties.dynamic;
+	if(u_dynamic > 0.5){
+		//max + min - value reflects within the range; max - value would push
+		//everything below min and clip, which is what the CPU used to do
+		vec2 range = reduction();
+		writeRGB(vec3(range.x + range.y) - c);
 	}
+	else{
+		writeRGB(vec3(255.0) - c);
+	}
+}
+`
+		}
+	];
 
 	static override schema: FilterSchema = {
 		dynamic: { type: 'bool', label: 'Dynamic', default: false, description: 'Reflects within the image own range rather than around 128.' },

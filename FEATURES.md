@@ -113,7 +113,7 @@ Prerequisite for basically everything below.
 >
 > | Filter | Why |
 > |---|---|
-> | `Invert` (dynamic), `ValueThreshold` (auto), `Contourer`, `MedianThreshold`, `Posteriser` (median cut) | Need a whole-image reduction — min/max, a histogram, a palette — before the per-pixel work can start |
+> | `ValueThreshold` (auto), `MedianThreshold`, `Posteriser` (median cut) | Need a whole-image reduction the GPU cannot do in a pyramid. `ValueThreshold`'s "average" is `average = (average + colour) / 2` applied pixel by pixel — a sequential recurrence weighted towards whatever it saw last, not an average, so it has no parallel form at all |
 > | `Ghoster`, `MotionDetector`, `DifferenceDetector` | Retained frames. Want a texture pool, not a ping-pong pair |
 > | `Noise`, `Cloud` | Consume a JS PRNG per pixel. A GPU hash is fine but can never match the CPU, so "parity" needs redefining first |
 > | `Bleed`, `Glow` | Multi-pass with an extra input — Glow needs the frame *as it entered the filter* available to a later pass, which the pass model has no way to express yet |
@@ -121,7 +121,15 @@ Prerequisite for basically everything below.
 > | `ChannelSeparate` | A scatter with a gap-filling pass afterwards; needs inverting into a gather first |
 > | `Puzzler` | Needs its shuffle grid uploaded as a data texture |
 >
-> Tier 3 (WebGPU compute for the reductions) is untouched and still the right home for most of the first row.
+> **Whole-image reductions now work on the GPU**, which took `Invert` (dynamic) and `Contourer` off that list. A fragment shader cannot loop over an image, but it can read four pixels and write one — so doing that repeatedly walks a pyramid down to a single texel holding the frame's minimum and maximum. On a 1080p frame that is eleven tiny draws against a `readPixels` of eight megabytes. A filter declares a `reduce` shader that maps each pixel to the quantity being reduced; the halving passes need no knowledge of what they are reducing, and the result arrives as `reduction()`.
+>
+> `Contourer` needed one non-obvious detail. Its thresholds are *accumulated* on the CPU (`i += difference`), and computing them as `min + n * difference` instead puts the top threshold a hair lower — enough that the single pixel sitting exactly on the frame's maximum falls into the next band and comes out 43 different. The shader accumulates too. That also produced a third comparison metric: banding agrees to rounding inside a band and can flip a whole band at an edge, which neither a tolerance nor a population budget describes.
+>
+> **The contact sheet has a third panel.** Every card now shows input → CPU → GPU, with the GPU caption reporting agreement: 32 of the 42 shader cases are *byte-identical* to the CPU, the other 10 differ by well under one unit on average, and the 14 CPU-only cases say which and why. Building it needs a browser, so `npm run test:sheet` renders through the same headless Chrome and skips the column cleanly when there isn't one.
+>
+> That column immediately caught a bug in itself: reading GPU output back through `canvas.toDataURL` premultiplies alpha, and so does `createImageBitmap` + `drawImage` on the way in, so the alpha fixture was degraded on both sides and showed a mean delta of 11 where the real figure is 0.32. Fixtures are now handed to the page as raw RGBA and results come back as raw RGBA; nothing decodes or re-encodes an image anywhere in that path.
+>
+> Tier 3 (WebGPU compute) is untouched and still the right home for the histogram-shaped reductions.
 
 > **Decided:** target **WebGL2 first, WebGPU later**, and keep the **CPU path permanently** as a first-class fallback rather than scaffolding to be deleted after the port.
 >
@@ -508,7 +516,7 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | ✓ | Golden-image test suite | Medium | Done — 56 goldens, contact sheet, determinism plumbing, GPU parity harness ready |
 | ✓ | `Renderer` / pipeline object | Medium | Done — headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
 | ✓ | Declarative filter schemas | Medium | Done — 717 lines out, DOM dependency gone, `setProperty` is the one write path |
-| ~ | GPU shader backend | High | Tiers 1-2 done — 30 shaders, 40/56 cases, parity suite in headless Chrome. Tier 3 (WebGPU compute) open |
+| ~ | GPU shader backend | High | Tiers 1-2 done — 32 shaders, 42/56 cases, GPU-vs-CPU parity and a contact-sheet column. Tier 3 (WebGPU compute) open |
 | 5 | Demo site / pipeline playground | Med–High | High — the thing you show people; current examples are broken anyway |
 | 9 | Finish the filter wishlist | Low each | Medium — cheap and fun once the kernel template exists |
 | 11 | Docs & types | Low–Med | Medium — matters the moment anyone else looks at it |
