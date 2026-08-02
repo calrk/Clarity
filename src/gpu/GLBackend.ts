@@ -5,7 +5,7 @@ import type { Filter } from '../core/Filter.js';
 import type { SchemaField } from '../core/schema.js';
 
 /** Uniforms that are texture units rather than values, so they go via uniform1i. */
-const SAMPLERS = new Set(['uSrc', 'uSrc2', 'uReduce', 'uOriginal']);
+const SAMPLERS = new Set(['uSrc', 'uSrc2', 'uReduce', 'uOriginal', 'uData']);
 
 /** One render target: a texture, and the framebuffer that draws into it. */
 interface Target {
@@ -70,6 +70,20 @@ export interface ShaderPass {
 export type ShaderDefinition = string | ShaderPass[];
 
 /**
+ * Per-instance data that will not fit in a uniform, uploaded as a small RGBA8
+ * texture and read in the shader with `dataValue(x, y)`.
+ *
+ * A uniform is a scalar, and some filters carry an array: Puzzler's tile
+ * shuffle is a grid of source indices that changes on a click as well as on a
+ * property change. `bytes` is RGBA, four per texel.
+ */
+export interface FilterData {
+	width: number;
+	height: number;
+	bytes: Uint8Array;
+}
+
+/**
  * Copies a texture verbatim, for stashing a filter's input where its later
  * passes can still reach it. `texelFetch` rather than a 0-255 round trip, so
  * the copy is bit-identical.
@@ -100,6 +114,7 @@ export class GLBackend {
 	private targets: Target[] = [];
 	private sourceTexture: WebGLTexture | null = null;
 	private extraTexture: WebGLTexture | null = null;
+	private dataTexture: WebGLTexture | null = null;
 	private readBuffer: Uint8Array | undefined;
 
 	/** Shaders that failed to compile, so a broken filter is reported once. */
@@ -236,6 +251,25 @@ export class GLBackend {
 		return this.extraTexture;
 	}
 
+	/**
+	 * Uploads a filter's per-instance data - see `Filter.data`.
+	 *
+	 * Its own texture rather than a slot in the pool: the pool holds render
+	 * targets sized to the frame, and this is a handful of bytes that has nothing
+	 * to do with the frame's shape.
+	 */
+	uploadData(data: FilterData): WebGLTexture {
+		const gl = this.gl;
+		this.dataTexture ??= this.makeTexture();
+
+		gl.bindTexture(gl.TEXTURE_2D, this.dataTexture);
+		gl.texImage2D(
+			gl.TEXTURE_2D, 0, gl.RGBA, data.width, data.height, 0,
+			gl.RGBA, gl.UNSIGNED_BYTE, data.bytes
+		);
+		return this.dataTexture;
+	}
+
 	private write(texture: WebGLTexture, frame: ImageData): void {
 		const gl = this.gl;
 		gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -337,6 +371,8 @@ export class GLBackend {
 		reduce?: WebGLTexture | null;
 		/** The stage's input, bound to uOriginal for a filter that asked for it. */
 		original?: WebGLTexture | null;
+		/** Per-instance data, bound to uData. */
+		data?: WebGLTexture | null;
 		into: Target | null;
 		width: number;
 		height: number;
@@ -358,11 +394,14 @@ export class GLBackend {
 		gl.bindTexture(gl.TEXTURE_2D, options.reduce ?? options.source);
 		gl.activeTexture(gl.TEXTURE3);
 		gl.bindTexture(gl.TEXTURE_2D, options.original ?? options.source);
+		gl.activeTexture(gl.TEXTURE4);
+		gl.bindTexture(gl.TEXTURE_2D, options.data ?? options.source);
 
 		this.setUniform(options.program, 'uSrc', 0);
 		this.setUniform(options.program, 'uSrc2', 1);
 		this.setUniform(options.program, 'uReduce', 2);
 		this.setUniform(options.program, 'uOriginal', 3);
+		this.setUniform(options.program, 'uData', 4);
 		this.setUniform(options.program, 'uSize', [options.sourceWidth, options.sourceHeight]);
 		this.setUniform(options.program, 'uTexel', [1 / options.sourceWidth, 1 / options.sourceHeight]);
 		this.setUniform(options.program, 'uOutSize', [options.width, options.height]);

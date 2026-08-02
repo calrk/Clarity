@@ -111,6 +111,8 @@ export function executeChain(
 		const originalTexture = keepOriginal(backend, passes!, gpuTarget ? gpuTarget.texture : gpuTexture!, width, height);
 		const { width: outWidth, height: outHeight } =
 			(filter.constructor as typeof Filter).outputSize(filter, width, height);
+		const data = (filter.constructor as typeof Filter).data(filter);
+		const dataTexture = data ? backend.uploadData(data) : null;
 		let failed: string | null = null;
 		let reduceTexture: WebGLTexture | null = null;
 
@@ -150,6 +152,7 @@ export function executeChain(
 					second: secondTexture,
 					reduce: reduceTexture,
 					original: originalTexture,
+					data: dataTexture,
 					into,
 					width: outWidth,
 					height: outHeight,

@@ -4,6 +4,7 @@ import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
+import type { FilterData } from '../../gpu/GLBackend.js';
 
 export interface PuzzlerOptions extends FilterOptions {
 	horizontalSegs?: number;
@@ -11,6 +12,69 @@ export interface PuzzlerOptions extends FilterOptions {
 }
 
 export class Puzzler extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_horizontalSegs;
+uniform float u_verticalSegs;
+
+void main(){
+	int columns = int(u_horizontalSegs);
+	int rows = int(u_verticalSegs);
+	ivec2 frame = ivec2(uSize);
+	//Math.round, matching the CPU - int division would truncate and the tiles
+	//would drift a pixel out on most frame sizes
+	int tileWidth = int(floor(float(frame.x) / u_horizontalSegs + 0.5));
+	int tileHeight = int(floor(float(frame.y) / u_verticalSegs + 0.5));
+
+	ivec2 p = outPixel();
+	int tileX = p.x / tileWidth;
+	int tileY = p.y / tileHeight;
+
+	//the CPU writes only the tiles themselves, so a frame that does not divide
+	//evenly keeps a transparent strip down the right and bottom edges
+	if(tileX >= columns || tileY >= rows){
+		fragColor = vec4(0.0);
+		return;
+	}
+
+	//uData holds the shuffle: red is the source tile index for this slot, green
+	//marks the tile waiting for a swap partner. Both travel in the data texture
+	//rather than as uniforms because the selection changes on a click, and a
+	//click is not a property change.
+	vec4 slot = dataTexel(tileX, tileY);
+	int source = int(slot.r);
+	int sourceX = source - (source / columns) * columns;
+	int sourceY = source / columns;
+
+	ivec2 within = ivec2(p.x - tileX * tileWidth, p.y - tileY * tileHeight);
+	vec3 colour = srcTexel(ivec2(sourceX * tileWidth, sourceY * tileHeight) + within).rgb;
+
+	//the selected tile is tinted blue while it waits for a partner
+	if(slot.g > 0.5){
+		colour.b += 80.0;
+	}
+
+	writeRGB(colour);
+}
+`;
+
+	/** The shuffle grid: red is the source tile, green marks the selection. */
+	static override data(filter: any): FilterData {
+		const columns = filter.properties.horizontalSegs;
+		const rows = filter.properties.verticalSegs;
+		const bytes = new Uint8Array(columns * rows * 4);
+		const selected = filter.selected;
+
+		for(let y = 0; y < rows; y++){
+			for(let x = 0; x < columns; x++){
+				const at = (y*columns + x)*4;
+				bytes[at] = filter.swaps[y][x];
+				bytes[at + 1] = selected && selected[0] === x && selected[1] === y ? 255 : 0;
+			}
+		}
+
+		return { width: columns, height: rows, bytes };
+	}
+
 	static override schema: FilterSchema = {
 		horizontalSegs: { type: 'int', label: 'Columns', min: 2, max: 16, step: 1, default: 4 },
 		verticalSegs: { type: 'int', label: 'Rows', min: 2, max: 16, step: 1, default: 4 }
@@ -132,20 +196,33 @@ export class Puzzler extends Filter {
 			return;	//nothing has been processed yet, so the tile size isn't known
 		}
 
-		let x = Math.floor(pos[0]/(this.width/this.properties.horizontalSegs));
-		let y = Math.floor(pos[1]/(this.height/this.properties.verticalSegs));
+		this.select(
+			Math.floor(pos[0]/(this.width/this.properties.horizontalSegs)),
+			Math.floor(pos[1]/(this.height/this.properties.verticalSegs))
+		);
+	}
 
+	/**
+	 * Picks a tile by grid position: the first call selects it, the second swaps
+	 * the two.
+	 *
+	 * Separate from `setClick` because that has to map pixels to tiles and so
+	 * cannot do anything until a frame has been through - which makes it useless
+	 * to a caller that already knows the grid, and untestable before the first
+	 * render.
+	 */
+	select(column: number, row: number): void {
 		if(this.selected){
-			//swaps is indexed [row][column], and selected/x/y are [column, row] -
-			//these were indexed the wrong way round
+			//swaps is indexed [row][column], and selected/column/row are
+			//[column, row] - these were indexed the wrong way round
 			let temp = this.swaps[this.selected[1]][this.selected[0]];
-			this.swaps[this.selected[1]][this.selected[0]] = this.swaps[y][x];
-			this.swaps[y][x] = temp;
+			this.swaps[this.selected[1]][this.selected[0]] = this.swaps[row][column];
+			this.swaps[row][column] = temp;
 
 			this.selected = undefined;
 		}
 		else{
-			this.selected = [x,y];
+			this.selected = [column, row];
 		}
 	}
 

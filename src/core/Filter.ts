@@ -2,7 +2,7 @@ import { defaultClock } from './random.js';
 import { coerceValue } from './schema.js';
 import type { Clock, RandomSource } from './random.js';
 import type { FilterSchema, PropertyValue } from './schema.js';
-import type { ShaderDefinition } from '../gpu/GLBackend.js';
+import type { FilterData, ShaderDefinition } from '../gpu/GLBackend.js';
 
 /** Channel selectors accepted by `getColourValue`. */
 export type Channel =
@@ -120,6 +120,19 @@ export class Filter {
 	 */
 	static outputSize(_filter: Filter, width: number, height: number): { width: number; height: number } {
 		return { width, height };
+	}
+
+	/**
+	 * Per-instance data the shader needs that will not fit in a uniform.
+	 *
+	 * A uniform is a scalar, and one filter carries an array: `Puzzler`'s tile
+	 * shuffle. Returning a small RGBA8 block here uploads it to `uData`, which
+	 * the shader reads with `dataValue(x, y)`. Called every frame rather than
+	 * cached, because the shuffle changes on a click as well as on a property
+	 * change - it is a few hundred bytes, so there is nothing to save.
+	 */
+	static data(_filter: Filter): FilterData | null {
+		return null;
 	}
 
 	channel: Channel;

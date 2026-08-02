@@ -46,7 +46,14 @@ export function buildFilter(entry) {
 	if (typeof Ctor !== 'function') {
 		throw new Error(`unknown filter "${entry.filter}"`);
 	}
-	return new Ctor(options);
+
+	const filter = new Ctor(options);
+	//Puzzler's selection comes from a click rather than a property, and the tint
+	//it draws is a whole branch of the shader that nothing else reaches
+	for (const [column, row] of entry.selects ?? []) {
+		filter.select(column, row);
+	}
+	return filter;
 }
 
 /**

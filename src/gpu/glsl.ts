@@ -63,6 +63,13 @@ uniform sampler2D uReduce;
  */
 uniform sampler2D uOriginal;
 
+/**
+ * Per-instance data a filter cannot express as a uniform, because it is an
+ * array rather than a scalar - Puzzler's tile shuffle. Supplied by a filter's
+ * static data(), and read with dataTexel/dataValue below.
+ */
+uniform sampler2D uData;
+
 /** Size of the input in pixels, and its reciprocal. */
 uniform vec2 uSize;
 uniform vec2 uTexel;
@@ -88,6 +95,17 @@ vec4 srcPixel(vec2 uv){
 
 vec4 src2Pixel(vec2 uv){
 	return texture(uSrc2, uv) * 255.0;
+}
+
+/** One texel of the filter's data texture, as whole numbers 0-255. */
+vec4 dataTexel(int x, int y){
+	vec4 raw = texelFetch(uData, ivec2(x, y), 0) * 255.0;
+	return floor(raw + 0.5);
+}
+
+/** Its red channel, which is where a single value per texel goes. */
+float dataValue(int x, int y){
+	return dataTexel(x, y).r;
 }
 
 /** The frame as it entered this filter. See uOriginal. */

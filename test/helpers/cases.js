@@ -134,6 +134,10 @@ export const cases = [
 	// --- Misc ------------------------------------------------------------
 	{ filter: 'Brickulate', input: 'photo', options: { horizontalSegs: 4, verticalSegs: 3, grooveSize: 3 }, gpu: POINTWISE },
 	{ filter: 'Puzzler', input: 'photo', options: { horizontalSegs: 4, verticalSegs: 3 }, seed: 3, gpu: POINTWISE },
+	// the blue tint on a tile waiting for its swap partner is a whole branch
+	// nothing else reaches, and it travels in the data texture rather than a
+	// uniform because a click is not a property change
+	{ filter: 'Puzzler', name: 'selected', input: 'photo', options: { horizontalSegs: 4, verticalSegs: 3 }, seed: 3, selects: [[1, 2]], gpu: POINTWISE },
 	// stateful pair: first frame is the reference, second is the comparison
 	{ filter: 'DifferenceDetector', input: ['clean', 'moved'], sequence: true, options: {}, gpu: BOUNDARY },
 	{ filter: 'Ghoster', input: ['clean', 'moved'], sequence: true, options: { length: 3 }, gpu: ACCUMULATING },

@@ -54,7 +54,10 @@ function build(entry) {
 	const options = { ...entry.options };
 	if (entry.seed !== undefined) options.random = CLARITY.seededRandom(entry.seed);
 	if (entry.now !== undefined) options.now = () => entry.now;
-	return new CLARITY[entry.filter](options);
+
+	const filter = new CLARITY[entry.filter](options);
+	for (const [column, row] of entry.selects ?? []) filter.select(column, row);
+	return filter;
 }
 
 /** The fixture with the case's `pre` chain applied. */
