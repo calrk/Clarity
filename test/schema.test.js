@@ -263,3 +263,21 @@ test('the DOM control builders are gone', () => {
 	assert.equal(typeof new CLARITY.Blur({}).doCreateControls, 'undefined');
 	assert.equal(typeof new CLARITY.Blur({}).createControls, 'undefined');
 });
+
+test('every filter is in the catalogue, and nothing else is', () => {
+	// The catalogue is what a palette, a docs page or the contact sheet reads to
+	// find out what a filter is. Three separate hand-maintained lists did this
+	// job before it existed, and they had already drifted - so the thing worth
+	// asserting is that it stays complete as filters come and go.
+	const catalogued = Object.keys(CLARITY.CATALOGUE).sort();
+	assert.deepEqual(catalogued, [...filterNames].sort());
+
+	for (const [name, entry] of Object.entries(CLARITY.CATALOGUE)) {
+		assert.ok(
+			CLARITY.CATEGORY_ORDER.includes(entry.category),
+			`${name}: category "${entry.category}" is not in CATEGORY_ORDER`
+		);
+		assert.ok(entry.summary.length > 10, `${name}: needs a real summary`);
+		assert.ok(entry.summary.endsWith('.'), `${name}: summary should be a sentence`);
+	}
+});

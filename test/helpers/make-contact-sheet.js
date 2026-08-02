@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { cases, caseName } from './cases.js';
-import { descriptions, categories, CATEGORY_ORDER } from './descriptions.js';
+import { descriptions, CATALOGUE, CATEGORY_ORDER } from './descriptions.js';
 import { GOLDEN, inputFrame } from './run.js';
 import { readPNG, encodePNG } from './image.js';
 
@@ -67,7 +67,7 @@ function formatOptions(options) {
 // group cases by category, preserving the order filters appear in cases.js
 const grouped = new Map(CATEGORY_ORDER.map((c) => [c, []]));
 for (const entry of cases) {
-	const category = categories[entry.filter] ?? 'Misc';
+	const category = CATALOGUE[entry.filter]?.category ?? 'Misc';
 	if (!grouped.has(category)) grouped.set(category, []);
 	grouped.get(category).push(entry);
 }
@@ -94,7 +94,7 @@ for (const [category, entries] of grouped) {
 		const primary = entry.sequence ? before[before.length - 1] : before[0];
 		const stats = changeStats(primary, readPNG(goldenPath));
 
-		const doc = descriptions[entry.filter] ?? {};
+		const doc = { ...CATALOGUE[entry.filter], ...descriptions[entry.filter] };
 		const didNothing = stats.changed < 0.01;
 		if (didNothing) suspicious++;
 		cards++;

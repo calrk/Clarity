@@ -21,6 +21,8 @@ export { hash32, hashedRandom, hashedByte, seedFrom } from './helpers/hash.js';
 export type { RGB, YUV } from './helpers/Operations.js';
 export { Pixel } from './helpers/Pixel.js';
 export type { PixelChannel } from './helpers/Pixel.js';
+export { CATALOGUE, CATEGORY_ORDER } from './catalogue.js';
+export type { CatalogueEntry, CategoryName } from './catalogue.js';
 export { CHANNEL_FIELD, coerceValue, defaultsOf } from './core/schema.js';
 export type {
 	FilterSchema,
