@@ -12,24 +12,41 @@ export interface ValueThresholdOptions extends FilterOptions {
 }
 
 export class ValueThreshold extends Filter {
-	static override shader = /* glsl */ `
+	static override shader = [
+		{
+			//Auto mode splits the frame at the midpoint of its own range, so the
+			//minimum and maximum have to be known before any pixel can be decided.
+			//The seed maps each pixel to the channel value being compared; the
+			//pyramid in `runReduction` collapses it to a single texel.
+			reduce: /* glsl */ `
+void main(){
+	float value = channelValue(srcPixel(vUv)) / 255.0;
+	fragColor = vec4(value, value, 0.0, 1.0);
+}
+`,
+			source: /* glsl */ `
 uniform float u_threshold;
+uniform float u_threshold_auto;
 uniform float u_inverted;
 
 void main(){
+	float threshold = u_threshold;
+	if(u_threshold_auto > 0.5){
+		vec2 range = reduction();
+		threshold = (range.x + range.y) / 2.0;
+	}
+
 	float value = channelValue(srcPixel(vUv));
-	bool lit = u_inverted > 0.5 ? (value < u_threshold) : (value > u_threshold);
+	bool lit = u_inverted > 0.5 ? (value < threshold) : (value > threshold);
 	writeRGB(lit ? vec3(255.0) : vec3(0.0));
 }
-`;
-
-	static override supportsGPU(filter: any): boolean {
-		return filter.properties.threshold !== null;
-	}
+`
+		}
+	];
 
 	static override schema: FilterSchema = {
 		inverted: { type: 'bool', label: 'Inverted', default: false },
-		threshold: { type: 'int', label: 'Threshold', min: 0, max: 255, step: 1, default: null, nullable: true, nullLabel: 'Auto', description: 'Auto derives the split from the frame each time.' },
+		threshold: { type: 'int', label: 'Threshold', min: 0, max: 255, step: 1, default: null, nullable: true, nullLabel: 'Auto', description: 'Auto splits the frame at the midpoint of its own range.' },
 		channel: CHANNEL_FIELD
 	};
 
@@ -85,47 +102,33 @@ void main(){
 		return output;
 	}
 
-	getThresholdValue(data: any) {
-		let average;
-		average = this.getColourValue(data, 0);
-		//finds the intial average of all the data
-		for(let i = 4; i < data.width*data.height*4; i+=4){
-			let colour = this.getColourValue(data, i);
-			average = (average+colour)/2;
+	/**
+	 * The midpoint of the frame's own range - the split that auto mode means.
+	 *
+	 * This used to be an iterative intermeans search, which is a real algorithm
+	 * (ISODATA) but was built on `average = (average + colour) / 2` applied pixel
+	 * by pixel. That recurrence weights the last pixel of the frame at 50% and
+	 * the first at 2^-n, so it is not an average of anything and the loop was
+	 * converging on a number with no meaning. Intermeans can come back as a
+	 * second option later - it needs a sum reduction, which is the same pyramid
+	 * with a different combine - but the midpoint is what "auto" was reaching
+	 * for, it is O(n) rather than unbounded, and the GPU already computes the
+	 * minimum and maximum it needs.
+	 */
+	getThresholdValue(frame: ImageData): number {
+		let lowest = 255;
+		let highest = 0;
+
+		for(let i = 0; i < frame.width*frame.height*4; i+=4){
+			let colour = this.getColourValue(frame, i);
+			if(colour < lowest){
+				lowest = colour;
+			}
+			if(colour > highest){
+				highest = colour;
+			}
 		}
 
-		let lower = 0;
-		let upper = 0;
-		let previous = 0;
-		let current = average;
-		//checks to see if the new average is near the old average
-		while(!(previous > current - 1 && previous < current + 1)){
-			previous = current;
-			//splits the data up depending on the current threshold, and finds an average of each
-			for(let i = 0; i < data.width*data.height*4; i+=4){
-				let colour = this.getColourValue(data, i);
-				if(colour < previous){
-					if(lower == 0){
-						lower = colour;
-					}
-					else{
-						lower = (lower + colour)/2;
-					}
-				}
-				else{
-					if(upper == 0){
-						upper = colour;
-					}
-					else{
-						upper = (upper + colour)/2;
-					}
-				}
-			}
-			//averages the two averages
-			current = (upper+lower)/2;
-			lower = 0;
-			upper = 0;
-		}
-		return current;
+		return (lowest + highest)/2;
 	}
 }
