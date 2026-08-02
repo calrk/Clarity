@@ -10,6 +10,30 @@ export interface SharpenOptions extends FilterOptions {
 }
 
 export class Sharpen extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_intensity;
+
+void main(){
+	ivec2 p = outPixel();
+	ivec2 size = ivec2(uSize);
+
+	if(p.x < 1 || p.y < 1 || p.x > size.x - 2 || p.y > size.y - 2){
+		fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+		return;
+	}
+
+	//kernel is -intensity on the ring, 8*intensity+1 in the centre
+	vec3 sum = (8.0 * u_intensity + 1.0) * srcTexel(p).rgb;
+	for(int ky = -1; ky <= 1; ky++){
+		for(int kx = -1; kx <= 1; kx++){
+			if(kx == 0 && ky == 0) continue;
+			sum -= u_intensity * srcTexel(p + ivec2(kx, ky)).rgb;
+		}
+	}
+	writeRGB(sum);
+}
+`;
+
 	static override schema: FilterSchema = {
 		intensity: { type: 'float', label: 'Intensity', min: 0, max: 3, step: 0.1, default: 1 }
 	};

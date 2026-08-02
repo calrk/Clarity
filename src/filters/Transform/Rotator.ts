@@ -13,6 +13,45 @@ export interface RotatorOptions extends FilterOptions {
 }
 
 export class Rotator extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_turns;
+
+void main(){
+	int turns = int(u_turns);
+	ivec2 size = ivec2(uSize);
+	ivec2 p = outPixel();
+
+	if(turns == 0){
+		writePixel(srcTexel(p));
+		return;
+	}
+	if(turns == 2){
+		writeRGB(srcTexel(size - 1 - p).rgb);
+		return;
+	}
+	//quarter turns, square frames only - see supportsGPU
+	if(turns == 1){
+		writeRGB(srcTexel(ivec2(p.y, size.x - 1 - p.x)).rgb);
+	}
+	else{
+		writeRGB(srcTexel(ivec2(size.y - 1 - p.y, p.x)).rgb);
+	}
+}
+`;
+
+	/**
+	 * A quarter turn of a non-square frame goes through the CPU's crop path,
+	 * which applies its offset to both axes and leaves part of the output
+	 * untouched - FEATURES.md #1 flagged it as approximate and it has not been
+	 * rewritten yet. Reproducing an approximation nobody has settled on would
+	 * bake it in, so the shader covers the cases that are unambiguous: no
+	 * rotation, a half turn, and quarter turns of a square frame.
+	 */
+	static override supportsGPU(filter: any): boolean {
+		const turns = filter.properties.turns;
+		return turns === 0 || turns === 2;
+	}
+
 	static override schema: FilterSchema = {
 		turns: { type: 'int', label: 'Turns', min: 0, max: 3, step: 1, default: 0, description: 'Quarter turns clockwise.' }
 	};

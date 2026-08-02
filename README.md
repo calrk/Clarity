@@ -53,6 +53,56 @@ global:
 </script>
 ```
 
+GPU
+---
+
+**Shaders are the default.** A `Pipeline` creates a WebGL2 context on first use
+and runs every filter that has a shader as a fragment shader, ping-ponging two
+framebuffers so an N-filter chain is N draw calls with no CPU round-trip in
+between. Where WebGL2 is missing — Node, an old browser, a lost context — it
+falls back to the CPU silently.
+
+```js
+const pipeline = new Pipeline([new Desaturate(), new EdgeDetector()]);
+pipeline.usingGPU;            // false when WebGL2 could not be had
+pipeline.run(frame);
+pipeline.stats.backend;       // 'gpu' | 'cpu' | 'mixed'
+pipeline.stats.fallbacks;     // which stages ran on the CPU, and why
+pipeline.stats.transfers;     // times the frame crossed between the two
+
+new Pipeline(filters, { gpu: false });   // opt out
+```
+
+Fallback is **per stage**, not all-or-nothing: one histogram-shaped filter in
+the middle of nine pointwise ones doesn't force the other nine back. Each
+maximal run of shader stages is uploaded once, ping-ponged through, and read
+back once.
+
+The CPU implementation stays the reference. It's the oracle the parity tests
+compare against and the fallback when there's no GL, so a filter isn't finished
+until both paths exist and agree — `npm run test:gpu` runs every case through
+both and compares.
+
+### Writing a shader
+
+A filter declares one, compiled against a prelude that supplies the source
+texture, the frame size, the channel selector and a `u_<key>` uniform per schema
+property:
+
+```js
+class Invert extends Filter {
+	static shader = `
+		void main(){
+			writeRGB(vec3(255.0) - srcPixel(vUv).rgb);
+		}
+	`;
+}
+```
+
+Colours are handled in **0–255 space**, matching what the CPU implementations
+compare against. `static supportsGPU(filter)` says when a shader covers only
+some of the filter's options; an array of passes handles the multi-draw cases.
+
 Pipelines
 ---------
 

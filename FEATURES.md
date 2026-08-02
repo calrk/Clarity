@@ -100,6 +100,29 @@ Prerequisite for basically everything below.
 
 **Effort: High** *(depends on #2; much easier after #1)*
 
+> **Tier 1 and 2 are done.** WebGL2 backend, ping-pong framebuffers, uniforms generated from the schemas, per-stage CPU fallback, and **30 shaders covering 40 of the 56 golden cases**. Shaders are the default path; the CPU runs where there is no shader, no WebGL2, or a filter whose options the shader doesn't cover.
+>
+> Verified by a real parity suite rather than by inspection: `npm run test:gpu` drives headless Chrome with SwiftShader, runs every case through both paths and compares them. Node has no WebGL2 and headless-gl only implements WebGL 1, so the choice was between writing against a decade-old GLSL dialect or driving a browser — the browser wins, and SwiftShader means it needs no GPU and works in CI. **58 parity assertions, all passing, with every CPU golden byte-identical.**
+>
+> Two things the parity suite caught that review would not have:
+>
+> - **`Blur` must not touch alpha.** `stackBlurCanvasRGB` copies the frame and blurs only the colour channels, so alpha passes straight through. The shader forced it to 255 and every pixel of the alpha fixture was wrong by 255 — invisible on an opaque photo, which is exactly why the alpha fixture exists.
+> - **`Wave` is a boundary filter, not a pointwise one.** It floors a sine to choose which texel to read, and the GPU has 32-bit floats where the CPU has 64. A value a fraction either side of an integer reads a different pixel, so 3.6% of pixels differ by however far apart their neighbours happen to be. Re-tagged `population`, which is the metric that exists for precisely this.
+>
+> **Still on the CPU, and why** — these are the ones worth a conversation rather than a transliteration:
+>
+> | Filter | Why |
+> |---|---|
+> | `Invert` (dynamic), `ValueThreshold` (auto), `Contourer`, `MedianThreshold`, `Posteriser` (median cut) | Need a whole-image reduction — min/max, a histogram, a palette — before the per-pixel work can start |
+> | `Ghoster`, `MotionDetector`, `DifferenceDetector` | Retained frames. Want a texture pool, not a ping-pong pair |
+> | `Noise`, `Cloud` | Consume a JS PRNG per pixel. A GPU hash is fine but can never match the CPU, so "parity" needs redefining first |
+> | `Bleed`, `Glow` | Multi-pass with an extra input — Glow needs the frame *as it entered the filter* available to a later pass, which the pass model has no way to express yet |
+> | `Rotator` (quarter turns of a non-square frame) | Goes through the CPU's crop path, which #1 flagged as approximate. Reproducing an approximation nobody has settled on would bake it in |
+> | `ChannelSeparate` | A scatter with a gap-filling pass afterwards; needs inverting into a gather first |
+> | `Puzzler` | Needs its shuffle grid uploaded as a data texture |
+>
+> Tier 3 (WebGPU compute for the reductions) is untouched and still the right home for most of the first row.
+
 > **Decided:** target **WebGL2 first, WebGPU later**, and keep the **CPU path permanently** as a first-class fallback rather than scaffolding to be deleted after the port.
 >
 > WebGL2 is universal — Firefox and older Safari included — and it is testable headlessly through SwiftShader, which WebGPU is not yet. The reduction-shaped filters (median threshold, histogram) stay awkward until the WebGPU compute path arrives; that is the accepted cost.
@@ -485,13 +508,13 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | ✓ | Golden-image test suite | Medium | Done — 56 goldens, contact sheet, determinism plumbing, GPU parity harness ready |
 | ✓ | `Renderer` / pipeline object | Medium | Done — headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
 | ✓ | Declarative filter schemas | Medium | Done — 717 lines out, DOM dependency gone, `setProperty` is the one write path |
-| 3 | GPU shader backend | High | Highest payoff, highest cost — do it in the three tiers, not in one go |
+| ~ | GPU shader backend | High | Tiers 1-2 done — 30 shaders, 40/56 cases, parity suite in headless Chrome. Tier 3 (WebGPU compute) open |
 | 5 | Demo site / pipeline playground | Med–High | High — the thing you show people; current examples are broken anyway |
 | 9 | Finish the filter wishlist | Low each | Medium — cheap and fun once the kernel template exists |
 | 11 | Docs & types | Low–Med | Medium — matters the moment anyone else looks at it |
 | 12 | Pipeline fusion | High | Medium — big for UV-transform chains and weak GPUs; also fixes 8-bit precision loss. Classification metadata in #3, compiler later |
 | 10 | CPU path modernisation | Medium | Low–Medium — mostly superseded by #3; cherry-pick the allocation fix |
 
-**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → ~~8~~ → ~~4~~ → **3** (tier by tier) → 5 → 9/11 → 12.
+**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → ~~8~~ → ~~4~~ → 3 (tiers 1-2 done) → **5** → 9/11 → 12.
 
 *More features to be added.*

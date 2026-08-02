@@ -12,6 +12,16 @@ export interface FillRGBOptions extends FilterOptions {
 }
 
 export class FillRGB extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_red;
+uniform float u_green;
+uniform float u_blue;
+
+void main(){
+	writeRGB(vec3(u_red, u_green, u_blue));
+}
+`;
+
 	static override schema: FilterSchema = {
 		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 0 },
 		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 0 },

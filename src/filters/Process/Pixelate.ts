@@ -10,6 +10,22 @@ export interface PixelateOptions extends FilterOptions {
 }
 
 export class Pixelate extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_size;
+
+void main(){
+	int block = max(1, int(u_size));
+	int half_ = block / 2;
+	ivec2 size = ivec2(uSize);
+	ivec2 p = outPixel();
+
+	ivec2 corner = (p / block) * block;
+	ivec2 sample_ = min(corner + half_, size - 1);
+
+	writeRGB(srcTexel(sample_).rgb);
+}
+`;
+
 	static override schema: FilterSchema = {
 		size: { type: 'int', label: 'Block size', min: 1, max: 256, step: 1, default: 64 }
 	};

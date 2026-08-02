@@ -12,6 +12,19 @@ export interface MirrorOptions extends FilterOptions {
 }
 
 export class Mirror extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_Horizontal;
+uniform float u_Vertical;
+
+void main(){
+	ivec2 p = outPixel();
+	ivec2 size = ivec2(uSize);
+	if(u_Horizontal > 0.5) p.x = size.x - 1 - p.x;
+	if(u_Vertical > 0.5)   p.y = size.y - 1 - p.y;
+	writeRGB(srcTexel(p).rgb);
+}
+`;
+
 	static override schema: FilterSchema = {
 		Horizontal: { type: 'bool', label: 'Horizontal', default: true },
 		Vertical: { type: 'bool', label: 'Vertical', default: false }

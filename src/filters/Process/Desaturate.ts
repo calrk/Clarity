@@ -9,6 +9,12 @@ export interface DesaturateOptions extends FilterOptions {
 }
 
 export class Desaturate extends Filter {
+	static override shader = /* glsl */ `
+void main(){
+	writeRGB(vec3(luma(srcPixel(vUv))));
+}
+`;
+
 	constructor(options: DesaturateOptions = {}) {
 		super(options);
 

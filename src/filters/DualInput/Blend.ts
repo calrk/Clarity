@@ -11,6 +11,14 @@ export interface BlendOptions extends FilterOptions {
 }
 
 export class Blend extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_ratio;
+
+void main(){
+	writeRGB(srcPixel(vUv).rgb * u_ratio + src2Pixel(vUv).rgb * (1.0 - u_ratio));
+}
+`;
+
 	static override schema: FilterSchema = {
 		ratio: { type: 'float', label: 'Ratio', min: 0, max: 1, step: 0.01, default: 0.5, description: '0 is all of the first image, 1 is all of the second.' }
 	};

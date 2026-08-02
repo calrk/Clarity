@@ -9,6 +9,16 @@ export interface SkinDetectorOptions extends FilterOptions {
 }
 
 export class SkinDetector extends Filter {
+	static override shader = /* glsl */ `
+void main(){
+	vec3 ycc = rgb2ycbcr(srcPixel(vUv).rgb);
+	bool skin = ycc.x > 30.0
+		&& ycc.y > 80.0 && ycc.y < 121.0
+		&& ycc.z > 133.0 && ycc.z < 173.0;
+	writeRGB(skin ? vec3(255.0) : vec3(0.0));
+}
+`;
+
 	constructor(options: SkinDetectorOptions = {}) {
 		super(options);
 

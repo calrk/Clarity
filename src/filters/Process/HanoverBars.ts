@@ -12,6 +12,29 @@ export interface HanoverBarsOptions extends FilterOptions {
 }
 
 export class HanoverBars extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_offset;
+
+void main(){
+	vec4 c = srcPixel(vUv);
+	int line = outPixel().y - (outPixel().y / 4) * 4;
+
+	if(line == 0 || line == 1){
+		writeRGB(c.rgb);
+		return;
+	}
+
+	//the CPU normalises to 0-1 before converting and scales back afterwards
+	vec3 yuv = rgb2yuv(c.rgb / 255.0);
+	if(u_offset > 0.5){
+		float cs = cos(3.14159265358979 / 6.0);
+		float sn = sin(3.14159265358979 / 6.0);
+		yuv = vec3(yuv.x, yuv.y * cs - yuv.z * sn, yuv.y * sn + yuv.z * cs);
+	}
+	writeRGB(yuv2rgb(yuv) * 255.0);
+}
+`;
+
 	static override schema: FilterSchema = {
 		offset: { type: 'bool', label: 'Offset', default: false }
 	};

@@ -12,6 +12,21 @@ export interface ValueThresholdOptions extends FilterOptions {
 }
 
 export class ValueThreshold extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_threshold;
+uniform float u_inverted;
+
+void main(){
+	float value = channelValue(srcPixel(vUv));
+	bool lit = u_inverted > 0.5 ? (value < u_threshold) : (value > u_threshold);
+	writeRGB(lit ? vec3(255.0) : vec3(0.0));
+}
+`;
+
+	static override supportsGPU(filter: any): boolean {
+		return filter.properties.threshold !== null;
+	}
+
 	static override schema: FilterSchema = {
 		inverted: { type: 'bool', label: 'Inverted', default: false },
 		threshold: { type: 'int', label: 'Threshold', min: 0, max: 255, step: 1, default: null, nullable: true, nullLabel: 'Auto', description: 'Auto derives the split from the frame each time.' },

@@ -15,6 +15,49 @@ export interface WaveOptions extends FilterOptions {
 }
 
 export class Wave extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_horizontal;
+uniform float u_vertical;
+uniform float u_speed;
+uniform float u_frequency;
+uniform float u_amplitude;
+
+float waveFunction(float v){
+	return sin(v) + sin(2.0 * v);
+}
+
+void main(){
+	bool horizontal = u_horizontal > 0.5;
+	bool vertical = u_vertical > 0.5;
+
+	ivec2 size = ivec2(uSize);
+	ivec2 p = outPixel();
+
+	if(!horizontal && !vertical){
+		writeRGB(srcTexel(p).rgb);
+		return;
+	}
+
+	float phase = ((uTime / 1000.0) * 6.28318530717959) * u_speed;
+
+	//vertical first, then horizontal reads from the displaced row - the same
+	//order the CPU applies them in
+	int fromY = p.y;
+	if(vertical){
+		fromY = p.y - int(floor(waveFunction(float(p.x) / u_frequency + phase) * u_amplitude));
+	}
+	fromY = ((fromY % size.y) + size.y) % size.y;
+
+	int fromX = p.x;
+	if(horizontal){
+		fromX = p.x - int(floor(waveFunction(float(fromY) / u_frequency + phase) * u_amplitude));
+	}
+	fromX = ((fromX % size.x) + size.x) % size.x;
+
+	writeRGB(texelFetch(uSrc, ivec2(fromX, fromY), 0).rgb * 255.0);
+}
+`;
+
 	//Phase comes from the clock, so the output moves on its own.
 	static override varying = true;
 

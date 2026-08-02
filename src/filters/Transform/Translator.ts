@@ -13,6 +13,25 @@ export interface TranslatorOptions extends FilterOptions {
 }
 
 export class Translator extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_horizontal;
+uniform float u_vertical;
+
+void main(){
+	//The CPU scatters by +ceil(size * fraction), so gathering means subtracting
+	//the same offset and wrapping.
+	ivec2 size = ivec2(uSize);
+	int dx = int(ceil(uSize.x * u_horizontal));
+	int dy = int(ceil(uSize.y * u_vertical));
+
+	ivec2 p = outPixel() - ivec2(dx, dy);
+	p.x = ((p.x % size.x) + size.x) % size.x;
+	p.y = ((p.y % size.y) + size.y) % size.y;
+
+	writeRGB(texelFetch(uSrc, p, 0).rgb * 255.0);
+}
+`;
+
 	static override schema: FilterSchema = {
 		horizontal: { type: 'float', label: 'Horizontal', min: -1, max: 1, step: 0.01, default: 0.5, description: 'Fraction of the frame width, wrapping at the edges.' },
 		vertical: { type: 'float', label: 'Vertical', min: -1, max: 1, step: 0.01, default: 0.5, description: 'Fraction of the frame height, wrapping at the edges.' }

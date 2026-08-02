@@ -10,6 +10,38 @@ export interface EdgeDetectorOptions extends FilterOptions {
 }
 
 export class EdgeDetector extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_fast;
+
+void main(){
+	ivec2 p = outPixel();
+	ivec2 size = ivec2(uSize);
+
+	//the CPU kernel skips a one-pixel border and leaves it black
+	if(p.x < 1 || p.y < 1 || p.x > size.x - 2 || p.y > size.y - 2){
+		fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+		return;
+	}
+
+	if(u_fast > 0.5){
+		float here = luma(srcTexel(p));
+		float next = luma(srcTexel(p + ivec2(1, 0)));
+		writeRGB(vec3(abs(next - here) * 5.0));
+		return;
+	}
+
+	//3x3 with the centre at 8 and the ring at -1
+	float sum = 8.0 * luma(srcTexel(p));
+	for(int ky = -1; ky <= 1; ky++){
+		for(int kx = -1; kx <= 1; kx++){
+			if(kx == 0 && ky == 0) continue;
+			sum -= luma(srcTexel(p + ivec2(kx, ky)));
+		}
+	}
+	writeRGB(vec3(sum));
+}
+`;
+
 	static override schema: FilterSchema = {
 		fast: { type: 'bool', label: 'Fast', default: false, description: 'Two-sample difference instead of the 3x3 kernel.' }
 	};

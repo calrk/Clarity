@@ -11,6 +11,37 @@ export interface GradientThresholdOptions extends FilterOptions {
 }
 
 export class GradientThreshold extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_threshold;
+uniform float u_distance;
+
+void main(){
+	ivec2 p = outPixel();
+	ivec2 size = ivec2(uSize);
+	int d = int(u_distance);
+
+	if(p.x < d || p.y < d || p.x > size.x - 1 - d || p.y > size.y - 1 - d){
+		fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+		return;
+	}
+
+	//compares the red channel against four neighbours, like the CPU does
+	float here = srcTexel(p).r;
+	float left  = srcTexel(p + ivec2(-d, 0)).r;
+	float right = srcTexel(p + ivec2( d, 0)).r;
+	float up    = srcTexel(p + ivec2(0, -d)).r;
+	float down  = srcTexel(p + ivec2(0,  d)).r;
+
+	bool found =
+		abs(here - left)  > u_threshold ||
+		abs(here - right) > u_threshold ||
+		abs(here - up)    > u_threshold ||
+		abs(here - down)  > u_threshold;
+
+	writeRGB(found ? vec3(255.0) : vec3(0.0));
+}
+`;
+
 	static override schema: FilterSchema = {
 		threshold: { type: 'float', label: 'Threshold', min: 0, max: 100, step: 1, default: 20, description: 'How much neighbouring pixels must differ to be marked.' },
 		distance: { type: 'int', label: 'Distance', min: 1, max: 10, step: 1, default: 1, description: 'How far away the compared neighbour is, in pixels.' }

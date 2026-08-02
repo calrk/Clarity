@@ -15,6 +15,16 @@ export interface FillHSVOptions extends FilterOptions {
 }
 
 export class FillHSV extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_hue;
+uniform float u_saturation;
+uniform float u_value;
+
+void main(){
+	writeRGB(hsv2rgb(vec3(u_hue, u_saturation, u_value)));
+}
+`;
+
 	static override schema: FilterSchema = {
 		hue: { type: 'float', label: 'Hue', min: 0, max: 360, step: 1, default: 0 },
 		saturation: { type: 'float', label: 'Saturation', min: 0, max: 1, step: 0.01, default: 0 },

@@ -59,7 +59,11 @@ export const cases = [
 	// odd dimensions: 33 is not a multiple of 8, so the right column is partial
 	{ filter: 'Pixelate', name: 'odd', input: 'odd', options: { size: 8 }, gpu: POINTWISE },
 	{ filter: 'Posteriser', input: 'photo', options: { colours: 6 }, gpu: BOUNDARY },
-	{ filter: 'Posteriser', name: 'fast', input: 'photo', options: { method: 'fast', colours: 6 }, gpu: BOUNDARY },
+	// The fast method lands on band centres like 21.5, and the two paths break
+	// that tie in opposite directions - Uint8ClampedArray rounds half to even,
+	// the framebuffer conversion rounds half up. Every pixel is within 1, which
+	// is a tolerance question rather than a boundary one.
+	{ filter: 'Posteriser', name: 'fast', input: 'photo', options: { method: 'fast', colours: 6 }, gpu: POINTWISE },
 	{ filter: 'DotRemover', input: 'binary', options: {}, gpu: BOUNDARY },
 
 	// --- Thresholders (hard boundaries) ---------------------------------
@@ -91,8 +95,14 @@ export const cases = [
 	{ filter: 'Tiler', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Tiler', name: 'odd', input: 'odd', options: {}, gpu: POINTWISE },
 	{ filter: 'ChannelSeparate', input: 'photo', options: { xdistance: 4, ydistance: 2, fixed: true }, gpu: POINTWISE },
-	{ filter: 'Wave', input: 'photo', options: { vertical: true, amplitude: 5, frequency: 12 }, now: 0, gpu: POINTWISE },
-	{ filter: 'Wave', name: 'both', input: 'photo', options: { horizontal: true, vertical: true, amplitude: 4 }, now: 250, gpu: POINTWISE },
+	// Wave floors a sine to pick which texel to read, which is a hard decision
+	// boundary in the same sense a thresholder is: the GPU works in 32-bit
+	// floats where the CPU has 64, so a value sitting a fraction either side of
+	// an integer lands on a different source pixel. The pixel is then wrong by
+	// however different its neighbour happens to be, which a per-channel
+	// tolerance cannot express.
+	{ filter: 'Wave', input: 'photo', options: { vertical: true, amplitude: 5, frequency: 12 }, now: 0, gpu: { mode: 'population', maxDifferentRatio: 0.05 } },
+	{ filter: 'Wave', name: 'both', input: 'photo', options: { horizontal: true, vertical: true, amplitude: 4 }, now: 250, gpu: { mode: 'population', maxDifferentRatio: 0.05 } },
 
 	// --- Starters --------------------------------------------------------
 	{ filter: 'FillRGB', input: 'photo', options: { red: 200, green: 80, blue: 40 }, gpu: POINTWISE },

@@ -13,6 +13,49 @@ export interface BrickulateOptions extends FilterOptions {
 }
 
 export class Brickulate extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_horizontalSegs;
+uniform float u_verticalSegs;
+uniform float u_grooveSize;
+uniform float u_offset;
+
+void main(){
+	//Draws the grid over black - it never reads the source, which matches the
+	//CPU implementation.
+	float widthSegs = floor(uSize.x / u_horizontalSegs + 0.5);
+	float heightSegs = floor(uSize.y / u_verticalSegs + 0.5);
+	float groove = u_grooveSize;
+
+	vec2 p = vec2(outPixel());
+	float xa = mod(p.x, widthSegs);
+	float ya = mod(p.y, heightSegs);
+
+	if(u_offset > 0.5 && mod(p.y, heightSegs * 2.0) < heightSegs){
+		xa += widthSegs * 0.5;
+		if(xa > widthSegs) xa -= widthSegs;
+	}
+
+	float fromLeft   = 255.0 * (groove - xa) / groove;
+	float fromRight  = 255.0 * (xa - widthSegs + groove) / groove;
+	float fromTop    = 255.0 * (groove - ya) / groove;
+	float fromBottom = 255.0 * (ya - heightSegs + groove) / groove;
+
+	float value = 0.0;
+	bool nearX = xa <= groove || xa >= widthSegs - groove;
+	bool nearY = ya <= groove || ya >= heightSegs - groove;
+
+	if(nearX && nearY){
+		value = max(max(fromLeft, fromRight), max(fromTop, fromBottom));
+	}
+	else if(xa <= groove)                value = fromLeft;
+	else if(xa >= widthSegs - groove)    value = fromRight;
+	else if(ya <= groove)                value = fromTop;
+	else if(ya >= heightSegs - groove)   value = fromBottom;
+
+	writeRGB(vec3(value));
+}
+`;
+
 	static override schema: FilterSchema = {
 		horizontalSegs: { type: 'int', label: 'Columns', min: 1, max: 20, step: 1, default: 4 },
 		verticalSegs: { type: 'int', label: 'Rows', min: 1, max: 20, step: 1, default: 4 },

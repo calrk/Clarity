@@ -11,6 +11,63 @@ export interface NormalGeneratorOptions extends FilterOptions {
 }
 
 export class NormalGenerator extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_intensity;
+
+vec3 normalise(vec3 v){
+	return v / sqrt(abs(dot(v, v)));
+}
+
+/** The interior calculation: four cross products, averaged and normalised. */
+vec3 normalAt(ivec2 p){
+	float here  = u_intensity * luma(srcTexel(p));
+	float left  = u_intensity * luma(srcTexel(p + ivec2(-1, 0)));
+	float right = u_intensity * luma(srcTexel(p + ivec2( 1, 0)));
+	float up    = u_intensity * luma(srcTexel(p + ivec2(0, -1)));
+	float down  = u_intensity * luma(srcTexel(p + ivec2(0,  1)));
+
+	vec3 c = vec3(float(p.x), float(p.y), here);
+	vec3 l = vec3(float(p.x) - 1.0, float(p.y), left);
+	vec3 r = vec3(float(p.x) + 1.0, float(p.y), right);
+	vec3 u = vec3(float(p.x), float(p.y) - 1.0, up);
+	vec3 d = vec3(float(p.x), float(p.y) + 1.0, down);
+
+	vec3 sum = normalise(cross(c - u, c - l));
+	sum += normalise(cross(c - l, c - d));
+	sum += normalise(cross(c - d, c - r));
+	sum += normalise(cross(c - r, c - u));
+
+	return normalise(sum);
+}
+
+void main(){
+	ivec2 size = ivec2(uSize);
+	ivec2 p = outPixel();
+	ivec2 q = p;
+
+	//The CPU fixes its borders in two passes afterwards - columns first, then
+	//rows, with the top row reading diagonally from (1, x+1). Resolving each
+	//border pixel to the interior pixel it ends up copying reproduces that
+	//without needing the passes.
+	if(q.y == 0){
+		q = ivec2(p.x + 1, 1);
+	}
+	else if(q.y == size.y - 1){
+		q = ivec2(p.x, size.y - 2);
+	}
+	if(q.x < 1)             q.x = 1;
+	if(q.x > size.x - 2)    q.x = size.x - 2;
+	q = clamp(q, ivec2(1), size - 2);
+
+	vec3 n = normalAt(q);
+	writeRGB(vec3(
+		(1.0 - (n.x / 2.0 + 0.5)) * 255.0,
+		(n.y / 2.0 + 0.5) * 255.0,
+		-n.z * 255.0
+	));
+}
+`;
+
 	static override schema: FilterSchema = {
 		intensity: { type: 'float', label: 'Intensity', min: 0, max: 3, step: 0.1, default: 0.5, description: 'How much the height differences tilt the normal.' }
 	};

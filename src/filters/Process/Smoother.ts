@@ -10,6 +10,30 @@ export interface SmootherOptions extends FilterOptions {
 }
 
 export class Smoother extends Filter {
+	static override shader = [
+		{
+			source: /* glsl */ `
+void main(){
+	ivec2 p = outPixel();
+	ivec2 size = ivec2(uSize);
+
+	vec3 sum = vec3(0.0);
+	float count = 0.0;
+
+	//the CPU averages only the neighbours that exist, so edge pixels divide by
+	//three and corners by two
+	if(p.x != 0)          { sum += srcTexel(p + ivec2(-1, 0)).rgb; count += 1.0; }
+	if(p.x != size.x - 1) { sum += srcTexel(p + ivec2( 1, 0)).rgb; count += 1.0; }
+	if(p.y != 0)          { sum += srcTexel(p + ivec2(0, -1)).rgb; count += 1.0; }
+	if(p.y != size.y - 1) { sum += srcTexel(p + ivec2(0,  1)).rgb; count += 1.0; }
+
+	writeRGB(sum / count);
+}
+`,
+			repeat: (filter: Filter) => Math.max(1, Number(filter.properties.iterations))
+		}
+	];
+
 	static override schema: FilterSchema = {
 		iterations: { type: 'int', label: 'Iterations', min: 1, max: 5, step: 1, default: 1 }
 	};

@@ -40,11 +40,13 @@
     "test:golden": "node --test test/golden.test.js",
     "test:update-golden": "node test/helpers/update-golden.js",
     "test:fixtures": "node test/helpers/make-fixtures.js",
-    "test:sheet": "node test/helpers/make-contact-sheet.js"
+    "test:sheet": "node test/helpers/make-contact-sheet.js",
+    "test:gpu": "node --test test/gpu-parity.test.js"
   },
   "devDependencies": {
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
+    "puppeteer-core": "^24.0.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vite-plugin-dts": "^4.4.0"

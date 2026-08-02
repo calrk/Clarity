@@ -12,6 +12,22 @@ export interface NormalFlipOptions extends FilterOptions {
 }
 
 export class NormalFlip extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_red;
+uniform float u_green;
+uniform float u_swap;
+
+void main(){
+	vec4 c = srcPixel(vUv);
+	float r = u_red   > 0.5 ? 255.0 - c.r : c.r;
+	float g = u_green > 0.5 ? 255.0 - c.g : c.g;
+	if(u_swap > 0.5){
+		float t = r; r = g; g = t;
+	}
+	writeRGB(vec3(r, g, c.b));
+}
+`;
+
 	static override schema: FilterSchema = {
 		red: { type: 'bool', label: 'Flip X', default: false },
 		green: { type: 'bool', label: 'Flip Y', default: false },

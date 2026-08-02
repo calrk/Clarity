@@ -15,6 +15,25 @@ export interface hsvShifterOptions extends FilterOptions {
 }
 
 export class hsvShifter extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_hue;
+uniform float u_saturation;
+uniform float u_value;
+
+void main(){
+	vec4 c = srcPixel(vUv);
+	vec3 hsv = rgb2hsv(c.rgb);
+
+	hsv.x += u_hue;
+	if(hsv.x > 360.0) hsv.x -= 360.0;
+	hsv.y *= u_saturation;
+	hsv.z *= u_value;
+
+	//alpha is carried through rather than forced opaque, matching the CPU
+	fragColor = vec4(hsv2rgb(hsv) / 255.0, c.a / 255.0);
+}
+`;
+
 	static override schema: FilterSchema = {
 		hue: { type: 'float', label: 'Hue', min: 0, max: 360, step: 1, default: 0, description: 'Rotation in degrees.' },
 		saturation: { type: 'float', label: 'Saturation', min: 0, max: 2, step: 0.1, default: 1 },

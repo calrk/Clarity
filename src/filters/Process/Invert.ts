@@ -11,6 +11,21 @@ export interface InvertOptions extends FilterOptions {
 }
 
 export class Invert extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_dynamic;
+
+void main(){
+	//Only the static form. Dynamic mode reflects within the frame's own min and
+	//max, which is a whole-image reduction rather than a per-pixel operation -
+	//see supportsGPU below.
+	writeRGB(vec3(255.0) - srcPixel(vUv).rgb);
+}
+`;
+
+	static override supportsGPU(filter: any): boolean {
+		return !filter.properties.dynamic;
+	}
+
 	static override schema: FilterSchema = {
 		dynamic: { type: 'bool', label: 'Dynamic', default: false, description: 'Reflects within the image own range rather than around 128.' },
 		channel: CHANNEL_FIELD

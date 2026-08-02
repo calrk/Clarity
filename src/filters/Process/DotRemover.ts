@@ -10,6 +10,35 @@ export interface DotRemoverOptions extends FilterOptions {
 }
 
 export class DotRemover extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_neighboursReq;
+
+void main(){
+	ivec2 p = outPixel();
+	ivec2 size = ivec2(uSize);
+
+	if(p.x < 1 || p.y < 1 || p.x > size.x - 2 || p.y > size.y - 2){
+		fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+		return;
+	}
+
+	//compares the red channel, like the CPU does - this runs on binary images
+	float col = srcTexel(p).r;
+	float count = 0.0;
+	if(srcTexel(p + ivec2(0, -1)).r == col) count += 1.0;
+	if(srcTexel(p + ivec2(0,  1)).r == col) count += 1.0;
+	if(srcTexel(p + ivec2(-1, 0)).r == col) count += 1.0;
+	if(srcTexel(p + ivec2( 1, 0)).r == col) count += 1.0;
+
+	if(count <= u_neighboursReq){
+		writeRGB(col > 138.0 ? vec3(0.0) : vec3(255.0));
+	}
+	else{
+		writeRGB(vec3(col));
+	}
+}
+`;
+
 	static override schema: FilterSchema = {
 		neighboursReq: { type: 'int', label: 'Neighbours required', min: 1, max: 8, step: 1, default: 1, description: 'A lit pixel with fewer lit neighbours than this is removed.' }
 	};

@@ -14,6 +14,12 @@ export interface SubtractOptions extends FilterOptions {
  * crush to black.
  */
 export class Subtract extends Filter {
+	static override shader = /* glsl */ `
+void main(){
+	writeRGB(srcPixel(vUv).rgb - src2Pixel(vUv).rgb);
+}
+`;
+
 	constructor(options: SubtractOptions = {}) {
 		super(options);
 

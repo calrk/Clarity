@@ -15,6 +15,11 @@ export type RenderSource =
 	| ImageBitmap
 	| (() => ImageData);
 
+export interface RendererOptions {
+	/** Use shaders where possible. Defaults to true. */
+	gpu?: boolean;
+}
+
 export interface SourceOptions {
 	/**
 	 * Whether the source produces a new frame every time it is read.
@@ -56,7 +61,11 @@ export class Renderer {
 	private frame: ImageData | undefined;
 	private handle = 0;
 
-	constructor(canvas: HTMLCanvasElement, pipeline = new Pipeline()) {
+	/**
+	 * Takes either a ready-made {@link Pipeline} to share, or options for one to
+	 * be built. The default pipeline uses the GPU where it can.
+	 */
+	constructor(canvas: HTMLCanvasElement, pipeline: Pipeline | RendererOptions = {}) {
 		const context = canvas.getContext('2d');
 		if (!context) {
 			throw new Error('Renderer needs a 2d context');
@@ -64,7 +73,13 @@ export class Renderer {
 
 		this.canvas = canvas;
 		this.context = context;
-		this.pipeline = pipeline;
+		this.pipeline =
+			pipeline instanceof Pipeline ? pipeline : new Pipeline([], { gpu: pipeline.gpu });
+	}
+
+	/** Whether the chain is running as shaders. */
+	get usingGPU(): boolean {
+		return this.pipeline.usingGPU;
 	}
 
 	/** Where the last render's time went. */

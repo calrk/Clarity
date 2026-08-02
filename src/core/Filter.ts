@@ -2,6 +2,7 @@ import { defaultClock } from './random.js';
 import { coerceValue } from './schema.js';
 import type { Clock, RandomSource } from './random.js';
 import type { FilterSchema, PropertyValue } from './schema.js';
+import type { ShaderDefinition } from '../gpu/GLBackend.js';
 
 /** Channel selectors accepted by `getColourValue`. */
 export type Channel =
@@ -78,6 +79,34 @@ export class Filter {
 	 */
 	static get pure(): boolean {
 		return !this.stateful && !this.varying;
+	}
+
+	/**
+	 * GLSL for the GPU path: either one fragment shader body, or a list of
+	 * passes for the filters that need more than one draw.
+	 *
+	 * Compiled against the prelude in `src/gpu/glsl.ts`, which supplies `uSrc`,
+	 * the frame size, the channel selector and one `u_<key>` uniform per schema
+	 * property - so a shader is the operation itself rather than a wall of
+	 * boilerplate. `null` means CPU only.
+	 *
+	 * The CPU implementation stays the reference. It is the oracle the parity
+	 * tests compare against and the fallback where WebGL2 is missing, so a
+	 * filter is not finished until both exist and agree.
+	 */
+	static shader: ShaderDefinition | null = null;
+
+	/**
+	 * Whether the shader covers the filter's *current* options.
+	 *
+	 * Several filters are pointwise in one mode and a whole-image reduction in
+	 * another - `Invert`'s dynamic mode needs the frame's min and max,
+	 * `ValueThreshold`'s auto mode derives its threshold from the histogram.
+	 * Rather than losing the whole filter to the CPU, the shader covers the
+	 * common case and this says when it applies.
+	 */
+	static supportsGPU(_filter: Filter): boolean {
+		return true;
 	}
 
 	channel: Channel;

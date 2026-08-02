@@ -9,6 +9,14 @@ export interface MultiplyOptions extends FilterOptions {
 }
 
 export class Multiply extends Filter {
+	static override shader = /* glsl */ `
+void main(){
+	vec3 a = srcPixel(vUv).rgb;
+	vec3 b = src2Pixel(vUv).rgb;
+	writeRGB(a * b / 255.0);
+}
+`;
+
 	constructor(options: MultiplyOptions = {}) {
 		super(options);
 		/*this.properties = {

@@ -23,6 +23,17 @@ export interface MaskOptions extends FilterOptions {
  * a thresholder or an edge detector and it behaves like a cookie cutter.
  */
 export class Mask extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_threshold;
+uniform float u_inverted;
+
+void main(){
+	float value = channelValue(src2Pixel(vUv));
+	bool keep = (value >= u_threshold) != (u_inverted > 0.5);
+	writeRGB(keep ? srcPixel(vUv).rgb : vec3(0.0));
+}
+`;
+
 	static override schema: FilterSchema = {
 		threshold: { type: 'int', label: 'Threshold', min: 0, max: 255, step: 1, default: 128, description: 'Mask values at or above this keep the first image.' },
 		inverted: { type: 'bool', label: 'Inverted', default: false },

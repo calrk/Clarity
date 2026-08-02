@@ -10,6 +10,27 @@ export interface NormalIntensityOptions extends FilterOptions {
 }
 
 export class NormalIntensity extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_intensity;
+
+vec3 normalise(vec3 v){
+	//the CPU takes sqrt(abs(dot)), which only differs for a zero vector
+	float mag = sqrt(abs(dot(v, v)));
+	return v / mag;
+}
+
+void main(){
+	vec4 c = srcPixel(vUv);
+	vec3 v = vec3((c.r - 128.0) / 128.0, (c.g - 128.0) / 128.0, c.b / 255.0);
+
+	v = normalise(v);
+	v.xy *= u_intensity;
+	v = normalise(v);
+
+	writeRGB(vec3((v.x + 1.0) * 128.0, (v.y + 1.0) * 128.0, v.z * 255.0));
+}
+`;
+
 	static override schema: FilterSchema = {
 		intensity: { type: 'float', label: 'Intensity', min: 0, max: 2, step: 0.1, default: 0.5, description: 'Below 1 flattens the normal, above 1 exaggerates it.' }
 	};

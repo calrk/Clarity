@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clarity - GPU parity harness</title>
+</head>
+<body>
+<p>Loaded by <code>npm run test:gpu</code>. Open it directly to run the same comparison in your own browser.</p>
+<pre id="out"></pre>
+
+<script type="module">
+// Runs each case twice - once through the filter's CPU implementation, once
+// through a GPU pipeline - and reports how far apart they are. The CPU path is
+// the oracle: it is the reference implementation, so a disagreement is a bug in
+// the shader until proven otherwise.
+import * as CLARITY from '/dist/clarity.js';
+
+const fixtures = new Map();
+
+async function fixture(name) {
+	if (!fixtures.has(name)) {
+		const response = await fetch(`/test/fixtures/${name}.png`);
+		const bitmap = await createImageBitmap(await response.blob());
+		const canvas = document.createElement('canvas');
+		canvas.width = bitmap.width;
+		canvas.height = bitmap.height;
+		const context = canvas.getContext('2d', { willReadFrequently: true });
+		context.drawImage(bitmap, 0, 0);
+		fixtures.set(name, context.getImageData(0, 0, bitmap.width, bitmap.height));
+	}
+	const source = fixtures.get(name);
+	const copy = new ImageData(source.width, source.height);
+	copy.data.set(source.data);
+	return copy;
+}
+
+function build(entry) {
+	const options = { ...entry.options };
+	if (entry.seed !== undefined) options.random = CLARITY.seededRandom(entry.seed);
+	if (entry.now !== undefined) options.now = () => entry.now;
+	return new CLARITY[entry.filter](options);
+}
+
+/** The fixture with the case's `pre` chain applied. */
+async function inputFrame(entry, name) {
+	let frame = await fixture(name);
+	for (const step of entry.pre ?? []) {
+		frame = build(step).process(frame);
+	}
+	return frame;
+}
+
+function compare(a, b) {
+	if (a.width !== b.width || a.height !== b.height) {
+		return { sizeMismatch: `${a.width}x${a.height} vs ${b.width}x${b.height}` };
+	}
+	let differing = 0;
+	let maxDelta = 0;
+	let overTolerance = 0;
+	for (let i = 0; i < a.data.length; i += 4) {
+		let pixelDelta = 0;
+		for (let c = 0; c < 4; c++) {
+			const delta = Math.abs(a.data[i + c] - b.data[i + c]);
+			if (delta > pixelDelta) pixelDelta = delta;
+		}
+		if (pixelDelta > maxDelta) maxDelta = pixelDelta;
+		if (pixelDelta > 0) differing++;
+		if (pixelDelta > 3) overTolerance++;
+	}
+	return {
+		differing,
+		overTolerance,
+		maxDelta,
+		total: a.width * a.height
+	};
+}
+
+window.gpuAvailable = () => CLARITY.GLBackend.create() !== null;
+
+window.runCase = async (entry) => {
+	const inputs = Array.isArray(entry.input) ? entry.input : [entry.input];
+
+	// CPU reference: the filter's own implementation, called directly
+	const cpuFilter = build(entry);
+	let cpu;
+	if (Array.isArray(entry.input) && !entry.sequence) {
+		cpu = cpuFilter.process([await inputFrame(entry, inputs[0]), await inputFrame(entry, inputs[1])]);
+	} else if (entry.sequence) {
+		for (const name of inputs) cpu = cpuFilter.process(await inputFrame(entry, name));
+	} else {
+		cpu = cpuFilter.process(await inputFrame(entry, inputs[0]));
+	}
+
+	// GPU: the same filter, freshly built, run through a pipeline
+	const gpuFilter = build(entry);
+	const pipeline = new CLARITY.Pipeline([], { gpu: true });
+	const stageOptions =
+		Array.isArray(entry.input) && !entry.sequence
+			? { second: await inputFrame(entry, inputs[1]) }
+			: {};
+	pipeline.add(gpuFilter, stageOptions);
+
+	let gpu;
+	if (entry.sequence) {
+		for (const name of inputs) gpu = pipeline.run(await inputFrame(entry, name));
+	} else {
+		gpu = pipeline.run(await inputFrame(entry, inputs[0]));
+	}
+
+	const stats = pipeline.stats;
+	const result = {
+		ranOnGPU: stats.onGPU.length > 0,
+		reason: stats.fallbacks[0]?.reason ?? null,
+		...compare(cpu, gpu)
+	};
+	pipeline.dispose();
+	return result;
+};
+
+document.getElementById('out').textContent = window.gpuAvailable()
+	? 'WebGL2 available.'
+	: 'WebGL2 NOT available.';
+</script>
+</body>
+</html>

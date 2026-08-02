@@ -13,6 +13,12 @@ export interface AddOptions extends FilterOptions {
  * 255 by the underlying Uint8ClampedArray, so bright areas blow out to white.
  */
 export class Add extends Filter {
+	static override shader = /* glsl */ `
+void main(){
+	writeRGB(srcPixel(vUv).rgb + src2Pixel(vUv).rgb);
+}
+`;
+
 	constructor(options: AddOptions = {}) {
 		super(options);
 

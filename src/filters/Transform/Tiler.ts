@@ -14,6 +14,19 @@ export interface TilerOptions extends FilterOptions {
  * and it can be tiled without a visible seam.
  */
 export class Tiler extends Filter {
+	static override shader = /* glsl */ `
+void main(){
+	ivec2 size = ivec2(uSize);
+	ivec2 half_ = ivec2(ceil(uSize * 0.5));
+	ivec2 p = outPixel();
+
+	int sx = p.x < half_.x ? p.x * 2 : (size.x - 1 - p.x) * 2 + 1;
+	int sy = p.y < half_.y ? p.y * 2 : (size.y - 1 - p.y) * 2 + 1;
+
+	writeRGB(srcTexel(ivec2(sx, sy)).rgb);
+}
+`;
+
 	constructor(options: TilerOptions = {}) {
 		super(options);
 

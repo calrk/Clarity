@@ -17,6 +17,39 @@ export interface PosteriserOptions extends FilterOptions {
 }
 
 export class Posteriser extends Filter {
+	static override shader = /* glsl */ `
+uniform float u_colours;
+uniform float u_method;
+
+void main(){
+	//Only the fast method, which snaps each channel to fixed evenly spaced
+	//bands. Median cut derives its palette from the whole image, which is a
+	//sequential algorithm rather than a per-pixel one.
+	float step_ = floor(255.0 / u_colours + 0.5);
+	vec3 c = srcPixel(vUv).rgb;
+	vec3 out_ = vec3(0.0);
+
+	for(int channel = 0; channel < 3; channel++){
+		float value = c[channel];
+		//thresholds are step, 2*step, ... up to the first one past 256
+		for(int n = 1; n <= 64; n++){
+			float thresh = step_ * float(n);
+			if(value < thresh){
+				out_[channel] = thresh - step_ / 2.0;
+				break;
+			}
+			if(thresh > 256.0) break;
+		}
+	}
+
+	writeRGB(out_);
+}
+`;
+
+	static override supportsGPU(filter: any): boolean {
+		return filter.properties.method === 'fast';
+	}
+
 	static override schema: FilterSchema = {
 		colours: { type: 'int', label: 'Colours', min: 1, max: 20, step: 1, default: 5, description: 'Palette size. Ignored by the fast method.' },
 		method: { type: 'select', label: 'Method', default: 'median', description: 'Median cut derives a palette from the image; fast snaps to fixed bands.', options: [{ value: 'median', label: 'Median cut' }, { value: 'fast', label: 'Fast' }] }
