@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clarity - canvas image filters, live</title>
+<meta name="description" content="Build a filter chain, drag to reorder, watch it run on the GPU at 60fps. Clarity is a canvas image-filter library with 41 composable filters.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+
+<header class="masthead">
+	<div class="brand">
+		<svg class="mark" viewBox="0 0 48 48" aria-hidden="true">
+			<g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+				<path d="M24 4 32 16 44 24 32 32 24 44 16 32 4 24 16 16Z" opacity=".45"/>
+				<path d="M24 11 29.5 18.5 37 24 29.5 29.5 24 37 18.5 29.5 11 24 18.5 18.5Z"/>
+			</g>
+		</svg>
+		<div>
+			<h1>Clarity</h1>
+			<p class="tagline">Canvas image filters that compose.</p>
+		</div>
+	</div>
+
+	<div class="masthead-actions">
+		<span class="badge" id="backendBadge" title="Which backend the chain is running on">&mdash;</span>
+		<button class="ghost" id="themeToggle" type="button" aria-label="Switch theme">
+			<span aria-hidden="true">◑</span>
+		</button>
+		<a class="ghost" href="https://github.com/calrk/clarity" rel="noreferrer">GitHub</a>
+	</div>
+</header>
+
+<main class="app">
+
+	<!-- ---------- left: source + palette ---------- -->
+	<aside class="rail rail-left">
+		<section class="panel">
+			<h2>Source</h2>
+			<div class="sources" id="sources"></div>
+			<label class="dropzone" id="dropzone">
+				<input type="file" id="fileInput" accept="image/*,video/*" hidden>
+				<span>Drop an image or video, or <u>choose a file</u></span>
+			</label>
+		</section>
+
+		<section class="panel grow">
+			<h2>Filters <span class="count" id="paletteCount"></span></h2>
+			<input class="search" id="paletteSearch" type="search" placeholder="Search filters" aria-label="Search filters">
+			<div class="palette" id="palette"></div>
+		</section>
+	</aside>
+
+	<!-- ---------- centre: the picture ---------- -->
+	<section class="stage">
+		<div class="viewport" id="viewport">
+			<canvas id="canvas"></canvas>
+			<p class="empty" id="stageEmpty" hidden>Add a filter to see it work.</p>
+		</div>
+
+		<div class="readout" id="readout">
+			<div class="metric"><span class="k">Backend</span><span class="v" id="mBackend">&mdash;</span></div>
+			<div class="metric"><span class="k">Frame</span><span class="v" id="mFrame">&mdash;</span></div>
+			<div class="metric"><span class="k">Size</span><span class="v" id="mSize">&mdash;</span></div>
+			<div class="metric"><span class="k">Stages</span><span class="v" id="mStages">&mdash;</span></div>
+			<button class="ghost small" id="benchButton" type="button">Compare backends</button>
+		</div>
+		<p class="bench" id="benchResult" hidden></p>
+	</section>
+
+	<!-- ---------- right: the chain ---------- -->
+	<aside class="rail rail-right">
+		<section class="panel grow">
+			<div class="panel-head">
+				<h2>Pipeline</h2>
+				<button class="ghost small" id="clearChain" type="button">Clear</button>
+			</div>
+			<ol class="chain" id="chain"></ol>
+			<p class="hint" id="chainHint">Pick a filter on the left. Drag to reorder.</p>
+		</section>
+
+		<section class="panel">
+			<div class="panel-head">
+				<h2>Code</h2>
+				<button class="ghost small" id="copyCode" type="button">Copy</button>
+			</div>
+			<pre class="code" id="code"></pre>
+			<button class="ghost small wide" id="copyLink" type="button">Copy shareable link</button>
+		</section>
+	</aside>
+
+</main>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

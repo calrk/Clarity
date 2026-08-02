@@ -25,11 +25,8 @@ export default defineConfig({
 	esbuild: {
 		keepNames: true
 	},
-	server: {
-		port: 8080,
-		// replaces the old gulp-connect task, which bound port 80 and needed admin
-		open: '/examples/index.html'
-	},
+	// The playground has its own config in site/ - `npm run site`. This one only
+	// builds the library, so it needs no dev server of its own.
 	build: {
 		outDir: 'dist',
 		emptyOutDir: true,

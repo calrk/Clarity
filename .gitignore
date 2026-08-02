@@ -6,6 +6,12 @@ aws.json
 # build output - regenerate with `npm run build`
 dist
 
+# the playground's build - regenerate with `npm run site:build`
+site/dist
+
+# wrangler's local state
+.wrangler
+
 # codemod scratch
 .codemod-manifest.json
 

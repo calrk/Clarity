@@ -193,8 +193,8 @@ Blur.schema
 ```
 
 Clarity ships **no UI code**. The schema is metadata, so build controls however
-you like — `examples/js/controls.js` is a ~90-line plain-DOM renderer that
-handles every filter, and a framework version is shorter still:
+you like — `site/src/controls.js` is a ~130-line plain-DOM renderer that handles
+every filter in the library, and a framework version is shorter still:
 
 ```svelte
 {#each Object.entries(filter.schema) as [key, field]}
@@ -235,14 +235,34 @@ Development
 
 ```sh
 npm install
-npm run dev        # serves examples/ on http://localhost:8080
+npm run dev        # the playground, with the library loaded from source
 npm run build      # emits dist/ (ESM + UMD + global) and .d.ts files
 npm run typecheck
 npm test
 ```
 
-`dist/` is generated and not committed - the examples load it, and the tests run
-against it, so run `npm run build` once after cloning.
+`dist/` is generated and not committed - the tests run against it, so run
+`npm run build` once after cloning.
+
+### Playground
+
+`site/` is a single-page playground: pick a source, drag filters into a chain,
+and watch it run. It is also the demo, so it doubles as the answer to "what does
+this library actually do".
+
+```sh
+npm run site           # dev server, library loaded from src/ rather than dist/
+npm run site:build     # static build into site/dist
+npm run deploy         # build, then wrangler deploy to Cloudflare
+```
+
+It builds nothing the library does not already expose: the palette comes from
+`CATALOGUE`, the controls from each filter's schema, the code panel from the
+chain itself. That is the test of whether the metadata is any good - if a new
+filter needs the playground edited, the metadata was not enough.
+
+Deployment is an assets-only Cloudflare Worker (`wrangler.jsonc`), so there is
+no server code.
 
 ### Tests
 

@@ -1,0 +1,432 @@
+/*
+ * Palette taken from the project's own mark: pale sage-mint over cool slate,
+ * with the paper-fold greys behind it. One accent, used sparingly, so the
+ * pictures in the middle of the page are the only saturated thing on it - which
+ * is the point of the page.
+ */
+
+:root {
+	--mint: #7fb8a9;
+	--mint-soft: #cfe3dd;
+	--mint-deep: #3f7a6c;
+
+	--bg: #f4f6f6;
+	--bg-tint: #e9eeed;
+	--panel: #ffffff;
+	--line: #dfe5e4;
+	--text: #1f2725;
+	--muted: #6b7a77;
+	--accent: var(--mint-deep);
+	--accent-wash: #eaf3f0;
+	--shadow: 0 1px 2px rgb(31 39 37 / 5%), 0 8px 24px -12px rgb(31 39 37 / 18%);
+
+	--radius: 10px;
+	--radius-sm: 7px;
+	--rail: 274px;
+
+	color-scheme: light dark;
+}
+
+/*
+ * Dark is declared twice on purpose: once for the system preference, and once
+ * for the explicit toggle, which has to win in *both* directions. A single
+ * media query cannot express "the user asked for light on a dark system".
+ */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--bg: #12181a;
+		--bg-tint: #171f21;
+		--panel: #1b2426;
+		--line: #2a3639;
+		--text: #e6edeb;
+		--muted: #8ba09c;
+		--accent: var(--mint);
+		--accent-wash: #1d2c2a;
+		--shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 28px -14px rgb(0 0 0 / 60%);
+	}
+}
+
+:root[data-theme='dark'] {
+	--bg: #12181a;
+	--bg-tint: #171f21;
+	--panel: #1b2426;
+	--line: #2a3639;
+	--text: #e6edeb;
+	--muted: #8ba09c;
+	--accent: var(--mint);
+	--accent-wash: #1d2c2a;
+	--shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 28px -14px rgb(0 0 0 / 60%);
+}
+
+* { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	color: var(--text);
+	background: var(--bg);
+	-webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; }
+
+button, input, select { font: inherit; color: inherit; }
+
+/* ---------- masthead ---------- */
+
+.masthead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: .85rem 1.25rem;
+	border-bottom: 1px solid var(--line);
+	background: var(--panel);
+}
+
+.brand { display: flex; align-items: center; gap: .75rem; }
+
+.mark { width: 34px; height: 34px; color: var(--accent); flex: none; }
+
+.brand h1 { font-size: 1.05rem; letter-spacing: -.01em; }
+
+.tagline { margin: 0; font-size: .78rem; color: var(--muted); }
+
+.masthead-actions { display: flex; align-items: center; gap: .5rem; }
+
+.badge {
+	font-size: .72rem;
+	font-weight: 600;
+	letter-spacing: .04em;
+	text-transform: uppercase;
+	padding: .3rem .55rem;
+	border-radius: 999px;
+	background: var(--accent-wash);
+	color: var(--accent);
+	white-space: nowrap;
+}
+
+.badge.cpu { background: #fdf1e3; color: #9a5b1b; }
+:root[data-theme='dark'] .badge.cpu { background: #2e2317; color: #e2a765; }
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) .badge.cpu { background: #2e2317; color: #e2a765; }
+}
+
+.ghost {
+	appearance: none;
+	background: transparent;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	padding: .35rem .7rem;
+	font-size: .82rem;
+	color: var(--muted);
+	text-decoration: none;
+	cursor: pointer;
+	transition: color .12s, border-color .12s, background .12s;
+}
+
+.ghost:hover { color: var(--text); border-color: var(--muted); }
+.ghost.small { padding: .22rem .5rem; font-size: .76rem; }
+.ghost.wide { width: 100%; margin-top: .5rem; }
+
+/* ---------- layout ---------- */
+
+.app {
+	display: grid;
+	grid-template-columns: var(--rail) minmax(0, 1fr) var(--rail);
+	gap: 1rem;
+	padding: 1rem;
+	align-items: start;
+}
+
+.rail {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	position: sticky;
+	top: 1rem;
+	max-height: calc(100vh - 96px);
+	min-width: 0;
+}
+
+.panel {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	box-shadow: var(--shadow);
+	padding: .85rem;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	gap: .6rem;
+}
+
+/*
+ * A rail is a fixed-height flex column, so any panel that is not the scrolling
+ * one has to opt out of shrinking - otherwise flex compresses it to fit and the
+ * drop zone at the bottom of the source panel simply vanishes.
+ */
+.rail > .panel { flex: 0 0 auto; }
+.panel.grow { flex: 1 1 auto; overflow: hidden; }
+
+.panel h2 {
+	font-size: .72rem;
+	letter-spacing: .08em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+
+.count { color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; }
+
+.hint { margin: 0; font-size: .78rem; color: var(--muted); }
+
+/* ---------- source picker ---------- */
+
+.sources { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+
+.source {
+	position: relative;
+	appearance: none;
+	border: 1px solid var(--line);
+	background: var(--bg-tint);
+	border-radius: var(--radius-sm);
+	padding: 0;
+	aspect-ratio: 4 / 3;
+	overflow: hidden;
+	cursor: pointer;
+	display: grid;
+	place-items: center;
+	color: var(--muted);
+	font-size: .68rem;
+}
+
+.source img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.source[aria-pressed='true'] { border-color: var(--accent); outline: 2px solid var(--accent-wash); }
+.source .label {
+	position: absolute;
+	inset: auto 0 0 0;
+	padding: .15rem .3rem;
+	font-size: .62rem;
+	background: rgb(0 0 0 / 45%);
+	color: #fff;
+	text-align: center;
+}
+
+.dropzone {
+	display: grid;
+	place-items: center;
+	text-align: center;
+	padding: .7rem;
+	font-size: .78rem;
+	color: var(--muted);
+	border: 1px dashed var(--line);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+}
+
+.dropzone.over { border-color: var(--accent); background: var(--accent-wash); color: var(--accent); }
+
+/* ---------- palette ---------- */
+
+.search {
+	width: 100%;
+	padding: .4rem .6rem;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-tint);
+}
+
+.search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/*
+ * `min-height: 0` is what makes the scroll happen. A flex item defaults to
+ * `min-height: auto`, so it refuses to shrink below its content - the list
+ * would push the panel past the bottom of the rail instead of scrolling inside
+ * it, and nothing about the CSS would look wrong.
+ */
+.palette { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 -.3rem; padding: 0 .3rem; }
+
+.palette h3 {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	margin: .5rem 0 .25rem;
+	padding: .2rem 0;
+	font-size: .66rem;
+	letter-spacing: .08em;
+	text-transform: uppercase;
+	color: var(--muted);
+	background: var(--panel);
+}
+
+.palette button {
+	display: block;
+	width: 100%;
+	text-align: left;
+	appearance: none;
+	background: transparent;
+	border: 0;
+	border-radius: var(--radius-sm);
+	padding: .3rem .45rem;
+	font-size: .85rem;
+	cursor: pointer;
+	color: var(--text);
+}
+
+.palette button:hover { background: var(--accent-wash); color: var(--accent); }
+.palette button small { display: block; color: var(--muted); font-size: .7rem; line-height: 1.35; }
+.palette button:hover small { color: inherit; opacity: .8; }
+
+/* ---------- stage ---------- */
+
+.stage { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
+
+.viewport {
+	position: relative;
+	display: grid;
+	place-items: center;
+	padding: 1rem;
+	min-height: 60vh;
+	border-radius: var(--radius);
+	border: 1px solid var(--line);
+	box-shadow: var(--shadow);
+	/* the checkerboard is load-bearing: several filters produce alpha */
+	background-color: var(--panel);
+	background-image:
+		linear-gradient(45deg, var(--bg-tint) 25%, transparent 25%),
+		linear-gradient(-45deg, var(--bg-tint) 25%, transparent 25%),
+		linear-gradient(45deg, transparent 75%, var(--bg-tint) 75%),
+		linear-gradient(-45deg, transparent 75%, var(--bg-tint) 75%);
+	background-size: 18px 18px;
+	background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+
+.viewport canvas {
+	max-width: 100%;
+	max-height: 74vh;
+	border-radius: var(--radius-sm);
+	display: block;
+}
+
+.empty { position: absolute; color: var(--muted); font-size: .85rem; }
+
+.readout {
+	display: flex;
+	align-items: center;
+	gap: 1.25rem;
+	flex-wrap: wrap;
+	padding: .6rem .85rem;
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--panel);
+	box-shadow: var(--shadow);
+}
+
+.metric { display: flex; flex-direction: column; gap: .1rem; }
+.metric .k { font-size: .64rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.metric .v { font-size: .9rem; font-variant-numeric: tabular-nums; }
+
+.readout button { margin-left: auto; }
+
+.bench {
+	margin: 0;
+	padding: .6rem .85rem;
+	font-size: .82rem;
+	border-radius: var(--radius);
+	background: var(--accent-wash);
+	color: var(--accent);
+}
+
+/* ---------- chain ---------- */
+
+.chain {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: .5rem;
+	flex: 1 1 auto;
+	min-height: 0;	/* see the note on .palette */
+	overflow-y: auto;
+}
+
+.stage-card {
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-tint);
+	overflow: hidden;
+}
+
+.stage-card.dragging { opacity: .4; }
+.stage-card.drop-before { box-shadow: 0 -2px 0 var(--accent); }
+.stage-card.drop-after { box-shadow: 0 2px 0 var(--accent); }
+.stage-card.off .stage-body,
+.stage-card.off .stage-name { opacity: .45; }
+
+.stage-head {
+	display: flex;
+	align-items: center;
+	gap: .4rem;
+	padding: .4rem .5rem;
+	cursor: grab;
+}
+
+.stage-head:active { cursor: grabbing; }
+
+.grip { color: var(--muted); font-size: .8rem; line-height: 1; letter-spacing: -1px; }
+.stage-name { flex: 1 1 auto; font-size: .85rem; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+
+.icon-button {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	color: var(--muted);
+	cursor: pointer;
+	padding: .1rem .25rem;
+	border-radius: 4px;
+	font-size: .8rem;
+	line-height: 1;
+}
+
+.icon-button:hover { color: var(--text); background: var(--panel); }
+.icon-button[aria-pressed='false'] { opacity: .5; }
+
+.stage-body { padding: 0 .5rem .5rem; display: flex; flex-direction: column; gap: .35rem; }
+
+.control { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .25rem .5rem; }
+.control .label { font-size: .74rem; color: var(--muted); }
+.control .value { font-size: .74rem; font-variant-numeric: tabular-nums; color: var(--muted); min-width: 2.5em; text-align: right; }
+.control input[type='range'] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.control select { grid-column: 1 / -1; width: 100%; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); font-size: .78rem; }
+.control input[type='checkbox'] { accent-color: var(--accent); justify-self: end; }
+.control.inline { grid-template-columns: 1fr auto; }
+.no-options { font-size: .74rem; color: var(--muted); font-style: italic; }
+
+/* ---------- code ---------- */
+
+.code {
+	margin: 0;
+	padding: .6rem;
+	max-height: 190px;
+	overflow: auto;
+	font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	background: var(--bg-tint);
+	border-radius: var(--radius-sm);
+	white-space: pre;
+	tab-size: 2;
+}
+
+/* ---------- narrow ---------- */
+
+@media (max-width: 1100px) {
+	.app { grid-template-columns: 1fr; }
+	.rail { position: static; max-height: none; }
+	.rail-left { order: 1; }
+	.stage { order: 0; }
+	.rail-right { order: 2; }
+	.palette { max-height: 320px; }
+	.viewport { min-height: 40vh; }
+}

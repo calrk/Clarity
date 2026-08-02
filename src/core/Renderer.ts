@@ -87,6 +87,19 @@ export class Renderer {
 		return this.pipeline.stats;
 	}
 
+	/**
+	 * The frame most recently read from the source, before any filter ran.
+	 *
+	 * Reading a video or an image element means drawing it into a scratch canvas
+	 * and pulling the pixels back, which is not something a caller should have to
+	 * repeat to get at the same bytes - a two-input filter masking against the
+	 * unfiltered source needs exactly this, and so does anything benchmarking the
+	 * chain against a fixed frame.
+	 */
+	get sourceFrame(): ImageData | undefined {
+		return this.frame;
+	}
+
 	get running(): boolean {
 		return this.handle !== 0;
 	}

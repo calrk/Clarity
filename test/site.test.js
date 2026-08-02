@@ -1,0 +1,245 @@
+// The playground, driven for real.
+//
+// The eight pages this replaced didn't fail loudly - they rotted quietly, and
+// by the time anyone looked, `navigator.getUserMedia` had been removed from
+// every browser and the demo had been broken for years. A demo that nobody
+// checks is a demo that is broken.
+//
+// So this loads the built site in headless Chrome and drives it: adds filters,
+// reorders them, follows a shared link, and asserts that pixels actually
+// changed. It skips cleanly when there is no browser to drive.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, extname, join, normalize } from 'node:path';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const dist = join(here, '..', 'site', 'dist');
+
+const TYPES = {
+	'.html': 'text/html',
+	'.js': 'text/javascript',
+	'.css': 'text/css',
+	'.png': 'image/png',
+	'.jpg': 'image/jpeg',
+	'.svg': 'image/svg+xml'
+};
+
+function findChrome() {
+	return [
+		process.env.CHROME_PATH,
+		'C:/Program Files/Google/Chrome/Application/chrome.exe',
+		'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+		'/usr/bin/google-chrome',
+		'/usr/bin/chromium',
+		'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+	]
+		.filter(Boolean)
+		.find((path) => existsSync(path));
+}
+
+async function serve() {
+	const server = createServer(async (request, response) => {
+		const url = request.url.split('?')[0].split('#')[0];
+		const path = join(dist, normalize(decodeURIComponent(url)));
+		try {
+			const body = await readFile(path.endsWith('/') || !extname(path) ? join(dist, 'index.html') : path);
+			response.writeHead(200, { 'content-type': TYPES[extname(path)] ?? 'text/html' });
+			response.end(body);
+		} catch {
+			response.writeHead(404).end();
+		}
+	});
+	await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+	return { server, port: server.address().port };
+}
+
+const executablePath = findChrome();
+let puppeteer;
+try {
+	puppeteer = (await import('puppeteer-core')).default;
+} catch {
+	puppeteer = null;
+}
+
+if (!existsSync(join(dist, 'index.html'))) {
+	test('playground', { skip: 'site/dist not built - run npm run site:build' }, () => {});
+} else if (!puppeteer || !executablePath) {
+	test('playground', { skip: 'no browser available to drive the page' }, () => {});
+} else {
+	const { server, port } = await serve();
+	const browser = await puppeteer.launch({
+		executablePath,
+		headless: true,
+		args: [
+			'--use-gl=angle',
+			'--use-angle=swiftshader',
+			'--enable-unsafe-swiftshader',
+			'--no-sandbox',
+			'--disable-dev-shm-usage'
+		]
+	});
+
+	const errors = [];
+	const page = await browser.newPage();
+	page.on('pageerror', (error) => errors.push(String(error)));
+	page.on('console', (message) => {
+		if (message.type() === 'error' && !message.text().includes('favicon')) {
+			errors.push(message.text());
+		}
+	});
+
+	const open = async (hash = '') => {
+		await page.goto(`http://127.0.0.1:${port}/${hash}`, { waitUntil: 'networkidle0' });
+		//the first source is decoded and drawn asynchronously
+		await page.waitForFunction(() => document.getElementById('mSize').textContent !== '—');
+	};
+
+	/** The rendered canvas, as a hash, so "did the picture change" is answerable. */
+	const canvasDigest = () =>
+		page.evaluate(() => {
+			const canvas = document.getElementById('canvas');
+			const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+			let hash = 2166136261;
+			for (let i = 0; i < data.length; i += 997) {
+				hash = Math.imul(hash ^ data[i], 16777619);
+			}
+			return `${canvas.width}x${canvas.height}:${hash >>> 0}`;
+		});
+
+	const addFilter = (name) =>
+		page.evaluate((wanted) => {
+			const button = [...document.querySelectorAll('#palette button')].find(
+				(el) => el.childNodes[0].textContent.trim() === wanted
+			);
+			if (!button) throw new Error(`no palette entry for ${wanted}`);
+			button.click();
+		}, name);
+
+	await open();
+
+	test('the page loads and renders its default source', async () => {
+		assert.deepEqual(errors, []);
+		const size = await page.$eval('#mSize', (el) => el.textContent);
+		assert.match(size, /^\d+ × \d+$/, `expected a frame size, got "${size}"`);
+	});
+
+	test('the palette lists every filter in the library', async () => {
+		const { shown, catalogued } = await page.evaluate(() => ({
+			shown: document.querySelectorAll('#palette button').length,
+			catalogued: Number(document.getElementById('paletteCount').textContent)
+		}));
+		assert.equal(shown, catalogued);
+		assert.ok(shown >= 41, `only ${shown} filters in the palette`);
+	});
+
+	test('adding a filter changes the picture', async () => {
+		const before = await canvasDigest();
+		await addFilter('Invert');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+
+		const after = await canvasDigest();
+		assert.notEqual(after, before, 'Invert left the canvas untouched');
+	});
+
+	test('the chain runs as shaders', async () => {
+		const badge = await page.$eval('#backendBadge', (el) => el.textContent);
+		assert.equal(badge, 'GPU', 'expected the shader path under SwiftShader');
+	});
+
+	test('bypassing a filter restores the original picture', async () => {
+		const filtered = await canvasDigest();
+		await page.click('#chain li .icon-button[aria-pressed]');
+		await page.waitForFunction(() => document.querySelector('#chain li').classList.contains('off'));
+
+		const bypassed = await canvasDigest();
+		assert.notEqual(bypassed, filtered);
+
+		await page.click('#chain li .icon-button[aria-pressed]');
+		await page.waitForFunction(() => !document.querySelector('#chain li').classList.contains('off'));
+		assert.equal(await canvasDigest(), filtered, 'toggling back should restore the frame exactly');
+	});
+
+	test('order matters, and reordering says so', async () => {
+		await open('#colours/Blur.radius=12/ValueThreshold.threshold=110');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 2);
+		const blurThenThreshold = await canvasDigest();
+
+		await open('#colours/ValueThreshold.threshold=110/Blur.radius=12');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 2);
+
+		assert.notEqual(
+			await canvasDigest(),
+			blurThenThreshold,
+			'swapping a blur and a threshold must not produce the same image'
+		);
+	});
+
+	test('a shared link reproduces the chain it was made from', async () => {
+		await open('#colours/Desaturate/Posteriser.colours=4/Mirror.Vertical=true');
+
+		const chain = await page.$$eval('#chain .stage-name', (els) => els.map((el) => el.textContent));
+		assert.deepEqual(chain, ['Desaturate', 'Posteriser', 'Mirror']);
+
+		//and the properties came back, not just the filters
+		const colours = await page.evaluate(
+			() => document.querySelectorAll('#chain li')[1].querySelector('.value').textContent
+		);
+		assert.equal(colours, '4');
+
+		// The link the page now advertises should be the one that produced it -
+		// and readable, not percent-escaped into soup. Only values that differ
+		// from a filter's default appear, which is why `Mirror.Horizontal` never
+		// shows up: it defaults to true.
+		const hash = await page.evaluate(() => decodeURIComponent(location.hash));
+		assert.equal(hash, '#colours/Desaturate/Posteriser.colours=4/Mirror.Vertical=true');
+	});
+
+	test('a link naming a filter that no longer exists still loads', async () => {
+		await open('#colours/Desaturate/Nonexistent.foo=1/Invert');
+		const chain = await page.$$eval('#chain .stage-name', (els) => els.map((el) => el.textContent));
+		assert.deepEqual(chain, ['Desaturate', 'Invert'], 'unknown filters are dropped, not fatal');
+	});
+
+	test('the code panel matches the chain', async () => {
+		const code = await page.$eval('#code', (el) => el.textContent);
+		assert.match(code, /import \{ Renderer, Desaturate, Invert \} from '@calrk\/clarity';/);
+		assert.match(code, /\.add\(new Desaturate\(\)\)/);
+	});
+
+	test('a size-changing filter resizes the canvas', async () => {
+		await open('#colours');
+		const before = await page.evaluate(() => document.getElementById('canvas').width);
+
+		await addFilter('Rotator');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+		//turns defaults to 0, so nothing should have moved yet
+		assert.equal(await page.evaluate(() => document.getElementById('canvas').width), before);
+
+		await page.evaluate(() => {
+			const slider = document.querySelector('#chain li input[type="range"]');
+			slider.value = 1;
+			slider.dispatchEvent(new Event('input', { bubbles: true }));
+		});
+		await page.waitForFunction(
+			(was) => document.getElementById('canvas').width !== was,
+			{},
+			before
+		);
+
+		const { width, height } = await page.evaluate(() => {
+			const canvas = document.getElementById('canvas');
+			return { width: canvas.width, height: canvas.height };
+		});
+		assert.ok(height > width, `a quarter turn of a landscape frame should be portrait, got ${width}x${height}`);
+	});
+
+	test('nothing threw along the way', async () => {
+		assert.deepEqual(errors, []);
+		await browser.close();
+		server.close();
+	});
+}

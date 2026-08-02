@@ -1,0 +1,17 @@
+{
+	// The playground is a static build, so this is an assets-only Worker: no
+	// `main`, no server code, nothing to run per request. Cloudflare serves
+	// site/dist straight from the edge.
+	//
+	//   npm run site:build && npm run deploy
+	//
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "clarity",
+	"compatibility_date": "2025-11-01",
+	"assets": {
+		"directory": "./site/dist",
+		// every route is the one page, and the hash carries the state, so a 404
+		// should hand back index.html rather than an error
+		"not_found_handling": "single-page-application"
+	}
+}

@@ -33,7 +33,11 @@
     "LICENSE"
   ],
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config site/vite.config.js",
+    "site": "vite --config site/vite.config.js",
+    "site:build": "vite build --config site/vite.config.js",
+    "site:preview": "vite preview --config site/vite.config.js",
+    "deploy": "npm run site:build && wrangler deploy",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.js",
@@ -50,6 +54,7 @@
     "puppeteer-core": "^24.0.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
-    "vite-plugin-dts": "^4.4.0"
+    "vite-plugin-dts": "^4.4.0",
+    "wrangler": "^4.118.0"
   }
 }
