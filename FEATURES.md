@@ -109,17 +109,67 @@ Prerequisite for basically everything below.
 > - **`Blur` must not touch alpha.** `stackBlurCanvasRGB` copies the frame and blurs only the colour channels, so alpha passes straight through. The shader forced it to 255 and every pixel of the alpha fixture was wrong by 255 — invisible on an opaque photo, which is exactly why the alpha fixture exists.
 > - **`Wave` is a boundary filter, not a pointwise one.** It floors a sine to choose which texel to read, and the GPU has 32-bit floats where the CPU has 64. A value a fraction either side of an integer reads a different pixel, so 3.6% of pixels differ by however far apart their neighbours happen to be. Re-tagged `population`, which is the metric that exists for precisely this.
 >
-> **Still on the CPU, and why** — these are the ones worth a conversation rather than a transliteration:
+> **Still on the CPU** — 13 filters, 14 cases. Grouped by what actually blocks them, with what it would take and what needs deciding first.
 >
-> | Filter | Why |
-> |---|---|
-> | `ValueThreshold` (auto), `MedianThreshold`, `Posteriser` (median cut) | Need a whole-image reduction the GPU cannot do in a pyramid. `ValueThreshold`'s "average" is `average = (average + colour) / 2` applied pixel by pixel — a sequential recurrence weighted towards whatever it saw last, not an average, so it has no parallel form at all |
-> | `Ghoster`, `MotionDetector`, `DifferenceDetector` | Retained frames. Want a texture pool, not a ping-pong pair |
-> | `Noise`, `Cloud` | Consume a JS PRNG per pixel. A GPU hash is fine but can never match the CPU, so "parity" needs redefining first |
-> | `Bleed`, `Glow` | Multi-pass with an extra input — Glow needs the frame *as it entered the filter* available to a later pass, which the pass model has no way to express yet |
-> | `Rotator` (quarter turns of a non-square frame) | Goes through the CPU's crop path, which #1 flagged as approximate. Reproducing an approximation nobody has settled on would bake it in |
-> | `ChannelSeparate` | A scatter with a gap-filling pass afterwards; needs inverting into a gather first |
-> | `Puzzler` | Needs its shuffle grid uploaded as a data texture |
+> **1. Retained frames** — `Ghoster`, `MotionDetector`, `DifferenceDetector`
+>
+> They keep previous frames: a weighted trail, a ring compared N back, and the first frame ever seen. A ping-pong pair of framebuffers cannot express that.
+>
+> *Solution:* a per-filter texture pool. `DifferenceDetector` needs one retained texture, `MotionDetector` a ring of `frameCount + 1`, `Ghoster` up to 30 — which wants a `sampler2DArray` rather than 30 uniforms. This is ordinary engineering, no algorithmic difficulty, and it is *cheaper* than the CPU path, which does a `createImageData` and a byte-by-byte copy per frame.
+>
+> *Open question:* **when does the history get thrown away?** A filter that runs on the GPU for a while and then falls back — a lost context, a property change that its shader does not cover — has two histories that have diverged, and the trail will jump. The rule probably has to be "history belongs to one backend, switching resets it", but that is a visible behaviour, so it should be a decision rather than an accident.
+>
+> **2. Per-pixel randomness** — `Noise`, `Cloud`
+>
+> Both pull from the injected `RandomSource` per pixel (per *channel*, for colour noise). A shader has no such stream: fragments run in an undefined order, so there is nothing to draw from in sequence.
+>
+> *Solution:* a hash of the pixel coordinate and a seed, which is the standard GPU approach and costs nothing.
+>
+> *Open question:* **which side should move?** Two real options, and they lead to different places.
+> - *Statistical parity.* Keep both implementations, add a fourth comparison metric that checks distribution rather than pixels — mean of the difference near zero, standard deviation near `intensity`, structure underneath preserved. Honest, and arguably the only correct specification of what "Noise works" means. But the two backends then visibly produce different grain, which matters if anyone screenshots a result.
+> - *Rewrite the CPU to match.* Give both paths the same coordinate-hashed PRNG. They then agree exactly, forever, and `seededRandom` still controls the output. Costs one regenerated golden per case, and `Noise` stops consuming the injected source in stream order — which is a slightly odd thing for it to have been doing anyway.
+>
+> The second is tempting precisely because it removes a whole category of "these can never agree" from the project. Worth a decision before either is written.
+>
+> **3. An extra input to a later pass** — `Glow`, `Bleed`
+>
+> `Glow` is blur-then-blend-with-the-original, and a later pass has no way to reach the frame as it entered the filter — by then `uSrc` is the blur. `Bleed` blurs a single channel through `stackBlurCanvasSingle`.
+>
+> *Solution:* bind each stage's input texture as `uOriginal` for all of its passes. That is a few lines, and it makes `Glow` three passes (blur H, blur V, blend). `Bleed` is the two-pass triangular blur already written for `Blur`, restricted to one channel.
+>
+> *Open question:* **which channel does `Bleed` actually blur?** It calls `stackBlurCanvasSingle(output, radius)` and never passes the third `channel` argument, so the vendor code receives `undefined`. Whatever it does with that is the current behaviour, and it may well be accidental. Worth reading before reproducing it.
+>
+> **4. Reductions with no parallel form** — `ValueThreshold` (auto), `MedianThreshold`
+>
+> The pyramid handles min and max, but not these. `ValueThreshold`'s "average" is `average = (average + colour) / 2` applied pixel by pixel — a sequential recurrence that weights the last pixel at 50% and the first at 2⁻ⁿ. It is not an average and has no parallel form. `MedianThreshold` needs a full histogram for its median and quartiles.
+>
+> *Solution:* for `MedianThreshold`, a 256-bin histogram is possible in WebGL2 by rendering points with additive blending into a 256×1 target, but it is awkward enough that WebGPU compute is the better home. For `ValueThreshold`, there is no faithful GPU version at all.
+>
+> *Open question:* **is the current auto threshold worth preserving?** It is almost certainly a bug rather than a design — a true mean, or Otsu's method, would be both better and a clean pyramid reduction. Changing it changes CPU output and one golden. That is a behaviour call, not a performance one.
+>
+> **5. Sequential palette construction** — `Posteriser` (median cut)
+>
+> Median cut splits colour boxes recursively; there is no parallel form of the split.
+>
+> *Solution:* the hybrid the original write-up suggested — build the palette on the CPU, upload it as a small 1D texture, do the nearest-colour lookup in the shader. That is the right split: the lookup is `O(pixels × palette)` and the build is `O(distinct colours)`.
+>
+> *Open question:* **where does the palette come from without a readback?** Building it needs the frame in CPU memory, which is the transfer this whole feature exists to avoid. Using the *previous* frame's palette is free and fine for video, and wrong for a single still. Possibly: readback on the first frame, reuse until something changes.
+>
+> **6. Scatters that need inverting first** — `ChannelSeparate`, `Rotator` (quarter turns, non-square)
+>
+> Both write to computed destinations, and a fragment shader can only gather.
+>
+> *Solution:* invert them on the CPU first, exactly as #1 did for `Mirror`, `Wave` and `Tiler`; the shader is then a transliteration. `ChannelSeparate` gets a bonus — its two gap-filling passes exist *only* because scattering leaves holes, and a gather has none, so they disappear.
+>
+> *Open questions:* for `ChannelSeparate`, **removing the gap-fill changes the output** — it should look better, but it moves a golden. For `Rotator`, **what should a quarter turn of a non-square frame even do?** Crop to a centred square, or swap the output dimensions? The current code half-does the former and #1 already flagged it as approximate. Reproducing an approximation nobody has settled on would bake it in.
+>
+> **7. Per-instance data** — `Puzzler`
+>
+> Its tile shuffle is an array, not a scalar, so it does not fit the uniforms-from-schema model.
+>
+> *Solution:* upload `swaps` as a small RGBA8 data texture and look the tile up in the shader. Straightforward.
+>
+> *Open question:* none of substance, but it needs a small API addition — a filter has no way to declare a data texture, and the grid changes on click and on property change, so it needs uploading when dirty rather than once.
 >
 > **Whole-image reductions now work on the GPU**, which took `Invert` (dynamic) and `Contourer` off that list. A fragment shader cannot loop over an image, but it can read four pixels and write one — so doing that repeatedly walks a pyramid down to a single texel holding the frame's minimum and maximum. On a 1080p frame that is eleven tiny draws against a `readPixels` of eight megabytes. A filter declares a `reduce` shader that maps each pixel to the quantity being reduced; the halving passes need no knowledge of what they are reducing, and the result arrives as `reduction()`.
 >

@@ -126,18 +126,16 @@ for (const [category, entries] of grouped) {
 			if (entryManifest?.ranOnGPU && existsSync(gpuPath)) {
 				const agreement = changeStats(readPNG(goldenPath), readPNG(gpuPath));
 				const agrees = agreement.changed < 0.01;
-				gpuPanel = `
-			<div class="arrow">&#8214;</div>
-			<div class="side"><figure><img src="${fileURI(gpuPath)}" alt="${escape(name)} on the GPU"><figcaption class="${agrees ? 'match' : 'differs'}">GPU${
-				agreement.resized
-					? ' &middot; wrong size'
+				const verdict = agreement.resized
+					? 'wrong size'
 					: agrees
-						? ' &middot; identical'
-						: ` &middot; ${agreement.changed.toFixed(1)}% differ, mean &Delta;${agreement.meanDelta.toFixed(2)}`
-			}</figcaption></figure></div>`;
+						? 'identical'
+						: `${agreement.changed.toFixed(1)}% differ &middot; &Delta;${agreement.meanDelta.toFixed(2)}`;
+
+				gpuPanel = `
+			<div class="side"><figure><img src="${fileURI(gpuPath)}" alt="${escape(name)} on the GPU"><figcaption>GPU<br><span class="${agrees ? 'match' : 'differs'}">${verdict}</span></figcaption></figure></div>`;
 			} else {
 				gpuPanel = `
-			<div class="arrow">&#8214;</div>
 			<div class="side"><figure><div class="nogpu">CPU<br>only</div><figcaption class="cpuonly">${escape(entryManifest?.reason ?? 'no shader')}</figcaption></figure></div>`;
 			}
 		}
@@ -151,9 +149,8 @@ for (const [category, entries] of grouped) {
 		${doc.summary ? `<p class="summary">${escape(doc.summary)}</p>` : ''}
 		${doc.look ? `<p class="look"><strong>Look for:</strong> ${escape(doc.look)}</p>` : ''}
 		${doc.note ? `<p class="note">${escape(doc.note)}</p>` : ''}
-		<div class="images">
-			<div class="side">${beforeImgs}</div>
-			<div class="arrow">&rarr;</div>
+		<div class="images${gpuManifest ? ' three' : ''}">
+			<div class="side inputs">${beforeImgs}</div>
 			<div class="side"><figure><img src="${fileURI(goldenPath)}" alt="${escape(name)} output"><figcaption>${gpuManifest ? 'CPU' : 'output'}</figcaption></figure></div>${gpuPanel}
 		</div>
 		<p class="options"><code>${escape(formatOptions(entry.options))}</code>${entry.sequence ? ' <em>(fed as a frame sequence)</em>' : ''}</p>
@@ -188,7 +185,8 @@ const html = `<!doctype html>
 		opacity: .6; margin: 2.5rem 0 1rem; padding-bottom: .4rem;
 		border-bottom: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
 	}
-	.grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+	/* wider than the two-panel version needed, so three images still read at a glance */
+	.grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); }
 	.card {
 		border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
 		border-radius: 10px; padding: 1rem; display: flex; flex-direction: column; gap: .5rem;
@@ -208,14 +206,41 @@ const html = `<!doctype html>
 		background: color-mix(in srgb, #a16207 12%, transparent);
 		border-left: 3px solid #a16207;
 	}
-	.images { display: flex; align-items: center; gap: .5rem; margin-top: auto; padding-top: .5rem; }
-	.side { display: flex; gap: .4rem; flex-wrap: wrap; }
-	.arrow { opacity: .4; font-size: 1.2rem; }
-	figure { margin: 0; display: flex; flex-direction: column; gap: .2rem; }
-	figcaption { font-size: .7rem; opacity: .55; text-align: center; }
+	/*
+	   Three equal columns - input, CPU, GPU - rather than a flex row of
+	   fixed-width images. Fixed widths were fine for two panels; a third
+	   overflows every card, and the dual-input cases carry two input images on
+	   top of that. Everything below sizes off the column instead, so a card can
+	   be any width and the images follow.
+	*/
+	.images {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: .5rem;
+		align-items: start;
+		margin-top: auto;
+		padding-top: .5rem;
+	}
+	.images.three { grid-template-columns: 1fr 1fr 1fr; }
+	/* min-width: 0 or a grid column refuses to shrink below its content */
+	.side { display: flex; gap: .25rem; min-width: 0; }
+	/*
+	   A dual-input case has two frames to show. Side by side in one column they
+	   come out around 60px wide and stop being readable, so they stack instead -
+	   full column width each, and that column simply runs taller than the other
+	   two.
+	*/
+	.side.inputs { flex-wrap: wrap; }
+	.side.inputs figure { flex: 1 1 100%; }
+	figure { margin: 0; display: flex; flex-direction: column; gap: .2rem; width: 100%; min-width: 0; }
+	figcaption {
+		font-size: .7rem; opacity: .55; text-align: center;
+		/* long fixture names must wrap rather than widen the column */
+		overflow-wrap: anywhere; line-height: 1.3;
+	}
 	img {
 		image-rendering: pixelated;
-		width: 128px; height: auto;
+		width: 100%; height: auto;
 		border-radius: 4px;
 		/* checkerboard, so transparency is visible rather than guessed at */
 		background-image:
@@ -224,12 +249,13 @@ const html = `<!doctype html>
 		background-size: 12px 12px;
 		background-position: 0 0, 6px 6px;
 	}
-	figcaption.match { color: #15803d; opacity: 1; }
-	figcaption.differs { color: #a16207; opacity: 1; }
-	figcaption.cpuonly { opacity: .5; max-width: 128px; }
+	figcaption .match { color: #15803d; opacity: 1; }
+	figcaption .differs { color: #a16207; opacity: 1; }
+	figcaption.cpuonly { opacity: .5; font-size: .65rem; }
 	.nogpu {
-		width: 128px; height: 96px; border-radius: 4px; display: grid; place-items: center;
-		font-size: .8rem; text-align: center; opacity: .45;
+		width: 100%; aspect-ratio: 4 / 3; border-radius: 4px;
+		display: grid; place-items: center;
+		font-size: .75rem; text-align: center; opacity: .45;
 		border: 1px dashed color-mix(in srgb, CanvasText 30%, transparent);
 	}
 	.options { margin: 0; font-size: .75rem; opacity: .65; }
