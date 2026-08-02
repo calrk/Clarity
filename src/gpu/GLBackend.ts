@@ -1,6 +1,7 @@
 import { PRELUDE, PRELUDE_LINES, VERTEX_SHADER } from './glsl.js';
 import { createImageData } from '../core/imagedata.js';
 import { seedFrom } from '../helpers/hash.js';
+import { sampleSize } from '../helpers/sample.js';
 import type { Filter } from '../core/Filter.js';
 import type { SchemaField } from '../core/schema.js';
 
@@ -136,6 +137,20 @@ void main(){
 	fragColor = texelFetch(uSrc, outPixel(), 0);
 }
 `;
+
+/** Point-samples every uSampleStep-th pixel. See GLBackend.sample. */
+const SAMPLE_PASS = /* glsl */ `
+uniform float uSampleStep;
+
+void main(){
+	int step_ = int(uSampleStep);
+	ivec2 p = outPixel() * step_;
+	fragColor = texelFetch(uSrc, min(p, ivec2(uSize) - 1), 0);
+}
+`;
+
+/** Pool slot the downscaled sample renders into, outside the ping-pong pair. */
+const SAMPLE_SLOT = 12;
 
 /**
  * WebGL2 executor for the filter chain.
@@ -434,6 +449,36 @@ export class GLBackend {
 		return this.blankArray;
 	}
 
+	/**
+	 * A small point-sampled copy of a texture, read back to the CPU.
+	 *
+	 * The twin of `sampleFrame` in src/helpers/sample.ts, which carries the
+	 * explanation. Integer arithmetic on both sides, so the two land on exactly
+	 * the same pixels rather than nearly.
+	 */
+	sample(source: WebGLTexture, width: number, height: number, longest: number): ImageData | null {
+		const program = this.program(SAMPLE_PASS, 'sample');
+		if (!program) {
+			return null;
+		}
+
+		const size = sampleSize(width, height, longest);
+		const into = this.target(SAMPLE_SLOT, size.width, size.height);
+
+		this.draw({
+			program,
+			source,
+			into,
+			width: size.width,
+			height: size.height,
+			sourceWidth: width,
+			sourceHeight: height,
+			uniforms: { uSampleStep: size.step }
+		});
+
+		return this.download(into);
+	}
+
 	/** Reads a target back into an ImageData. */
 	download(target: Target): ImageData {
 		const gl = this.gl;
@@ -519,6 +564,7 @@ export class GLBackend {
 		original?: WebGLTexture | null;
 		/** Per-instance data, bound to uData. */
 		data?: WebGLTexture | null;
+		dataSize?: [number, number];
 		/** Retained frames, bound to uHistory. */
 		history?: History | null;
 		into: Target | null;
@@ -553,6 +599,7 @@ export class GLBackend {
 		this.setUniform(options.program, 'uReduce', 2);
 		this.setUniform(options.program, 'uOriginal', 3);
 		this.setUniform(options.program, 'uData', 4);
+		this.setUniform(options.program, 'uDataSize', options.dataSize ?? [0, 0]);
 		this.setUniform(options.program, 'uHistory', 5);
 		this.setUniform(options.program, 'uHistoryHead', options.history?.head ?? 0);
 		this.setUniform(options.program, 'uHistoryCount', options.history?.before ?? 0);

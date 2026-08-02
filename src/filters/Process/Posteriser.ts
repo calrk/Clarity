@@ -3,9 +3,11 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import { medianCut, nearestColourIndex } from '../../helpers/quantise.js';
+import { sampleFrame } from '../../helpers/sample.js';
 import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
 import type { RGBTriplet } from '../../helpers/quantise.js';
+import type { FilterData } from '../../gpu/GLBackend.js';
 
 export type PosteriserMethod = 'median' | 'fast';
 
@@ -22,11 +24,46 @@ uniform float u_colours;
 uniform float u_method;
 
 void main(){
-	//Only the fast method, which snaps each channel to fixed evenly spaced
-	//bands. Median cut derives its palette from the whole image, which is a
-	//sequential algorithm rather than a per-pixel one.
-	float step_ = floor(255.0 / u_colours + 0.5);
 	vec3 c = srcPixel(vUv).rgb;
+
+	//Median cut is split between the two: the palette is built on the CPU from
+	//a small sample of the frame, uploaded as a 1D texture, and only the
+	//nearest-colour lookup runs here. That is the right seam - the lookup is
+	//O(pixels x palette) and the build is O(distinct colours).
+	if(u_method < 0.5){
+		//no palette means nothing opaque in the frame to quantise, which is the
+		//empty frame the CPU returns
+		if(uDataSize.x < 0.5){
+			fragColor = vec4(0.0);
+			return;
+		}
+
+		int best = 0;
+		float bestDistance = -1.0;
+
+		//median cut can return fewer entries than asked for, so the palette's own
+		//width is the bound. The schema caps it at 20; a loop needs a constant.
+		for(int i = 0; i < 20; i++){
+			if(i >= int(uDataSize.x)){
+				break;
+			}
+			vec3 entry = dataTexel(i, 0).rgb;
+			vec3 delta = c - entry;
+			float distance_ = dot(delta, delta);
+			//strictly less, so ties go to the lower index exactly as
+			//nearestColourIndex does
+			if(bestDistance < 0.0 || distance_ < bestDistance){
+				bestDistance = distance_;
+				best = i;
+			}
+		}
+
+		writeRGB(dataTexel(best, 0).rgb);
+		return;
+	}
+
+	//The fast method snaps each channel to fixed evenly spaced bands.
+	float step_ = floor(255.0 / u_colours + 0.5);
 	vec3 out_ = vec3(0.0);
 
 	for(int channel = 0; channel < 3; channel++){
@@ -46,8 +83,36 @@ void main(){
 }
 `;
 
-	static override supportsGPU(filter: any): boolean {
-		return filter.properties.method === 'fast';
+	/**
+	 * Median cut needs the pixels in CPU memory, and on the GPU path they are in
+	 * a texture. 48 keeps that readback to about 1% of a 1080p frame, and costs
+	 * nothing in palette quality - median cut is a colour distribution algorithm
+	 * and does not care about spatial detail.
+	 */
+	static override samples = 48;
+
+	static override prepare(filter: any, sample: ImageData): void {
+		if(filter.properties.method === 'median'){
+			filter.palette = medianCut(sample.data, { colours: filter.properties.colours });
+		}
+	}
+
+	/** The palette, as a row of texels the shader can look up. */
+	static override data(filter: any): FilterData | null {
+		const palette: RGBTriplet[] = filter.palette ?? [];
+		if(filter.properties.method !== 'median' || palette.length === 0){
+			return null;
+		}
+
+		const bytes = new Uint8Array(palette.length * 4);
+		for(let i = 0; i < palette.length; i++){
+			bytes[i*4]     = palette[i][0];
+			bytes[i*4 + 1] = palette[i][1];
+			bytes[i*4 + 2] = palette[i][2];
+			bytes[i*4 + 3] = 255;
+		}
+
+		return { width: palette.length, height: 1, bytes };
 	}
 
 	static override schema: FilterSchema = {
@@ -83,10 +148,14 @@ void main(){
 		}
 		let output = createImageData(frame.width, frame.height);
 
-		//medianCut histograms the frame itself. The old MCut needed an array of
-		//[r,g,b] triplets built per pixel first - 2 million of them at 1080p.
-		const palette = medianCut(frame.data, { colours: this.properties.colours });
-		this.palette = palette;
+		//The palette comes from a small point-sampled copy rather than the whole
+		//frame - not to save time here, but because the GPU path cannot afford to
+		//read a full frame back and the two must agree. It costs nothing in
+		//quality: median cut is a colour distribution algorithm and does not care
+		//about spatial detail. `prepare` is the shared entry point, so both
+		//backends build the palette from exactly the same pixels.
+		Posteriser.prepare(this, sampleFrame(frame, Posteriser.samples));
+		const palette = this.palette ?? [];
 
 		if(palette.length === 0){
 			return output;	//nothing opaque in the frame to quantise

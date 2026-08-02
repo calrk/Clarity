@@ -152,6 +152,26 @@ export class Filter {
 		return null;
 	}
 
+	/**
+	 * Longest edge of the downscaled copy this filter wants before it runs, or 0
+	 * for none.
+	 *
+	 * For filters that have to look at the whole image before they can process a
+	 * pixel and whose answer is not a min, a max or anything else a pyramid can
+	 * reduce. `Posteriser`'s median cut is the one: it builds a palette, which is
+	 * a sequential algorithm on pixels that live in a texture. Sampling small is
+	 * what keeps that from being a full frame readback every frame.
+	 */
+	static samples = 0;
+
+	/**
+	 * Handed the sample described by {@link samples}, before the shader runs.
+	 *
+	 * The CPU path calls this too, from `doProcess`, so the two backends derive
+	 * whatever this computes from exactly the same pixels.
+	 */
+	static prepare(_filter: Filter, _sample: ImageData): void {}
+
 	channel: Channel;
 	properties: FilterProperties = {};
 

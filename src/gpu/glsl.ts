@@ -69,6 +69,8 @@ uniform sampler2D uOriginal;
  * static data(), and read with dataTexel/dataValue below.
  */
 uniform sampler2D uData;
+/** Size of uData, or (0, 0) when the filter supplied none. */
+uniform vec2 uDataSize;
 
 /**
  * Frames this filter has already seen, for the stateful ones - Ghoster's trail,

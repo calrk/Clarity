@@ -111,6 +111,20 @@ export function executeChain(
 		const originalTexture = keepOriginal(backend, passes!, gpuTarget ? gpuTarget.texture : gpuTexture!, width, height);
 		const { width: outWidth, height: outHeight } =
 			(filter.constructor as typeof Filter).outputSize(filter, width, height);
+		//A filter that has to look at the whole image first gets a small sample of
+		//it before its shader runs. Small on purpose: this is the readback the
+		//whole GPU path exists to avoid, so it reads a thumbnail rather than the
+		//frame. See src/helpers/sample.ts.
+		const type = filter.constructor as typeof Filter;
+		if (type.samples > 0) {
+			const sample = backend.sample(
+				gpuTarget ? gpuTarget.texture : gpuTexture!, width, height, type.samples
+			);
+			if (sample) {
+				type.prepare(filter, sample);
+			}
+		}
+
 		const data = (filter.constructor as typeof Filter).data(filter);
 		const dataTexture = data ? backend.uploadData(data) : null;
 
@@ -171,6 +185,7 @@ export function executeChain(
 					reduce: reduceTexture,
 					original: originalTexture,
 					data: dataTexture,
+					dataSize: data ? [data.width, data.height] : undefined,
 					history,
 					into,
 					width: outWidth,
