@@ -96,90 +96,58 @@ Prerequisite for basically everything below.
 
 ---
 
-## 3. GPU Backend — Filters as Shaders
+## ~~3. GPU Backend — Filters as Shaders~~ ✓
 
-**Effort: High** *(depends on #2; much easier after #1)*
+**Effort: High** *(depended on #2; much easier after #1)*
 
-> **Tier 1 and 2 are done.** WebGL2 backend, ping-pong framebuffers, uniforms generated from the schemas, per-stage CPU fallback, and **30 shaders covering 40 of the 56 golden cases**. Shaders are the default path; the CPU runs where there is no shader, no WebGL2, or a filter whose options the shader doesn't cover.
+> **Done — every filter has a shader.** WebGL2 backend, ping-pong framebuffers, uniforms generated from the schemas, per-stage CPU fallback, and **all 60 parity cases running as shaders**. Shaders are the default path; the CPU runs where there is no WebGL2 — Node, an old browser, a lost context — and stays the reference implementation.
 >
-> Verified by a real parity suite rather than by inspection: `npm run test:gpu` drives headless Chrome with SwiftShader, runs every case through both paths and compares them. Node has no WebGL2 and headless-gl only implements WebGL 1, so the choice was between writing against a decade-old GLSL dialect or driving a browser — the browser wins, and SwiftShader means it needs no GPU and works in CI. **58 parity assertions, all passing, with every CPU golden byte-identical.**
+> Verified by a real parity suite rather than by inspection: `npm run test:gpu` drives headless Chrome with SwiftShader, runs every case through both paths and compares them. Node has no WebGL2 and headless-gl only implements WebGL 1, so the choice was between writing against a decade-old GLSL dialect or driving a browser — the browser wins, and SwiftShader means it needs no GPU and works in CI. **All parity assertions passing, with every CPU golden byte-identical.**
 >
 > Two things the parity suite caught that review would not have:
 >
 > - **`Blur` must not touch alpha.** `stackBlurCanvasRGB` copies the frame and blurs only the colour channels, so alpha passes straight through. The shader forced it to 255 and every pixel of the alpha fixture was wrong by 255 — invisible on an opaque photo, which is exactly why the alpha fixture exists.
 > - **`Wave` is a boundary filter, not a pointwise one.** It floors a sine to choose which texel to read, and the GPU has 32-bit floats where the CPU has 64. A value a fraction either side of an integer reads a different pixel, so 3.6% of pixels differ by however far apart their neighbours happen to be. Re-tagged `population`, which is the metric that exists for precisely this.
 >
-> **Still on the CPU** — 13 filters, 14 cases. Grouped by what actually blocks them, with what it would take and what needs deciding first.
+> **Nothing is CPU-only any more.** All 60 parity cases run as shaders. Getting the last thirteen filters there needed five additions to the executor rather than five clever shaders — each one a general capability, not a special case:
 >
-> **1. Retained frames** — `Ghoster`, `MotionDetector`, `DifferenceDetector`
+> **1. Retained frames** — `Ghoster`, `MotionDetector`, `DifferenceDetector`. A filter declares `static retains()` and gets a `sampler2DArray` of previous frames, read with `historyTexel(age, p)`. An array rather than N textures because Ghoster reaches back thirty frames, and thirty samplers is past what a fragment shader is guaranteed to have; `mode: 'first'` covers DifferenceDetector, which holds one frame rather than a ring. Cheaper than the CPU path, which does a `createImageData` and a full byte copy per frame.
 >
-> They keep previous frames: a weighted trail, a ring compared N back, and the first frame ever seen. A ping-pong pair of framebuffers cannot express that.
+> The invalidation rule is explicit: history is dropped when the chain is edited, when the filter is removed, when it goes dirty, and when it moves between backends — the last because a filter that ran as a shader and then fell back has two histories that have diverged. Storage lives on the backend, so `Filter.reset` bumps a counter the backend compares against rather than reaching into it. A GPU test covers that indirection and fails when the counter is ignored.
 >
-> *Solution:* a per-filter texture pool. `DifferenceDetector` needs one retained texture, `MotionDetector` a ring of `frameCount + 1`, `Ghoster` up to 30 — which wants a `sampler2DArray` rather than 30 uniforms. This is ordinary engineering, no algorithmic difficulty, and it is *cheaper* than the CPU path, which does a `createImageData` and a byte-by-byte copy per frame.
+> **2. Per-pixel randomness** — `Noise`, `Cloud`. Both paths now hash the pixel coordinate, so they agree *exactly* rather than statistically. `src/helpers/hash.ts` and its twin in the prelude are both 32-bit integer arithmetic — `Math.imul` is GLSL's `uint` multiply — and hand back 24 bits, because a float32 cannot hold a 32-bit integer and a shader dividing by 2³² would round the low bits away. Randomness stays injectable: one draw per frame becomes the seed, so `seededRandom` still controls the output and the grain still moves.
 >
-> *Open question:* **when does the history get thrown away?** A filter that runs on the GPU for a while and then falls back — a lost context, a property change that its shader does not cover — has two histories that have diverged, and the trail will jump. The rule probably has to be "history belongs to one backend, switching resets it", but that is a visible behaviour, so it should be a decision rather than an accident.
+> **3. An extra input to a later pass** — `Glow`, `Bleed`. The executor copies the stage's input into a slot outside the ping-pong pair when any pass mentions `uOriginal`. The copy is not optional: on a three-pass filter the third draw renders into the same target the input arrived in, so by the time the pass that wants the original runs, the original has been overwritten by the filter's own working.
 >
-> **2. Per-pixel randomness** — `Noise`, `Cloud`
+> **4. Per-instance data** — `Puzzler`. `static data()` returns a small RGBA8 block uploaded to `uData`. Puzzler's *selection* travels in it too, rather than as a uniform, because it changes on a click — and a click is not a property change, so there is no schema field for it and nothing marks the filter dirty.
 >
-> Both pull from the injected `RandomSource` per pixel (per *channel*, for colour noise). A shader has no such stream: fragments run in an undefined order, so there is nothing to draw from in sequence.
+> **5. Statistics no pyramid can reduce** — `Posteriser` (median cut), `MedianThreshold` (quartiles). Both need pixels in CPU memory, which on the GPU path means a readback — eight megabytes at 1080p, mid-chain, every frame, which is the exact cost this backend exists to avoid. So they read a *thumbnail*: `static samples` asks for a point-sampled copy at most 48 pixels on the longest edge, about 1% of the transfer, and `static prepare` is handed it before the shader runs. The palette goes back up as a 1D texture and the per-pixel lookup stays on the GPU — the right seam, since the lookup is O(pixels × palette) and the build is O(distinct colours).
 >
-> *Solution:* a hash of the pixel coordinate and a seed, which is the standard GPU approach and costs nothing.
+> The CPU calls the same `prepare` with the same sample, so both derive their palette and quartiles from identical pixels. Sampling costs nothing in quality — median cut is a colour *distribution* algorithm and does not care about spatial detail — and it point-samples rather than averaging on purpose, because averaging invents colours that are not in the image and a palette should be made of colours that are.
 >
-> *Open question:* **which side should move?** Two real options, and they lead to different places.
-> - *Statistical parity.* Keep both implementations, add a fourth comparison metric that checks distribution rather than pixels — mean of the difference near zero, standard deviation near `intensity`, structure underneath preserved. Honest, and arguably the only correct specification of what "Noise works" means. But the two backends then visibly produce different grain, which matters if anyone screenshots a result.
-> - *Rewrite the CPU to match.* Give both paths the same coordinate-hashed PRNG. They then agree exactly, forever, and `seededRandom` still controls the output. Costs one regenerated golden per case, and `Noise` stops consuming the injected source in stream order — which is a slightly odd thing for it to have been doing anyway.
+> **Filters can also change the frame's size now** (`static outputSize`), which is what let `Rotator` do the honest thing.
 >
-> The second is tempting precisely because it removes a whole category of "these can never agree" from the project. Worth a decision before either is written.
+> **Bugs this tier turned up**, none of which the golden suite could see on its own:
 >
-> **3. An extra input to a later pass** — `Glow`, `Bleed`
+> - **`Operations.YUVtoRGB` had a sign error.** The green U coefficient was spelled `- -0.39465`, so RGB → YUV → RGB was not the identity and came back shifted by 0.789·u.
+> - **`HanoverBars` did nothing at all in its default mode** — which only became visible once the above was fixed. The chroma rotation it switched on *is* Hanover bars; with `offset` defaulting to false there was nothing left, and the round-trip error was what made it look like an effect. Two bugs holding each other up, caught by the contact sheet on the next build. Now a mode select where both modes do something.
+> - **`Bleed` blurred red, always.** `stackBlurCanvasSingle` opens with a hardcoded `channel = 0` that overwrites its argument, so the `channel` control in Bleed's schema did nothing whatsoever. It is now a real composite colour bleed — chroma smeared, luma left sharp.
+> - **`ChromaticAberration`'s ramp was inverted** (and it was called `ChannelSeparate`). `1 - |x/w - 0.5| · 2` is maximum displacement at the *centre*; real chromatic aberration is a lens effect, zero on the optical axis and growing toward the corners. It survived a decade because there was no golden case for the ramped mode at all, only for `fixed`.
+> - **`ValueThreshold`'s auto mode was converging on nothing.** `average = (average + colour) / 2` per pixel weights the last pixel at 50% and the first at 2⁻ⁿ. On the photo fixture it landed above almost every pixel and produced a near-black frame. Now the midpoint of the frame's own range, which is what auto was reaching for and is exactly what the reduction pyramid already computes.
 >
-> `Glow` is blur-then-blend-with-the-original, and a later pass has no way to reach the frame as it entered the filter — by then `uSrc` is the blur. `Bleed` blurs a single channel through `stackBlurCanvasSingle`.
->
-> *Solution:* bind each stage's input texture as `uOriginal` for all of its passes. That is a few lines, and it makes `Glow` three passes (blur H, blur V, blend). `Bleed` is the two-pass triangular blur already written for `Blur`, restricted to one channel.
->
-> *Open question:* **which channel does `Bleed` actually blur?** It calls `stackBlurCanvasSingle(output, radius)` and never passes the third `channel` argument, so the vendor code receives `undefined`. Whatever it does with that is the current behaviour, and it may well be accidental. Worth reading before reproducing it.
->
-> **4. Reductions with no parallel form** — `ValueThreshold` (auto), `MedianThreshold`
->
-> The pyramid handles min and max, but not these. `ValueThreshold`'s "average" is `average = (average + colour) / 2` applied pixel by pixel — a sequential recurrence that weights the last pixel at 50% and the first at 2⁻ⁿ. It is not an average and has no parallel form. `MedianThreshold` needs a full histogram for its median and quartiles.
->
-> *Solution:* for `MedianThreshold`, a 256-bin histogram is possible in WebGL2 by rendering points with additive blending into a 256×1 target, but it is awkward enough that WebGPU compute is the better home. For `ValueThreshold`, there is no faithful GPU version at all.
->
-> *Open question:* **is the current auto threshold worth preserving?** It is almost certainly a bug rather than a design — a true mean, or Otsu's method, would be both better and a clean pyramid reduction. Changing it changes CPU output and one golden. That is a behaviour call, not a performance one.
->
-> **5. Sequential palette construction** — `Posteriser` (median cut)
->
-> Median cut splits colour boxes recursively; there is no parallel form of the split.
->
-> *Solution:* the hybrid the original write-up suggested — build the palette on the CPU, upload it as a small 1D texture, do the nearest-colour lookup in the shader. That is the right split: the lookup is `O(pixels × palette)` and the build is `O(distinct colours)`.
->
-> *Open question:* **where does the palette come from without a readback?** Building it needs the frame in CPU memory, which is the transfer this whole feature exists to avoid. Using the *previous* frame's palette is free and fine for video, and wrong for a single still. Possibly: readback on the first frame, reuse until something changes.
->
-> **6. Scatters that need inverting first** — `ChannelSeparate`, `Rotator` (quarter turns, non-square)
->
-> Both write to computed destinations, and a fragment shader can only gather.
->
-> *Solution:* invert them on the CPU first, exactly as #1 did for `Mirror`, `Wave` and `Tiler`; the shader is then a transliteration. `ChannelSeparate` gets a bonus — its two gap-filling passes exist *only* because scattering leaves holes, and a gather has none, so they disappear.
->
-> *Open questions:* for `ChannelSeparate`, **removing the gap-fill changes the output** — it should look better, but it moves a golden. For `Rotator`, **what should a quarter turn of a non-square frame even do?** Crop to a centred square, or swap the output dimensions? The current code half-does the former and #1 already flagged it as approximate. Reproducing an approximation nobody has settled on would bake it in.
->
-> **7. Per-instance data** — `Puzzler`
->
-> Its tile shuffle is an array, not a scalar, so it does not fit the uniforms-from-schema model.
->
-> *Solution:* upload `swaps` as a small RGBA8 data texture and look the tile up in the shader. Straightforward.
->
-> *Open question:* none of substance, but it needs a small API addition — a filter has no way to declare a data texture, and the grid changes on click and on property change, so it needs uploading when dirty rather than once.
+> **Float precision is a recurring hazard, and integer arithmetic is the fix.** Twice a shader disagreed with the CPU not by a rounding error but by a whole pixel of displacement, because a value that is exactly a half-integer in float64 lands either side of it in float32. `ChromaticAberration` displaced 4% of the frame that way. Both now compute their indices in integers on both sides — `round(n·d/w)` as `(2·n·d + w) / (2·w)` — and agree exactly. The same reasoning drove `Cloud`'s cell lookup, which also stopped taking a modulo by a possibly-fractional number.
 >
 > **Whole-image reductions now work on the GPU**, which took `Invert` (dynamic) and `Contourer` off that list. A fragment shader cannot loop over an image, but it can read four pixels and write one — so doing that repeatedly walks a pyramid down to a single texel holding the frame's minimum and maximum. On a 1080p frame that is eleven tiny draws against a `readPixels` of eight megabytes. A filter declares a `reduce` shader that maps each pixel to the quantity being reduced; the halving passes need no knowledge of what they are reducing, and the result arrives as `reduction()`.
 >
 > `Contourer` needed one non-obvious detail. Its thresholds are *accumulated* on the CPU (`i += difference`), and computing them as `min + n * difference` instead puts the top threshold a hair lower — enough that the single pixel sitting exactly on the frame's maximum falls into the next band and comes out 43 different. The shader accumulates too. That also produced a third comparison metric: banding agrees to rounding inside a band and can flip a whole band at an edge, which neither a tolerance nor a population budget describes.
 >
-> **The contact sheet has a third panel.** Every card now shows input → CPU → GPU, with the GPU caption reporting agreement: 32 of the 42 shader cases are *byte-identical* to the CPU, the other 10 differ by well under one unit on average, and the 14 CPU-only cases say which and why. Building it needs a browser, so `npm run test:sheet` renders through the same headless Chrome and skips the column cleanly when there isn't one.
+> **The contact sheet has a third panel.** Every card shows input → CPU → GPU, with the GPU caption reporting agreement — most cases *byte-identical* to the CPU, the rest differing by well under one unit on average. Building it needs a browser, so `npm run test:sheet` renders through the same headless Chrome and skips the column cleanly when there isn't one.
+>
+> It has more than earned its keep: it is what caught `HanoverBars` doing nothing, on the build after an unrelated fix, when every golden and every parity assertion was green.
 >
 > That column immediately caught a bug in itself: reading GPU output back through `canvas.toDataURL` premultiplies alpha, and so does `createImageBitmap` + `drawImage` on the way in, so the alpha fixture was degraded on both sides and showed a mean delta of 11 where the real figure is 0.32. Fixtures are now handed to the page as raw RGBA and results come back as raw RGBA; nothing decodes or re-encodes an image anywhere in that path.
 >
-> Tier 3 (WebGPU compute) is untouched and still the right home for the histogram-shaped reductions.
+> Tier 3 (WebGPU compute) is untouched, and is no longer *needed*: the sample-and-prepare hybrid handles the histogram-shaped filters without it. It remains the better home for them if the sampling ever proves too coarse, and would let the palette build move off the CPU entirely.
 
 > **Decided:** target **WebGL2 first, WebGPU later**, and keep the **CPU path permanently** as a first-class fallback rather than scaffolding to be deleted after the port.
 >
@@ -304,7 +272,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Done.** 133 passing tests, plus 56 GPU-parity cases skipping until #3 lands a backend.
 
-- **56 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
+- **60 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
 - **Eight fixtures** at 64×48 (photographic, hard-edged, height map, alpha, a second input for the dual-input filters, a binary image with salt-and-pepper specks for `DotRemover`, and a near-identical pair for the frame-differencing filters) plus one at **33×25** for the boundary cases — `Pixelate` walked `size` down until it divided the height, `Tiler` stepped by 2, and the whole #1 sweep was off-by-ones at edges. That 33×25 fixture earned its keep twice over: both `Pixelate` and `Tiler` were visibly wrong on it.
 - **`test/gpu-parity.test.js`** is the comparison-B harness, written and wired but skipping. #3 only has to implement two functions in it: `gpuBackendAvailable()` and `runOnGPU()`. Its non-skipped assertions still run, so the cases list and comparison logic can't rot before the backend arrives.
@@ -563,10 +531,10 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | ✓ | Correctness sweep | Low | Done — 4 crashing filters revived, 31→40 of 41 clean |
 | ✓ | ESM + Vite + publishable package | Medium | Done — TS classes, 3 bundles, types, `npm test`; found 3 more bugs |
 | ✓ | Licensing / replace GPL MCut | Low–Med | Done — MIT, no GPL code, quantiser 2-21x faster |
-| ✓ | Golden-image test suite | Medium | Done — 56 goldens, contact sheet, determinism plumbing, GPU parity harness ready |
+| ✓ | Golden-image test suite | Medium | Done — 60 goldens, contact sheet, determinism plumbing, GPU parity harness ready |
 | ✓ | `Renderer` / pipeline object | Medium | Done — headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
 | ✓ | Declarative filter schemas | Medium | Done — 717 lines out, DOM dependency gone, `setProperty` is the one write path |
-| ~ | GPU shader backend | High | Tiers 1-2 done — 32 shaders, 42/56 cases, GPU-vs-CPU parity and a contact-sheet column. Tier 3 (WebGPU compute) open |
+| ✓ | GPU shader backend | High | Done — every filter has a shader, 60/60 parity cases on the GPU, and 6 more bugs found. WebGPU compute now an optimisation rather than a requirement |
 | 5 | Demo site / pipeline playground | Med–High | High — the thing you show people; current examples are broken anyway |
 | 9 | Finish the filter wishlist | Low each | Medium — cheap and fun once the kernel template exists |
 | 11 | Docs & types | Low–Med | Medium — matters the moment anyone else looks at it |

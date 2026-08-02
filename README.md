@@ -73,10 +73,11 @@ pipeline.stats.transfers;     // times the frame crossed between the two
 new Pipeline(filters, { gpu: false });   // opt out
 ```
 
-Fallback is **per stage**, not all-or-nothing: one histogram-shaped filter in
-the middle of nine pointwise ones doesn't force the other nine back. Each
-maximal run of shader stages is uploaded once, ping-ponged through, and read
-back once.
+**Every filter has a shader**, so in a browser the whole chain runs on the GPU.
+Fallback is still **per stage** rather than all-or-nothing, for the cases where
+a shader can't compile or a filter's options aren't covered: one stage dropping
+to the CPU doesn't drag the rest with it. Each maximal run of shader stages is
+uploaded once, ping-ponged through, and read back once.
 
 The CPU implementation stays the reference. It's the oracle the parity tests
 compare against and the fallback when there's no GL, so a filter isn't finished
@@ -107,7 +108,28 @@ A pass may also declare a `reduce` shader, for filters that need to know
 something about the whole frame first. It maps each pixel to the quantity being
 reduced; a pyramid of halving passes collapses that to one texel, which the
 filter reads back with `reduction()` as (min, max). That is how `Invert`'s
-dynamic mode and `Contourer` get the frame's range without a readback.
+dynamic mode, `Contourer` and `ValueThreshold`'s auto mode get the frame's range
+without a readback.
+
+Four more hooks cover what a plain fragment shader can't reach. Each is a
+`static` on the filter:
+
+| | for | in the shader |
+|---|---|---|
+| `outputSize` | a filter that changes the frame's size — `Rotator` | `uOutSize` |
+| `retains` | previous frames — `Ghoster`, `MotionDetector` | `historyTexel(age, p)` |
+| `data` | per-instance arrays — `Puzzler`'s shuffle | `dataTexel(x, y)` |
+| `samples` + `prepare` | whole-image statistics — `Posteriser`'s palette | via `data` |
+
+`samples` is the interesting one. A filter that must see every pixel before it
+can decide anything — a median-cut palette, a set of quartiles — asks for a
+small point-sampled copy, and `prepare` is handed it before the shader runs.
+That is a thumbnail rather than the frame, so it costs about 1% of a readback.
+The CPU path calls the same `prepare` with the same sample, so both backends
+derive their answer from identical pixels.
+
+Filters needing an earlier pass's input declare nothing — a shader mentioning
+`uOriginal` gets the stage's input stashed aside for it automatically.
 
 Pipelines
 ---------
@@ -135,6 +157,12 @@ That requires knowing which filters are safe to cache, so each declares itself:
   the filter reads the clock or the random source (`Wave`, `Noise`, `Cloud`).
 
 Neither is ever cached. Everything else is pure and is.
+
+A stateful filter's history is thrown away — `reset()` — whenever it stops
+being trustworthy: the chain is edited, the filter is removed, one of its
+properties changes, or it moves between the CPU and the GPU. That last one
+matters because the two keep separate histories, and blending them makes a
+trail jump.
 
 ### Two-input filters
 
