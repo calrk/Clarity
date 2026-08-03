@@ -4,11 +4,16 @@
 // reproduces an exact filter stack, so "look what this does" is one paste
 // rather than a screenshot and a description.
 //
-// The format is deliberately readable rather than compact - `Blur.radius=8` is
+// The format is deliberately readable rather than compact - `Blur,radius=8` is
 // something you can edit by hand in the address bar, and the whole point is
 // that people play with it:
 //
-//   #photo/Desaturate/Blur.radius=8/EdgeDetector.fast=1!off
+//   #photo/Desaturate/Blur,radius=8/EdgeDetector,fast=1!off
+//
+// Properties are separated by commas rather than dots, because a dot is also
+// what a decimal point is: `Desaturate.amount=0.4` split into three pieces and
+// quietly became `amount=0`. That hit every float-valued property in the
+// library, which is most of the interesting ones.
 //
 // Values go back in as strings, which is exactly what `setProperty` is built to
 // take - it coerces per the schema. A hand-mangled value is clamped rather than
@@ -17,6 +22,7 @@
 import { CATALOGUE } from '@calrk/clarity';
 
 const SEPARATOR = '/';
+const PROPERTY = ',';
 
 /** @returns {{ source: string|null, stages: {name: string, options: object, enabled: boolean}[] }} */
 export function readHash(hash = location.hash) {
@@ -26,13 +32,13 @@ export function readHash(hash = location.hash) {
 	}
 
 	// the first segment is the source only if it is not a filter name
-	const source = CATALOGUE[parts[0].split(/[.!]/)[0]] ? null : parts.shift();
+	const source = CATALOGUE[parts[0].split(/[,!]/)[0]] ? null : parts.shift();
 	const stages = [];
 
 	for (const part of parts) {
 		const enabled = !part.endsWith('!off');
 		const body = enabled ? part : part.slice(0, -4);
-		const [name, ...pairs] = body.split('.');
+		const [name, ...pairs] = body.split(PROPERTY);
 
 		if (!CATALOGUE[name]) {
 			continue;	//a filter that has been renamed or removed, not a reason to fail
@@ -71,7 +77,7 @@ export function writeHash(sourceId, filters) {
 			//only the value is escaped. Escaping the whole segment would turn every
 			//`=` into %3D, and a link nobody can read is a link nobody edits - which
 			//was the point of choosing a readable format over a compact one
-			part += `.${key}=${value === null ? '' : encodeURIComponent(value)}`;
+			part += `${PROPERTY}${key}=${value === null ? '' : encodeURIComponent(value)}`;
 		}
 		if (!filter.enabled) {
 			part += '!off';

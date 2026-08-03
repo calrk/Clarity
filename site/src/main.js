@@ -11,7 +11,7 @@ import { CATALOGUE, CATEGORY_ORDER, Pipeline, Renderer } from '@calrk/clarity';
 
 import { createChainView, isDualInput } from './chain.js';
 import { readHash, writeHash } from './share.js';
-import { SAMPLES, loadFile, loadImage, openCamera } from './sources.js';
+import { SOURCES, addSource, loadFile, loadImage, openSource } from './sources.js';
 import './styles.css';
 
 const $ = (id) => document.getElementById(id);
@@ -51,6 +51,15 @@ function buildPalette(query = '') {
 		const heading = document.createElement('h3');
 		heading.textContent = category;
 		palette.appendChild(heading);
+
+		if (category === 'Starters') {
+			//they generate a frame rather than transforming one, which is only
+			//obvious once you have wondered why they ignore your image
+			const note = document.createElement('p');
+			note.className = 'palette-note';
+			note.textContent = 'These ignore their input. Pair them with the Blank source.';
+			palette.appendChild(note);
+		}
 
 		for (const [name, entry] of matches) {
 			const button = document.createElement('button');
@@ -96,9 +105,9 @@ const chainView = createChainView($('chain'), {
 	get secondInputs() {
 		return [
 			{ id: 'source', label: 'The unfiltered source' },
-			...SAMPLES.filter((sample) => sample.kind === 'image').map((sample) => ({
-				id: sample.id,
-				label: sample.label
+			...SOURCES.filter((source) => source.kind === 'image').map((source) => ({
+				id: source.id,
+				label: source.label
 			}))
 		];
 	},
@@ -159,48 +168,51 @@ function buildSourceList() {
 	const list = $('sources');
 	list.replaceChildren();
 
-	for (const sample of SAMPLES) {
+	for (const source of SOURCES) {
 		const button = document.createElement('button');
 		button.type = 'button';
 		button.className = 'source';
-		button.dataset.id = sample.id;
-		button.setAttribute('aria-pressed', String(sample.id === currentSourceId));
+		button.dataset.id = source.id;
+		button.title = source.label;
+		button.setAttribute('aria-pressed', String(source.id === currentSourceId));
 
-		if (sample.thumb) {
+		if (source.thumb) {
 			const img = document.createElement('img');
-			img.src = sample.thumb;
+			img.src = source.thumb;
 			img.alt = '';
 			button.appendChild(img);
 		} else {
-			button.append(sample.label === 'Webcam' ? '📷' : sample.label);
+			const glyph = document.createElement('span');
+			glyph.className = 'glyph';
+			glyph.textContent = source.glyph ?? '▦';
+			button.appendChild(glyph);
 		}
 
 		const label = document.createElement('span');
 		label.className = 'label';
-		label.textContent = sample.label;
+		label.textContent = source.label;
 		button.appendChild(label);
 
-		button.addEventListener('click', () => useSource(sample.id));
+		button.addEventListener('click', () => useSource(source.id));
 		list.appendChild(button);
 	}
 }
 
 async function useSource(id) {
-	const sample = SAMPLES.find((entry) => entry.id === id);
-	if (!sample) return;
+	const source = SOURCES.find((entry) => entry.id === id);
+	if (!source) return;
 
 	currentElement?.stop?.();
 	currentElement = null;
 
 	try {
-		if (sample.kind === 'camera') {
-			const video = await openCamera();
-			currentElement = video;
-			renderer.source(video, { live: true });
+		const { element, live } = await openSource(source);
+		currentElement = element;
+		renderer.source(element, { live });
+
+		if (live) {
 			startLoop();
 		} else {
-			const image = await loadImage(sample.url);
-			renderer.source(image, { live: false });
 			stopLoop();
 			requestFrame();
 		}
@@ -210,27 +222,29 @@ async function useSource(id) {
 	}
 
 	currentSourceId = id;
-	for (const button of $('sources').children) {
-		button.setAttribute('aria-pressed', String(button.dataset.id === id));
-	}
+	markCurrentSource();
 	updateShare();
 }
 
-/** The sample images, decoded once, so a dual-input filter can use them. */
+function markCurrentSource() {
+	for (const button of $('sources').children) {
+		button.setAttribute('aria-pressed', String(button.dataset.id === currentSourceId));
+	}
+}
+
+/** Every still image in the list, decoded, so a dual-input filter can use one. */
 async function loadSecondFrames() {
 	const scratch = document.createElement('canvas');
 	const context = scratch.getContext('2d', { willReadFrequently: true });
-	const frames = new Map();
 
-	for (const sample of SAMPLES) {
-		if (sample.kind !== 'image') continue;
-		const image = await loadImage(sample.url);
+	for (const source of SOURCES) {
+		if (source.kind !== 'image' || secondFrames.has(source.id)) continue;
+		const image = await loadImage(source.url);
 		scratch.width = image.naturalWidth;
 		scratch.height = image.naturalHeight;
 		context.drawImage(image, 0, 0);
-		frames.set(sample.id, context.getImageData(0, 0, scratch.width, scratch.height));
+		secondFrames.set(source.id, context.getImageData(0, 0, scratch.width, scratch.height));
 	}
-	secondFrames = frames;
 }
 
 function setUpDropzone() {
@@ -259,12 +273,28 @@ function setUpDropzone() {
 	});
 }
 
+/**
+ * A dropped file joins the source list for the rest of the session.
+ *
+ * Nothing is uploaded anywhere - the entry holds an object URL, so the file
+ * never leaves the machine and the list empties itself when the tab closes.
+ * Which does mean a link to a chain built on a dropped file will open on a
+ * sample instead; there is nowhere else for it to point.
+ */
 async function openFile(file) {
 	try {
 		currentElement?.stop?.();
-		const { element, live } = await loadFile(file);
+		const { element, live, spec } = await loadFile(file);
+		const id = addSource(spec);
+
 		currentElement = element;
 		renderer.source(element, { live });
+		currentSourceId = id;
+
+		buildSourceList();
+		//a dropped still can be a second input like any other
+		await loadSecondFrames();
+		chainView.render(renderer.pipeline.filters, seconds);
 
 		if (live) {
 			startLoop();
@@ -272,9 +302,6 @@ async function openFile(file) {
 			stopLoop();
 			requestFrame();
 		}
-
-		currentSourceId = null;
-		for (const button of $('sources').children) button.setAttribute('aria-pressed', 'false');
 		updateShare();
 	} catch (error) {
 		reportError(error);
@@ -311,6 +338,7 @@ function requestFrame() {
 	if (loop) return;
 	renderer.invalidateSource();
 	draw();
+	scheduleMeasure();
 }
 
 function draw() {
@@ -318,23 +346,92 @@ function draw() {
 	if (output) showStats(output);
 }
 
+/**
+ * How long a frame takes, for a source that only produces one.
+ *
+ * A still image renders once and then sits there, so "milliseconds for the
+ * single render that happened to include shader compilation" is a number with
+ * no meaning - it was the first thing on the page that was actively
+ * misleading. Instead the chain is run repeatedly against the same frame and
+ * the *median* reported, which is what a video of this size and this chain
+ * would cost per frame.
+ *
+ * Median rather than mean: one GC pause in thirty runs moves a mean and does
+ * not move a median. Debounced, so dragging a slider stays responsive and the
+ * measurement happens once the value settles.
+ */
+let measureTimer = 0;
+
+function scheduleMeasure() {
+	clearTimeout(measureTimer);
+	if (loop) {
+		return;	//a live source produces real frames; those are the honest number
+	}
+	measureTimer = setTimeout(measure, 160);
+}
+
+function measure() {
+	const frame = renderer.sourceFrame;
+	const filters = renderer.pipeline.filters;
+
+	if (!frame || !filters.length) {
+		setFrameTime(null);
+		return;
+	}
+
+	//a stateful filter would otherwise spend the burst accumulating a history of
+	//the same frame over and over, and time something nobody asked for
+	for (const filter of filters) filter.reset();
+
+	const times = [];
+	const deadline = performance.now() + 250;
+	while (times.length < 30 && performance.now() < deadline) {
+		renderer.pipeline.invalidate();
+		const at = performance.now();
+		renderer.pipeline.run(frame);
+		times.push(performance.now() - at);
+	}
+
+	times.sort((a, b) => a - b);
+	setFrameTime(times[times.length >> 1], times.length);
+
+	for (const filter of filters) filter.reset();
+	renderer.pipeline.invalidate();
+	draw();
+}
+
+function setFrameTime(ms, samples) {
+	const el = $('mFrame');
+	el.textContent = ms === null ? '—' : `${ms.toFixed(2)} ms`;
+	el.title = ms === null
+		? 'Add a filter to time the chain'
+		: samples
+			? `Median of ${samples} runs over the same frame`
+			: 'Averaged over recent frames';
+}
+
 function showStats(output) {
 	const stats = renderer.stats;
 	const stages = renderer.pipeline.length;
 
-	//an exponential average, because a per-frame number is unreadable
-	smoothedFrameTime = smoothedFrameTime ? smoothedFrameTime * 0.9 + stats.total * 0.1 : stats.total;
-
-	const backend = stages === 0 ? (renderer.usingGPU ? 'gpu' : 'cpu') : stats.backend;
+	const backend = stages === 0 ? (renderer.gpu && renderer.usingGPU ? 'gpu' : 'cpu') : stats.backend;
 	const badge = $('backendBadge');
 	badge.textContent = backend === 'gpu' ? 'GPU' : backend === 'mixed' ? 'Mixed' : 'CPU';
-	badge.classList.toggle('cpu', backend === 'cpu');
-	badge.title = renderer.usingGPU
-		? 'WebGL2 is available and shaders are running'
-		: 'No WebGL2 here, so the CPU implementations are running';
+	badge.classList.toggle('cpu', backend !== 'gpu');
+	badge.disabled = renderer.gpu && !renderer.usingGPU;
+	badge.title = badge.disabled
+		? 'No WebGL2 here, so the CPU implementations are the only option'
+		: renderer.gpu
+			? 'Running as shaders. Click to force the CPU path.'
+			: 'Forced onto the CPU path. Click to use shaders.';
 
 	$('mBackend').textContent = badge.textContent;
-	$('mFrame').textContent = stages ? `${smoothedFrameTime.toFixed(2)} ms` : '—';
+	if (loop) {
+		//a live source: an exponential average, because a per-frame number is
+		//unreadable and every frame is a real one
+		smoothedFrameTime = smoothedFrameTime ? smoothedFrameTime * 0.9 + stats.total * 0.1 : stats.total;
+		setFrameTime(stages ? smoothedFrameTime : null);
+	}
 	$('mSize').textContent = `${output.width} × ${output.height}`;
 	$('mStages').textContent = stats.fallbacks.length
 		? `${stages} (${stats.fallbacks.length} on CPU)`
@@ -475,7 +572,7 @@ async function loadFromHash() {
 		}
 	}
 
-	const wanted = SAMPLES.some((sample) => sample.id === source) ? source : SAMPLES[0].id;
+	const wanted = SOURCES.some((entry) => entry.id === source) ? source : SOURCES[0].id;
 	if (wanted !== currentSourceId) {
 		await useSource(wanted);
 	}
@@ -544,6 +641,11 @@ async function start() {
 		sync();
 	});
 	$('benchButton').addEventListener('click', benchmark);
+	$('backendBadge').addEventListener('click', () => {
+		renderer.gpu = !renderer.gpu;
+		smoothedFrameTime = 0;
+		requestFrame();
+	});
 	$('copyCode').addEventListener('click', (event) => copy($('code').textContent, event.target));
 	$('copyLink').addEventListener('click', (event) => copy(location.href, event.target));
 

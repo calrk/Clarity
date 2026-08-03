@@ -164,11 +164,11 @@ if (!existsSync(join(dist, 'index.html'))) {
 	});
 
 	test('order matters, and reordering says so', async () => {
-		await open('#colours/Blur.radius=12/ValueThreshold.threshold=110');
+		await open('#colours/Blur,radius=12/ValueThreshold,threshold=110');
 		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 2);
 		const blurThenThreshold = await canvasDigest();
 
-		await open('#colours/ValueThreshold.threshold=110/Blur.radius=12');
+		await open('#colours/ValueThreshold,threshold=110/Blur,radius=12');
 		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 2);
 
 		assert.notEqual(
@@ -179,7 +179,7 @@ if (!existsSync(join(dist, 'index.html'))) {
 	});
 
 	test('a shared link reproduces the chain it was made from', async () => {
-		await open('#colours/Desaturate/Posteriser.colours=4/Mirror.Vertical=true');
+		await open('#colours/Desaturate/Posteriser,colours=4/Mirror,Vertical=true');
 
 		const chain = await page.$$eval('#chain .stage-name', (els) => els.map((el) => el.textContent));
 		assert.deepEqual(chain, ['Desaturate', 'Posteriser', 'Mirror']);
@@ -195,11 +195,11 @@ if (!existsSync(join(dist, 'index.html'))) {
 		// from a filter's default appear, which is why `Mirror.Horizontal` never
 		// shows up: it defaults to true.
 		const hash = await page.evaluate(() => decodeURIComponent(location.hash));
-		assert.equal(hash, '#colours/Desaturate/Posteriser.colours=4/Mirror.Vertical=true');
+		assert.equal(hash, '#colours/Desaturate/Posteriser,colours=4/Mirror,Vertical=true');
 	});
 
 	test('a link naming a filter that no longer exists still loads', async () => {
-		await open('#colours/Desaturate/Nonexistent.foo=1/Invert');
+		await open('#colours/Desaturate/Nonexistent,foo=1/Invert');
 		const chain = await page.$$eval('#chain .stage-name', (els) => els.map((el) => el.textContent));
 		assert.deepEqual(chain, ['Desaturate', 'Invert'], 'unknown filters are dropped, not fatal');
 	});
@@ -235,6 +235,121 @@ if (!existsSync(join(dist, 'index.html'))) {
 			return { width: canvas.width, height: canvas.height };
 		});
 		assert.ok(height > width, `a quarter turn of a landscape frame should be portrait, got ${width}x${height}`);
+	});
+
+	test('a card is only draggable while its header is held', async () => {
+		// A `draggable` element swallows pointer gestures anywhere inside it, so
+		// leaving it on permanently made every slider in the panel click-only -
+		// dragging one started a card drag instead. Easy to reintroduce, and
+		// invisible to every other test here.
+		await open('#colours/Blur');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+
+		assert.equal(
+			await page.$eval('#chain li', (el) => el.draggable),
+			false,
+			'a card at rest must not be draggable, or its controls stop working'
+		);
+
+		await page.$eval('#chain li .stage-head', (el) =>
+			el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+		);
+		assert.equal(await page.$eval('#chain li', (el) => el.draggable), true, 'the header still starts a drag');
+	});
+
+	test('a slider actually moves the value it is bound to', async () => {
+		const radius = () => page.$eval('#chain li .value', (el) => el.textContent);
+
+		assert.equal(await radius(), '10');
+		await page.evaluate(() => {
+			const slider = document.querySelector('#chain li input[type="range"]');
+			slider.value = 25;
+			slider.dispatchEvent(new Event('input', { bubbles: true }));
+		});
+		assert.equal(await radius(), '25');
+	});
+
+	test('a fractional value survives the round trip through a link', async () => {
+		// Properties used to be dot-separated, and a dot is also a decimal point:
+		// `Desaturate.amount=0.4` split into three pieces and became `amount=0`,
+		// silently, for every float-valued property in the library
+		await open('#colours/Desaturate,amount=0.4');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+
+		assert.equal(await page.$eval('#chain li .value', (el) => el.textContent), '0.4');
+		assert.equal(
+			await page.evaluate(() => decodeURIComponent(location.hash)),
+			'#colours/Desaturate,amount=0.4'
+		);
+	});
+
+	test('a still image is timed over repeated runs, not one', async () => {
+		// A single render of a still is dominated by shader compilation and says
+		// nothing about what the chain costs, which made it worse than no number
+		await page.waitForFunction(() => document.getElementById('mFrame').textContent !== '—');
+
+		const { text, title } = await page.evaluate(() => {
+			const el = document.getElementById('mFrame');
+			return { text: el.textContent, title: el.title };
+		});
+		assert.match(text, /^\d+\.\d\d ms$/);
+		assert.match(title, /Median of \d+ runs/);
+	});
+
+	test('the backend badge forces the chain onto the CPU and back', async () => {
+		await open('#colours/Invert');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+		assert.equal(await page.$eval('#backendBadge', (el) => el.textContent), 'GPU');
+
+		await page.click('#backendBadge');
+		await page.waitForFunction(() => document.getElementById('backendBadge').textContent === 'CPU');
+		assert.equal(await page.$eval('#mBackend', (el) => el.textContent), 'CPU');
+
+		await page.click('#backendBadge');
+		await page.waitForFunction(() => document.getElementById('backendBadge').textContent === 'GPU');
+	});
+
+	test('a starter fills the blank source', async () => {
+		// The starters ignore their input, so without something to hand them they
+		// have nothing to run against at all
+		await open('#blank/FillRGB,red=200,green=40,blue=90');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+
+		const corner = await page.evaluate(() => {
+			const canvas = document.getElementById('canvas');
+			return [...canvas.getContext('2d').getImageData(4, 4, 1, 1).data];
+		});
+		assert.deepEqual(corner, [200, 40, 90, 255]);
+	});
+
+	test('a chosen file joins the source list for the session', async () => {
+		await open('#colours');
+		const before = await page.$$eval('#sources button', (els) => els.length);
+
+		const input = await page.$('#fileInput');
+		await input.uploadFile(join(here, 'fixtures', 'photo.png'));
+		await page.waitForFunction((was) => document.querySelectorAll('#sources button').length > was, {}, before);
+
+		// it is selected, and - the point of the whole thing - it is still there
+		// afterwards, so you can go back to it without dropping the file again
+		const { count, pressed, label } = await page.$$eval('#sources button', (els) => ({
+			count: els.length,
+			pressed: els.filter((el) => el.getAttribute('aria-pressed') === 'true').length,
+			label: els.at(-1).textContent
+		}));
+		assert.equal(count, before + 1);
+		assert.equal(pressed, 1);
+		assert.match(label, /photo/);
+
+		await page.evaluate(() => document.querySelector('#sources button').click());
+		await page.waitForFunction(
+			() => document.querySelector('#sources button').getAttribute('aria-pressed') === 'true'
+		);
+		assert.equal(
+			await page.$$eval('#sources button', (els) => els.length),
+			before + 1,
+			'switching away must not drop the file from the list'
+		);
 	});
 
 	test('nothing threw along the way', async () => {

@@ -261,6 +261,10 @@ It builds nothing the library does not already expose: the palette comes from
 chain itself. That is the test of whether the metadata is any good - if a new
 filter needs the playground edited, the metadata was not enough.
 
+Chains live in the URL - `#photo/Blur,radius=8/Invert` - so a link reproduces an
+exact stack. A dropped file joins the source list for the session; nothing is
+uploaded anywhere, so it only exists in that tab.
+
 Deployment is an assets-only Cloudflare Worker (`wrangler.jsonc`), so there is
 no server code.
 

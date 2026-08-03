@@ -34,7 +34,6 @@ export function createChainView(list, handlers) {
 
 		const item = document.createElement('li');
 		item.className = 'stage-card' + (filter.enabled ? '' : ' off');
-		item.draggable = true;
 		item.dataset.index = String(index);
 
 		const head = document.createElement('div');
@@ -66,6 +65,26 @@ export function createChainView(list, handlers) {
 
 		head.append(grip, title, power, remove);
 		item.appendChild(head);
+
+		/*
+		 * Draggable only while the header is held.
+		 *
+		 * A `draggable` element swallows pointer gestures anywhere inside it, so
+		 * with it set permanently, dragging a range input started a card drag
+		 * instead of moving the slider - every control in the panel was
+		 * click-only, which made half of them useless. Switching it on from the
+		 * header's pointerdown and off again on release leaves the rest of the
+		 * card behaving like ordinary controls, which is what the browser does
+		 * for you if you never make them draggable in the first place.
+		 */
+		head.addEventListener('pointerdown', () => {
+			item.draggable = true;
+		});
+		for (const type of ['pointerup', 'pointercancel', 'dragend']) {
+			item.addEventListener(type, () => {
+				item.draggable = false;
+			});
+		}
 
 		// a two-input filter needs somewhere to get its second frame from, which
 		// is a stage option rather than a property, so the schema knows nothing
