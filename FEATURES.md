@@ -2,7 +2,7 @@
 
 Clarity is a canvas image-filter library from 2014 — 41 filters across eight categories, all pure-JS `ImageData` loops, concatenated by Gulp 3 into one `CLARITY` global. The filter-chain design still holds up; everything around it (build, GPU, examples, tests) had aged out.
 
-**All eight of the original features are done**, plus #13, which was not on the list. What follows is the record: what was built, and the decisions that were not obvious at the time. Items #9–#12 are still open, and are additive rather than gaps — the library works without them.
+**All eight of the original features are done**, plus #13, which was not on the list. What follows is the record: what was built, and the decisions that were not obvious at the time. Items #9–#12 and #14 are still open, and are additive rather than gaps — the library works without them.
 
 Each shipped entry keeps its original write-up in a collapsed block underneath, because the *reasoning* is the part worth keeping and it is often the part that turned out to be wrong.
 
@@ -630,6 +630,48 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 
 ---
 
+## 14. `filterImage()` — the Primitive Under the Action
+
+**Effort: Low** *(depends on #13, which already contains most of it)*
+
+#13 filters an `<img>` when you tell it to. That is the right shape for "here is a page of images, filter them", and the wrong shape for a game — which is the case it was actually built for.
+
+A game has a **small, known set of states**: a portrait is healthy, hurt, critical or confused. #13 re-runs the whole thing on every transition — read pixels, run the chain, encode a PNG, decode it back — which is a few milliseconds at portrait size, at the exact moment something interesting is happening on screen. Precomputing every variant during a loading screen and then assigning a string is strictly better: no work at runtime, no encode, no first-application gap.
+
+So expose the layer the action is already built on:
+
+```js
+const hurt = await filterImage('/portraits/knight.png', 'ChromaticAberration,xdistance=6/Desaturate,amount=0.4');
+// => a blob URL. Put it wherever you like, revoke it when you're done.
+```
+
+That is nearly all existing code — #13 does load, read, run, encode, wrap internally. What it needs is to be pulled out, given a name, and given an explicit `revoke` so the caller owns the lifetime rather than the element.
+
+Worth adding alongside it:
+
+- **A batch form**, since the whole point is doing this at load time: take a map of `name → chain` and hand back a map of `name → url`, so the four variants of a portrait are one call and one `await`.
+- **Accept an `ImageBitmap` or a `Blob`, not only a URL** — a game that has already loaded its atlas should not fetch the file a second time.
+- **`fetch` rather than `new Image()`.** #13 sets `img.src` and waits, which works but leaves the cross-origin case dependent on the `crossorigin` attribute. Fetching gives explicit CORS control, a real HTTP error instead of a bare `onerror`, and it is the only route that works for #14's optional half, below.
+
+### The optional half: `background-image`
+
+The same action, pointed at a `<div>`. Read the URL out of `getComputedStyle(node).backgroundImage`, write the result back as an inline `background-image`. Reverting is *easier* than the `<img>` case — clear the inline style and the cascade re-applies whatever the stylesheet said.
+
+Four things make it meaningfully more awkward than it looks, and they are the reason this is a maybe rather than a yes:
+
+- **There is no `crossorigin` for a CSS background.** The browser fetches it without CORS mode and the pixels are unreadable, with no attribute to add. The only fix is to fetch the image yourself — which is why `filterImage` should be fetch-based, and why this half depends on that half.
+- **Layered backgrounds are ambiguous.** `background-image: linear-gradient(...), url(x.png)` is legal and common. "The first `url()` layer" is a workable rule but it is a rule you have to remember rather than something obvious from the call site.
+- **An inline style wins the cascade.** A stylesheet that swaps the background on `:hover` or a state class will be silently blocked by what the action wrote. The `<img>` case only fights the `src` attribute, which nothing else usually touches.
+- **A size-changing filter interacts with `cover`.** A `Rotator` quarter turn changes the image's aspect ratio, so `background-size: cover` crops differently afterwards. Correct, and surprising exactly once.
+
+### Honest expectations
+
+`filterImage` is the useful part and is close to free. The `<div>` support is a convenience with four sharp edges, and an `<img>` is arguably the more correct element for a character portrait anyway — it is content rather than decoration, and it deserves an `alt`. Build the primitive; treat the background-image action as something to add if a real page wants it.
+
+**And say plainly in the docs what neither of these is for.** `filter: blur(2px) saturate(0.3)` is free, GPU-composited and animatable, and beats anything here for the effects CSS already has. Clarity earns its place on `Puzzler`, `Bleed`, `ChromaticAberration`, `Posteriser` and `HanoverBars` — the ones with no CSS equivalent. A README that does not say so is selling the wrong thing.
+
+---
+
 ## Rough Priority Order
 
 ### Shipped, in the order it happened
@@ -651,10 +693,11 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 11 | Docs — README images, options reference | Low | **High** — it is an image library with no images in its README, and both are generated from things that already exist |
+| 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
 | 9 | Finish the filter wishlist | Low each | Medium — genuinely cheap now; start with the custom 3×3 kernel and the rest are presets |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**Do #11 next.** It is the cheapest thing on the list, and it is the difference between a library that works and a library someone else can tell works.
+**Do #11 next**, then #14. #11 is the cheapest thing on the list and it is the difference between a library that works and a library someone else can tell works. #14 is mostly extraction from code that already exists, and it is what makes #13 usable in the case it was built for.
 
 *More features to be added.*
