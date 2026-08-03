@@ -17,6 +17,7 @@ import { DotRemover } from './filters/Process/DotRemover.js';
 import { Glow } from './filters/Process/Glow.js';
 import { HanoverBars } from './filters/Process/HanoverBars.js';
 import { Invert } from './filters/Process/Invert.js';
+import { Levels } from './filters/Process/Levels.js';
 import { Noise } from './filters/Process/Noise.js';
 import { Pixelate } from './filters/Process/Pixelate.js';
 import { Posteriser } from './filters/Process/Posteriser.js';
@@ -28,6 +29,7 @@ import { SkinDetector } from './filters/Salience/SkinDetector.js';
 import { Cloud } from './filters/Starters/Cloud.js';
 import { FillHSV } from './filters/Starters/FillHSV.js';
 import { FillRGB } from './filters/Starters/FillRGB.js';
+import { Gradient } from './filters/Starters/Gradient.js';
 import { GradientThreshold } from './filters/Thresholders/GradientThreshold.js';
 import { MedianThreshold } from './filters/Thresholders/MedianThreshold.js';
 import { ValueThreshold } from './filters/Thresholders/ValueThreshold.js';
@@ -72,6 +74,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Glow,
 	HanoverBars,
 	Invert,
+	Levels,
 	Noise,
 	Pixelate,
 	Posteriser,
@@ -83,6 +86,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Cloud,
 	FillHSV,
 	FillRGB,
+	Gradient,
 	GradientThreshold,
 	MedianThreshold,
 	ValueThreshold,

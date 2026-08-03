@@ -425,19 +425,19 @@ LICENSE and is baked into every built bundle.
 Filters
 =======
 
-41 of them, in eight families. The **[full reference](docs/FILTERS.md)**
+43 of them, in eight families. The **[full reference](docs/FILTERS.md)**
 gives each one a before/after image, an options table and a live playground link -
 generated from the library by `npm run docs`, and checked by the test suite, so it
 cannot describe a filter that no longer works that way.
 
 | Family | Filters |
 |---|---|
-| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `DotRemover`, `Glow`, `HanoverBars`, `Invert`, `Noise`, `Pixelate`, `Posteriser`, `hsvShifter` |
+| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `DotRemover`, `Glow`, `HanoverBars`, `Invert`, `Levels`, `Noise`, `Pixelate`, `Posteriser`, `hsvShifter` |
 | Thresholders | `GradientThreshold`, `MedianThreshold`, `ValueThreshold` |
 | Salience | `EdgeDetector`, `MotionDetector`, `SkinDetector` |
 | Transform | `ChromaticAberration`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
 | Height Map | `Contourer`, `NormalFlip`, `NormalGenerator`, `NormalIntensity` |
-| Starters | `Cloud`, `FillHSV`, `FillRGB` |
+| Starters | `Cloud`, `FillHSV`, `FillRGB`, `Gradient` |
 | Dual Input | `Add`, `Subtract`, `Difference`, `Blend`, `Mask`, `Multiply` |
 | Misc | `Brickulate`, `DifferenceDetector`, `Ghoster`, `Puzzler` |
 

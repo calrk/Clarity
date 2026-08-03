@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-41 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+43 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [Desaturate](#desaturate) · [DotRemover](#dotremover) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Convolver](#convolver) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [DotRemover](#dotremover) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -24,7 +24,7 @@ playground link to see one at a sensible size.
 
 **Height Map** — [Contourer](#contourer) · [NormalFlip](#normalflip) · [NormalGenerator](#normalgenerator) · [NormalIntensity](#normalintensity)
 
-**Starters** — [Cloud](#cloud) · [FillHSV](#fillhsv) · [FillRGB](#fillrgb)
+**Starters** — [Cloud](#cloud) · [FillHSV](#fillhsv) · [FillRGB](#fillrgb) · [Gradient](#gradient)
 
 **Dual Input** — [Add](#add) · [Subtract](#subtract) · [Difference](#difference) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply)
 
@@ -79,6 +79,26 @@ new Blur({ radius: 6 });
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
 | `radius` | int | 1–180 | `10` | Radius of the blur, in pixels. |
+
+### Convolver
+
+Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Convolver.png" width="192" alt="Convolver applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#colours/Convolver)
+
+```js
+import { Convolver } from '@calrk/clarity';
+
+new Convolver();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `preset` | select | `smooth` · `sharpen` · `sobel` · `laplace` · `emboss` | `sharpen` | Which 3x3 matrix to convolve with. Sobel is the magnitude of two perpendicular ones. |
+| `amount` | float | 0–3 | `1` | Blends the result back over the original. 0 does nothing, 1 is the plain kernel, above 1 overshoots. |
+| `iterations` | int | 1–5 | `1` | How many times to run the kernel, each pass over the last output. |
 
 ### Desaturate
 
@@ -175,6 +195,26 @@ new Invert();
 | `dynamic` | bool | true / false | `false` | Reflects within the image own range rather than around 128. |
 | `channel` | select | `grey` · `red` · `green` · `blue` | `grey` | Which channel to read. Grey is Rec. 601 luma of all three. |
 
+### Levels
+
+Remaps the black point, white point and gamma - the everyday contrast control.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Levels.png" width="192" alt="Levels applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#colours/Levels,black=40,white=210)
+
+```js
+import { Levels } from '@calrk/clarity';
+
+new Levels({ black: 40, white: 210 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `black` | int | 0–255 | `0` | Everything this dark or darker becomes black. |
+| `white` | int | 0–255 | `255` | Everything this bright or brighter becomes white. |
+| `gamma` | float | 0.1–5 | `1` | Midtones only: above 1 brightens, below 1 darkens, and both ends stay put. |
+
 ### Noise
 
 Adds random noise, optionally monochromatic.
@@ -230,26 +270,6 @@ new Posteriser({ colours: 6 });
 |---|---|---|---|---|
 | `colours` | int | 1–20 | `5` | Palette size. Ignored by the fast method. |
 | `method` | select | `median` · `fast` | `median` | Median cut derives a palette from the image; fast snaps to fixed bands. |
-
-### Convolver
-
-Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace.
-
-<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Convolver.png" width="192" alt="Convolver applied to it">
-
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Convolver)
-
-```js
-import { Convolver } from '@calrk/clarity';
-
-new Convolver();
-```
-
-| Property | Type | Range | Default | |
-|---|---|---|---|---|
-| `preset` | select | `smooth` · `sharpen` · `sobel` · `laplace` · `emboss` | `sharpen` | Which 3x3 matrix to convolve with. Sobel is the magnitude of two perpendicular ones. |
-| `amount` | float | 0–3 | `1` | Blends the result back over the original. 0 does nothing, 1 is the plain kernel, above 1 overshoots. |
-| `iterations` | int | 1–5 | `1` | How many times to run the kernel, each pass over the last output. |
 
 ### hsvShifter
 
@@ -666,6 +686,29 @@ new FillRGB({ red: 200, green: 80, blue: 40 });
 | `red` | int | 0–255 | `0` | Red channel of the fill colour. |
 | `green` | int | 0–255 | `0` | Green channel of the fill colour. |
 | `blue` | int | 0–255 | `0` | Blue channel of the fill colour. |
+
+### Gradient
+
+Fills the frame with a linear or radial grey ramp - the mask primitive for fading anything.
+
+**Starter**
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Gradient.png" width="192" alt="Gradient applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#blank/Gradient)
+
+```js
+import { Gradient } from '@calrk/clarity';
+
+new Gradient();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `shape` | select | `linear` · `radial` | `linear` | A straight ramp, or one radiating from the centre. |
+| `angle` | int | 0–360 | `0` | Direction of a linear ramp, in degrees. 0 runs left to right. Ignored when radial. |
+| `start` | int | 0–255 | `0` | Value at the beginning of the ramp, or at the centre when radial. |
+| `end` | int | 0–255 | `255` | Value at the end of the ramp, or at the edge when radial. |
 
 ## Dual Input
 

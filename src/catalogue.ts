@@ -99,15 +99,16 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	// --- Process ---
 	Bleed: { category: 'Process', summary: "Blurs a single channel, so colour bleeds out of its edges." },
 	Blur: { category: 'Process', summary: "Stack blur - a fast Gaussian approximation." },
+	Convolver: { category: 'Process', summary: "Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace." },
 	Desaturate: { category: 'Process', summary: "Pulls colour towards grey, by an amount, keeping luminance." },
 	DotRemover: { category: 'Process', summary: "Removes isolated pixels from a binary image - a clean-up pass for the output of an edge detector or thresholder.", traits: ['binary-in'] },
 	Glow: { category: 'Process', summary: "Blurs the image and blends the blur back over the original." },
 	HanoverBars: { category: 'Process', summary: "Rotates the chroma of every other bar of lines, or darkens them." },
 	Invert: { category: 'Process', summary: "Inverts colour. In dynamic mode it reflects within the image's own range." },
+	Levels: { category: 'Process', summary: "Remaps the black point, white point and gamma - the everyday contrast control." },
 	Noise: { category: 'Process', summary: "Adds random noise, optionally monochromatic." },
 	Pixelate: { category: 'Process', summary: "Snaps the image to fixed-size blocks." },
 	Posteriser: { category: 'Process', summary: "Quantises to a fixed number of colours via median cut." },
-	Convolver: { category: 'Process', summary: "Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace." },
 	hsvShifter: { category: 'Process', summary: "Rotates hue and scales saturation/value." },
 
 	// --- Thresholders ---
@@ -138,6 +139,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Cloud: { category: 'Starters', summary: "Fills the frame with tinted value-noise clouds.", traits: ['starter'] },
 	FillHSV: { category: 'Starters', summary: "Fills the frame with one colour, specified in HSV.", traits: ['starter'] },
 	FillRGB: { category: 'Starters', summary: "Fills the frame with one colour, specified in RGB.", traits: ['starter'] },
+	Gradient: { category: 'Starters', summary: "Fills the frame with a linear or radial grey ramp - the mask primitive for fading anything.", traits: ['starter'] },
 
 	// --- Dual Input ---
 	Add: { category: 'Dual Input', summary: "Adds the second image to the first, clamping at white.", traits: ['dual'] },

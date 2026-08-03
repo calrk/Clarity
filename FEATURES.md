@@ -11,9 +11,9 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 41 of 41, each with a golden image, a GPU parity case and a generated docs entry |
+| Filters clean | 31 of 41, 4 hard crashes | 43 of 43, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 63/63 parity cases as shaders |
-| Tests | none | 484, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Tests | none | 504, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run |
 | Licence | GPL dependency | MIT throughout |
 
@@ -561,12 +561,12 @@ Modes `dilate / erode / open / close`. **Retires `DotRemover`.** It generalises 
 
 | Filter | Summary | Effort |
 |---|---|---|
-| **Levels** | Remaps the black point, white point and gamma — the everyday contrast control. | Low |
+| ~~**Levels**~~ ✓ | Remaps the black point, white point and gamma — the everyday contrast control. | Done |
 | **Sepia** | Tones the frame to warm monochrome. | Low |
 | **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
 | **LUT** | Remaps every colour through a lookup table, for film-style grades. | Medium |
 
-**`Levels` is a real gap rather than a nicety**: there is currently no brightness or contrast control anywhere in the library. `hsvShifter.value` multiplies brightness and that is the whole of it — no black point, no white point, no gamma.
+**`Levels` was a real gap rather than a nicety** and is now done: there was no brightness or contrast control anywhere in the library, only `hsvShifter.value` multiplying brightness, which can scale but never *stretch*. Gamma is applied after the black/white stretch, as `pow(t, 1/gamma)`, so the two ends stay pinned while the midtones move — doing it before would drag the ends with it.
 
 `Dither` is the one honest use of `supportsGPU`: Bayer is an ordered threshold and runs as a shader, while Floyd–Steinberg diffuses error to pixels not yet visited and is inherently sequential, so it stays CPU-only. `LUT` needs a decision on where the table comes from — a second input image, or `static data()`, which already uploads arbitrary texture data.
 
@@ -574,10 +574,10 @@ Modes `dilate / erode / open / close`. **Retires `DotRemover`.** It generalises 
 
 | Filter | Summary | Effort |
 |---|---|---|
-| **Gradient** | Fills the frame with a linear or radial ramp. | Low |
+| ~~**Gradient**~~ ✓ | Fills the frame with a linear or radial grey ramp. | Done |
 | **Voronoi** | Fills the frame with cellular noise — stone, scales, cracked ground, caustics. | Low–Medium |
 
-`Gradient` is trivial and disproportionately useful: it is the compositing primitive the library lacks, and it is what you feed `Mask` or `Blend` to make anything fade. `Voronoi` is the natural sibling of the gradient noise in `Cloud` and reuses the same hashing.
+**`Gradient` is done.** Grey rather than two colours on purpose: its job is to be a *mask*, and a coloured ramp is this multiplied by a `FillRGB` — one more stage, against six more properties nobody sets. The linear ramp normalises across the frame's extent *along the angle* rather than its width, so a diagonal reaches `end` in the corner instead of running out part way; the radial one normalises to the nearest edge, so a centred spotlight behaves as expected and the corners clamp. `Voronoi` is still open — the natural sibling of the gradient noise in `Cloud`, reusing the same hashing.
 
 ### Video and CRT
 

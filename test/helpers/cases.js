@@ -46,6 +46,8 @@ const NORMAL = [{ filter: 'NormalGenerator', options: { intensity: 1 } }];
 export const cases = [
 	// --- Process: pointwise ---------------------------------------------
 	{ filter: 'Invert', input: 'photo', options: {}, gpu: POINTWISE },
+	{ filter: 'Levels', input: 'photo', options: { black: 40, white: 210 }, gpu: POINTWISE },
+	{ filter: 'Levels', name: 'gamma', input: 'photo', options: { gamma: 2.2 }, gpu: POINTWISE },
 	{ filter: "Invert", name: "dynamic", input: "photo", options: { dynamic: true }, gpu: POINTWISE },
 	{ filter: 'Desaturate', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Desaturate', name: 'partial', input: 'photo', options: { amount: 0.4 }, gpu: POINTWISE },
@@ -127,6 +129,9 @@ export const cases = [
 	// --- Starters --------------------------------------------------------
 	{ filter: 'FillRGB', input: 'photo', options: { red: 200, green: 80, blue: 40 }, gpu: POINTWISE },
 	{ filter: 'FillHSV', input: 'photo', options: { hue: 200, saturation: 0.8, value: 0.9 }, gpu: POINTWISE },
+	{ filter: 'Gradient', input: 'photo', options: {}, gpu: POINTWISE },
+	{ filter: 'Gradient', name: 'angled', input: 'photo', options: { angle: 35 }, gpu: POINTWISE },
+	{ filter: 'Gradient', name: 'radial', input: 'photo', options: { shape: 'radial', start: 255, end: 0 }, gpu: POINTWISE },
 	{ filter: 'Cloud', input: 'photo', options: { red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 	// alpha derived from the colour rather than opaque - the texture-mask mode,
 	// and the only case that exercises a non-255 alpha out of a starter

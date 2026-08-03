@@ -79,6 +79,8 @@ export { HanoverBars } from './filters/Process/HanoverBars.js';
 export type { HanoverBarsOptions } from './filters/Process/HanoverBars.js';
 export { Invert } from './filters/Process/Invert.js';
 export type { InvertOptions } from './filters/Process/Invert.js';
+export { Levels } from './filters/Process/Levels.js';
+export type { LevelsOptions } from './filters/Process/Levels.js';
 export { Noise } from './filters/Process/Noise.js';
 export type { NoiseOptions } from './filters/Process/Noise.js';
 export { Pixelate } from './filters/Process/Pixelate.js';
@@ -105,6 +107,8 @@ export { FillHSV } from './filters/Starters/FillHSV.js';
 export type { FillHSVOptions } from './filters/Starters/FillHSV.js';
 export { FillRGB } from './filters/Starters/FillRGB.js';
 export type { FillRGBOptions } from './filters/Starters/FillRGB.js';
+export { Gradient } from './filters/Starters/Gradient.js';
+export type { GradientOptions, GradientShape } from './filters/Starters/Gradient.js';
 
 // Thresholders
 export { GradientThreshold } from './filters/Thresholders/GradientThreshold.js';
