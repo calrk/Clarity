@@ -126,8 +126,8 @@ export const cases = [
 	{ filter: 'Cloud', input: 'photo', options: { red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 	// alpha derived from the colour rather than opaque - the texture-mask mode,
 	// and the only case that exercises a non-255 alpha out of a starter
-	{ filter: 'Cloud', name: 'ridged', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'ridged', persistence: 0.5 }, seed: 7, gpu: ACCUMULATING },
-	{ filter: 'Cloud', name: 'billow', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'billow', persistence: 0.5 }, seed: 7, gpu: ACCUMULATING },
+	{ filter: 'Cloud', name: 'ridged', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'ridged' }, seed: 7, gpu: ACCUMULATING },
+	{ filter: 'Cloud', name: 'billow', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'billow' }, seed: 7, gpu: ACCUMULATING },
 	{ filter: 'Cloud', name: 'mask', input: 'photo', options: { red: 255, green: 200, blue: 120, opaque: false, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 
 	// --- Dual input ------------------------------------------------------

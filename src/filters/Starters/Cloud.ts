@@ -203,10 +203,10 @@ void main(){
 			min: 0.1,
 			max: 0.9,
 			step: 0.05,
-			default: null,
+			default: 0.5,
 			nullable: true,
 			nullLabel: 'Harmonic',
-			description: 'How much quieter each octave is than the last. Lower is smoother; 0.5 is standard fBm. Worth setting whenever Fold is on.'
+			description: 'How much quieter each octave is than the last. Lower is smoother; 0.5 is standard fBm. Harmonic is the original falloff, kept for compatibility - it also darkens the frame the more octaves you ask for.'
 		},
 		iterations: { type: 'int', label: 'Iterations', min: 1, max: 10, step: 1, default: 4, description: 'Octaves of value noise.' },
 		initialSize: { type: 'int', label: 'Initial size', min: 1, max: 16, step: 1, default: 4, description: 'Grid size of the coarsest octave.' }
@@ -233,7 +233,9 @@ void main(){
 			opaque: options.opaque !== false,
 			linear: options.linear || false,
 			fold: options.fold ?? 'none',
-			persistence: options.persistence ?? null,
+			//not `?? 0.5`: that would turn an explicit null - the caller asking
+			//for the harmonic falloff - back into the default
+			persistence: options.persistence === undefined ? 0.5 : options.persistence,
 			iterations: options.iterations || 4,
 			initialSize: options.initialSize || 4
 		};

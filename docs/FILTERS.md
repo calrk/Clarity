@@ -635,7 +635,7 @@ new Cloud({ red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 });
 | `opaque` | bool | true / false | `true` | Off derives alpha from the colour, for use as a texture mask. |
 | `linear` | bool | true / false | `false` | Skip the fade curve on the cell blend. Cheaper, and it makes the lattice edges visible. |
 | `fold` | select | `none` · `ridged` · `billow` | `none` | Folds each octave about zero. Ridged gives sharp crests over broad basins - terrain rather than fog; billow gives puffy cells with dark seams. |
-| `persistence` | float | 0.1–0.9, or empty for Harmonic | _Harmonic_ | How much quieter each octave is than the last. Lower is smoother; 0.5 is standard fBm. Worth setting whenever Fold is on. |
+| `persistence` | float | 0.1–0.9, or empty for Harmonic | `0.5` | How much quieter each octave is than the last. Lower is smoother; 0.5 is standard fBm. Harmonic is the original falloff, kept for compatibility - it also darkens the frame the more octaves you ask for. |
 | `iterations` | int | 1–10 | `4` | Octaves of value noise. |
 | `initialSize` | int | 1–16 | `4` | Grid size of the coarsest octave. |
 
