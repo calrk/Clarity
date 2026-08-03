@@ -8,6 +8,12 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "clarity",
 	"compatibility_date": "2025-11-01",
+	// A custom domain rather than the workers.dev subdomain, because the docs
+	// link into this with a chain in the hash and those links are meant to
+	// outlive the deployment they were written against. Wrangler creates the
+	// DNS record itself, so `clarklavery.com` needs to be a zone on the same
+	// Cloudflare account and nothing else needs setting up by hand.
+	"routes": [{ "pattern": "clarity.clarklavery.com", "custom_domain": true }],
 	"assets": {
 		"directory": "./site/dist",
 		// every route is the one page, and the hash carries the state, so a 404
