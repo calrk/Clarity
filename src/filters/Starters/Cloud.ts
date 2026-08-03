@@ -13,6 +13,8 @@ export interface CloudOptions extends FilterOptions {
 	linear?: boolean;
 	iterations?: number;
 	initialSize?: number;
+	/** Opaque output. Off derives alpha from the colour - see {@link Cloud}. */
+	opaque?: boolean;
 }
 
 export class Cloud extends Filter {
@@ -23,6 +25,7 @@ export class Cloud extends Filter {
 uniform float u_red;
 uniform float u_green;
 uniform float u_blue;
+uniform float u_opaque;
 uniform float u_linear;
 uniform float u_iterations;
 uniform float u_initialSize;
@@ -80,15 +83,18 @@ void main(){
 		value * u_red / 255.0,
 		value * u_green / 255.0,
 		value * u_blue / 255.0,
-		(u_red + u_green + u_blue) / 3.0
+		u_opaque > 0.5 ? 255.0 : (u_red + u_green + u_blue) / 3.0
 	));
 }
 `;
 
 	static override schema: FilterSchema = {
-		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 0 },
-		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 0 },
-		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 0 },
+		//White by default. The colour scales the noise, so zero meant a black
+		//frame - and with the old alpha rule, an invisible one.
+		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 255 },
+		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 255 },
+		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 255 },
+		opaque: { type: 'bool', label: 'Opaque', default: true, description: 'Off derives alpha from the colour, for use as a texture mask.' },
 		linear: { type: 'bool', label: 'Linear', default: false },
 		iterations: { type: 'int', label: 'Iterations', min: 1, max: 10, step: 1, default: 4, description: 'Octaves of value noise.' },
 		initialSize: { type: 'int', label: 'Initial size', min: 1, max: 16, step: 1, default: 4, description: 'Grid size of the coarsest octave.' }
@@ -98,6 +104,7 @@ void main(){
 		red: number;
 		green: number;
 		blue: number;
+		opaque: boolean;
 		linear: boolean;
 		iterations: number;
 		initialSize: number;
@@ -106,9 +113,10 @@ void main(){
 	constructor(options: CloudOptions = {}) {
 		super(options);
 		this.properties = {
-			red: options.red || 0,
-			green: options.green || 0,
-			blue: options.blue || 0,
+			red: options.red === undefined ? 255 : options.red,
+			green: options.green === undefined ? 255 : options.green,
+			blue: options.blue === undefined ? 255 : options.blue,
+			opaque: options.opaque !== false,
 			linear: options.linear || false,
 			iterations: options.iterations || 4,
 			initialSize: options.initialSize || 4
@@ -179,7 +187,9 @@ void main(){
 			output.data[j  ] = value * this.properties.red/255;
 			output.data[j+1] = value * this.properties.green/255;
 			output.data[j+2] = value * this.properties.blue/255;
-			output.data[j+3] = (this.properties.red + this.properties.green + this.properties.blue)/3;
+			output.data[j+3] = this.properties.opaque
+				? 255
+				: (this.properties.red + this.properties.green + this.properties.blue)/3;
 		}
 		return output;
 	}

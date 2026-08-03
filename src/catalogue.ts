@@ -43,10 +43,10 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	// --- Process ---
 	Bleed: { category: 'Process', summary: "Blurs a single channel, so colour bleeds out of its edges." },
 	Blur: { category: 'Process', summary: "Stack blur - a fast Gaussian approximation." },
-	Desaturate: { category: 'Process', summary: "Drops colour, keeping luminance." },
+	Desaturate: { category: 'Process', summary: "Pulls colour towards grey, by an amount, keeping luminance." },
 	DotRemover: { category: 'Process', summary: "Removes isolated pixels from a binary image - a clean-up pass for the output of an edge detector or thresholder." },
 	Glow: { category: 'Process', summary: "Blurs the image and blends the blur back over the original." },
-	HanoverBars: { category: 'Process', summary: "Rotates the chroma of every third and fourth line, or darkens them." },
+	HanoverBars: { category: 'Process', summary: "Rotates the chroma of every other bar of lines, or darkens them." },
 	Invert: { category: 'Process', summary: "Inverts colour. In dynamic mode it reflects within the image's own range." },
 	Noise: { category: 'Process', summary: "Adds random noise, optionally monochromatic." },
 	Pixelate: { category: 'Process', summary: "Snaps the image to fixed-size blocks." },

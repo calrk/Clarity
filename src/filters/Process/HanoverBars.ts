@@ -11,6 +11,10 @@ export type HanoverBarsMode = 'hanover' | 'scanlines';
 
 export interface HanoverBarsOptions extends FilterOptions {
 	mode?: HanoverBarsMode;
+	/** Lines per bar. The pattern repeats every `2 * width`. */
+	width?: number;
+	/** Bars down the frame rather than across it. */
+	vertical?: boolean;
 }
 
 /**
@@ -32,12 +36,19 @@ export interface HanoverBarsOptions extends FilterOptions {
 export class HanoverBars extends Filter {
 	static override shader = /* glsl */ `
 uniform float u_mode;
+uniform float u_width;
+uniform float u_vertical;
 
 void main(){
 	vec4 c = srcPixel(vUv);
-	int line = outPixel().y - (outPixel().y / 4) * 4;
 
-	if(line == 0 || line == 1){
+	int width = int(u_width);
+	ivec2 p = outPixel();
+	int along = u_vertical > 0.5 ? p.x : p.y;
+	//every other band of 'width' lines is the affected one
+	int band = along / width;
+
+	if(band - (band / 2) * 2 == 0){
 		writeRGB(c.rgb);
 		return;
 	}
@@ -67,29 +78,42 @@ void main(){
 				{ value: 'hanover', label: 'Hanover bars' },
 				{ value: 'scanlines', label: 'Scan lines' }
 			]
-		}
+		},
+		width: { type: 'int', label: 'Bar width', min: 1, max: 32, step: 1, default: 2, description: 'Lines per bar. The pattern repeats every twice this.' },
+		vertical: { type: 'bool', label: 'Vertical', default: false, description: 'Bars down the frame rather than across it.' }
 	};
 
 	override properties: {
 		mode: HanoverBarsMode;
+		width: number;
+		vertical: boolean;
 	};
 
 	constructor(options: HanoverBarsOptions = {}) {
 		super(options);
 		this.properties = {
 			mode: options.mode ?? 'hanover',
+			//2 reproduces the original hardcoded pattern: lines 2 and 3 of every 4
+			width: options.width || 2,
+			vertical: options.vertical || false
 		};
 	}
 
 	override doProcess(frame: ImageData): ImageData {
 		let output = createImageData(frame.width, frame.height);
 
+		const width = this.properties.width;
+		const vertical = this.properties.vertical;
+
 		for(let y = 0; y < frame.height; y++){
-			let line = y%4;
+			//every other band of `width` lines is the affected one
+			let rowUntouched = !vertical && Math.floor(y/width) % 2 === 0;
+
 			for(let x = 0; x < frame.width; x++){
 				let i = (y*frame.width + x)*4;
+				let untouched = vertical ? Math.floor(x/width) % 2 === 0 : rowUntouched;
 
-				if(line == 0 || line == 1){
+				if(untouched){
 					output.data[i  ] = frame.data[i];
 					output.data[i+1] = frame.data[i+1];
 					output.data[i+2] = frame.data[i+2];

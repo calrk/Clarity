@@ -85,8 +85,19 @@ test('every filter renders a control per schema field', () => {
 });
 
 test('a filter with no options still renders', () => {
-	const body = build(new CLARITY.Desaturate({}));
-	assert.equal(body.find((el) => el.textContent === 'No options.').length, 1);
+	// found rather than named, so this does not break the next time a filter
+	// gains its first property - which is exactly how it broke before
+	const optionless = filterNames.filter((name) => Object.keys(CLARITY[name].schema).length === 0);
+	assert.ok(optionless.length > 0, 'no optionless filter left to check');
+
+	for (const name of optionless) {
+		const body = build(new CLARITY[name]({}));
+		assert.equal(
+			body.find((el) => el.textContent === 'No options.').length,
+			1,
+			`${name} should render a placeholder rather than an empty box`
+		);
+	}
 });
 
 test('a description becomes a tooltip, so the schema documents itself', () => {

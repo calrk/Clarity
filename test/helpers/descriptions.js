@@ -48,7 +48,7 @@ export const descriptions = {
 		look: 'Uniformly soft; the grain in the sky should be gone.'
 	},
 	Desaturate: {
-		look: 'Fully grey. The sky/ground split stays legible.'
+		look: 'Fully grey at amount 1; the partial variant keeps some colour but less of it. The sky/ground split stays legible either way.'
 	},
 	DotRemover: {
 		look: 'The scattered specks should be gone; the solid block, disc and line survive intact.',
@@ -58,7 +58,7 @@ export const descriptions = {
 		look: 'Bright areas bloom outwards; edges stay roughly in place.'
 	},
 	HanoverBars: {
-		look: 'Horizontal banding every 4 rows - colour-shifted in hanover mode, darkened in scanlines mode. Either way it must not be identical to the input.'
+		look: 'Banding every other bar - colour-shifted in hanover mode, darkened in scanlines mode, and running down the frame rather than across it when vertical. Either way it must not be identical to the input.'
 	},
 	Invert: {
 		look: 'Sky goes orange, ground goes purple. Dynamic mode is subtler than plain invert.'
@@ -95,8 +95,7 @@ export const descriptions = {
 
 	// --- Starters ---
 	Cloud: {
-		look: 'Soft organic blotches, not a uniform fill and not white static.',
-		note: 'Alpha is derived from the colour options rather than being opaque, so with default options the output is fully transparent.'
+		look: 'Soft organic blotches, not a uniform fill and not white static. Opaque by default; the mask variant derives alpha from the colour instead, so it reads as a texture mask.'
 	},
 	FillHSV: {
 		look: 'Completely flat colour. Any structure left over means the fill is not covering.'

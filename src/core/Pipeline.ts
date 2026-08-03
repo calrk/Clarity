@@ -144,6 +144,27 @@ export class Pipeline {
 		return this.gl !== null;
 	}
 
+	/**
+	 * Whether shaders are *wanted*. Distinct from {@link usingGPU}, which also
+	 * depends on whether WebGL2 could be had at all.
+	 *
+	 * Switching this throws away every cached frame, because the two backends
+	 * agree closely rather than exactly and a chain half-computed on each would
+	 * mix them. Stateful filters have their history dropped too, on the next
+	 * run - see `dropStaleHistory`.
+	 */
+	get gpu(): boolean {
+		return this.gpuWanted;
+	}
+
+	set gpu(wanted: boolean) {
+		if (wanted === this.gpuWanted) {
+			return;
+		}
+		this.gpuWanted = wanted;
+		this.invalidate();
+	}
+
 	get length(): number {
 		return this.stages.length;
 	}

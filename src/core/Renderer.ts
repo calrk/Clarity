@@ -82,6 +82,15 @@ export class Renderer {
 		return this.pipeline.usingGPU;
 	}
 
+	/** Whether shaders are wanted. Switching invalidates the cache. */
+	get gpu(): boolean {
+		return this.pipeline.gpu;
+	}
+
+	set gpu(wanted: boolean) {
+		this.pipeline.gpu = wanted;
+	}
+
 	/** Where the last render's time went. */
 	get stats(): PipelineStats {
 		return this.pipeline.stats;

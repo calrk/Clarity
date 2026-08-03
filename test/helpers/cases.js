@@ -48,9 +48,11 @@ export const cases = [
 	{ filter: 'Invert', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: "Invert", name: "dynamic", input: "photo", options: { dynamic: true }, gpu: POINTWISE },
 	{ filter: 'Desaturate', input: 'photo', options: {}, gpu: POINTWISE },
+	{ filter: 'Desaturate', name: 'partial', input: 'photo', options: { amount: 0.4 }, gpu: POINTWISE },
 	{ filter: 'hsvShifter', input: 'photo', options: { hue: 120, saturation: 1.4, value: 0.9 }, gpu: POINTWISE },
 	{ filter: 'HanoverBars', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'HanoverBars', name: 'scanlines', input: 'photo', options: { mode: 'scanlines' }, gpu: POINTWISE },
+	{ filter: 'HanoverBars', name: 'vertical', input: 'photo', options: { mode: 'scanlines', width: 5, vertical: true }, gpu: POINTWISE },
 	{ filter: 'Noise', input: 'photo', options: { intensity: 40 }, seed: 1, gpu: POINTWISE },
 	{ filter: 'Noise', name: 'mono', input: 'photo', options: { intensity: 40, monochromatic: true }, seed: 1, gpu: POINTWISE },
 
@@ -122,6 +124,9 @@ export const cases = [
 	{ filter: 'FillRGB', input: 'photo', options: { red: 200, green: 80, blue: 40 }, gpu: POINTWISE },
 	{ filter: 'FillHSV', input: 'photo', options: { hue: 200, saturation: 0.8, value: 0.9 }, gpu: POINTWISE },
 	{ filter: 'Cloud', input: 'photo', options: { red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
+	// alpha derived from the colour rather than opaque - the texture-mask mode,
+	// and the only case that exercises a non-255 alpha out of a starter
+	{ filter: 'Cloud', name: 'mask', input: 'photo', options: { red: 255, green: 200, blue: 120, opaque: false, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 
 	// --- Dual input ------------------------------------------------------
 	{ filter: 'Blend', input: ['photo', 'second'], options: { ratio: 0.35 }, gpu: POINTWISE },
