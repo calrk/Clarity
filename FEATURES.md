@@ -1,6 +1,23 @@
 # Clarity — Feature List
 
-Clarity is a canvas image-filter library from 2014 — ~41 filters across eight categories, all pure-JS `ImageData` loops, concatenated by Gulp 3 into one `CLARITY` global. The filter-chain design still holds up; everything around it (build, GPU, examples, tests) has aged out. Ordered roughly by effort / bang-for-buck, with the cheap de-risking work first.
+Clarity is a canvas image-filter library from 2014 — 41 filters across eight categories, all pure-JS `ImageData` loops, concatenated by Gulp 3 into one `CLARITY` global. The filter-chain design still holds up; everything around it (build, GPU, examples, tests) had aged out.
+
+**All eight of the original features are done.** What follows is the record: what was built, and the decisions that were not obvious at the time. Items #9–#12 are still open, and are additive rather than gaps — the library works without them.
+
+Each shipped entry keeps its original write-up in a collapsed block underneath, because the *reasoning* is the part worth keeping and it is often the part that turned out to be wrong.
+
+## Where it stands
+
+| | then | now |
+|---|---|---|
+| Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
+| Filters clean | 31 of 41, 4 hard crashes | 41 of 41, each with a golden image and a GPU parity case |
+| GPU | none | every filter, 63/63 parity cases as shaders |
+| Tests | none | 434, plus golden images, GPU parity and a browser-driven playground test |
+| Demo | 8 pages, broken for years | one playground, tested on every run |
+| Licence | GPL dependency | MIT throughout |
+
+Bugs found along the way: **four crashing filters**, plus roughly two dozen quieter ones — an inverted mask, a filter that blurred the wrong channel, a colour-space round trip that was not the identity, an "average" that averaged nothing, and a filter whose default mode did nothing at all. Most were found by *looking at pictures* rather than by reading code, which is the strongest argument in here for the contact sheet.
 
 ---
 
@@ -60,8 +77,8 @@ Cheap, self-contained, and it stops #3 from faithfully porting bugs into GLSL.
 **Done.** `src/` is TypeScript ES modules; Vite emits ESM + UMD + a global `<script>` build plus 47 `.d.ts` files; `package.json` is publishable as **`@calrk/clarity`**. Gulp is gone.
 
 - **41 filters converted to classes** with a typed `<Name>Options` interface each. The port was done by codemod so the bodies — and the #1 fixes in them — carried across verbatim rather than being retyped.
-- **Three bundles**: `dist/clarity.js` (ESM, what `import` gets), `dist/clarity.umd.cjs` (what `require()` gets — `.cjs` because the package is `"type": "module"`), and `dist/clarity.global.js` (IIFE exposing the `CLARITY` global). The examples load the third, so all 8 still work with only their `<script src>` changed.
-- **`npm run dev`** serves `examples/` on port 8080, replacing the gulp-connect task that bound port 80 and needed admin.
+- **Three bundles**: `dist/clarity.js` (ESM, what `import` gets), `dist/clarity.umd.cjs` (what `require()` gets — `.cjs` because the package is `"type": "module"`), and `dist/clarity.global.js` (IIFE exposing the `CLARITY` global). At the time the examples loaded the third, so all 8 kept working with only their `<script src>` changed; #5 later replaced them outright.
+- **`npm run dev`** replaced the gulp-connect task that bound port 80 and needed admin. It serves the playground now.
 - **The DOM dependency at import time is gone** (pulled forward from #10). `src/clarity.js`'s `document.createElement('canvas')` is replaced by `core/imagedata.ts`, which prefers the `ImageData` constructor. Node has no global `ImageData`, so a `setImageDataFactory()` injection point covers headless use — which is what #6's golden-image tests will need.
 - **`npm test`** runs 55 assertions over the built bundle (every filter twice, plus targeted behaviour checks). Not the golden-image suite — that's still #6 — but enough to prove the migration is behaviour-preserving.
 - `build/` and `examples/js/clarity*.js` are deleted; `dist/` is generated and gitignored.
@@ -74,7 +91,8 @@ Cheap, self-contained, and it stops #3 from faithfully porting bugs into GLSL.
 
 Two notes: the codemod initially dropped `doProcess` from `Sharpen` and `DifferenceDetector` — its brace matcher counted braces inside commented-out code — which the test suite caught. And the licence is now declared honestly as **GPL-3.0-or-later**, because MCut is still bundled; #7 is what makes it permissive.
 
-### Original write-up
+<details>
+<summary>The original write-up</summary>
 
 The current build is `gulpfile.js`: Gulp **3.8**, `gulp-concat`, `gulp-uglify` 0.3. This does not run on any Node released in the last decade — Gulp 3 depends on `graceful-fs@3`/`natives`, which throws on Node ≥ 12. Beyond that:
 
@@ -94,13 +112,15 @@ Proposed:
 
 Prerequisite for basically everything below.
 
+</details>
+
 ---
 
 ## ~~3. GPU Backend — Filters as Shaders~~ ✓
 
 **Effort: High** *(depended on #2; much easier after #1)*
 
-> **Done — every filter has a shader.** WebGL2 backend, ping-pong framebuffers, uniforms generated from the schemas, per-stage CPU fallback, and **all 60 parity cases running as shaders**. Shaders are the default path; the CPU runs where there is no WebGL2 — Node, an old browser, a lost context — and stays the reference implementation.
+> **Done — every filter has a shader.** WebGL2 backend, ping-pong framebuffers, uniforms generated from the schemas, per-stage CPU fallback, and **all 63 parity cases running as shaders**. Shaders are the default path; the CPU runs where there is no WebGL2 — Node, an old browser, a lost context — and stays the reference implementation.
 >
 > Verified by a real parity suite rather than by inspection: `npm run test:gpu` drives headless Chrome with SwiftShader, runs every case through both paths and compares them. Node has no WebGL2 and headless-gl only implements WebGL 1, so the choice was between writing against a decade-old GLSL dialect or driving a browser — the browser wins, and SwiftShader means it needs no GPU and works in CI. **All parity assertions passing, with every CPU golden byte-identical.**
 >
@@ -109,7 +129,7 @@ Prerequisite for basically everything below.
 > - **`Blur` must not touch alpha.** `stackBlurCanvasRGB` copies the frame and blurs only the colour channels, so alpha passes straight through. The shader forced it to 255 and every pixel of the alpha fixture was wrong by 255 — invisible on an opaque photo, which is exactly why the alpha fixture exists.
 > - **`Wave` is a boundary filter, not a pointwise one.** It floors a sine to choose which texel to read, and the GPU has 32-bit floats where the CPU has 64. A value a fraction either side of an integer reads a different pixel, so 3.6% of pixels differ by however far apart their neighbours happen to be. Re-tagged `population`, which is the metric that exists for precisely this.
 >
-> **Nothing is CPU-only any more.** All 60 parity cases run as shaders. Getting the last thirteen filters there needed five additions to the executor rather than five clever shaders — each one a general capability, not a special case:
+> **Nothing is CPU-only any more.** All 63 parity cases run as shaders. Getting the last thirteen filters there needed five additions to the executor rather than five clever shaders — each one a general capability, not a special case:
 >
 > **1. Retained frames** — `Ghoster`, `MotionDetector`, `DifferenceDetector`. A filter declares `static retains()` and gets a `sampler2DArray` of previous frames, read with `historyTexel(age, p)`. An array rather than N textures because Ghoster reaches back thirty frames, and thirty samplers is past what a fragment shader is guaranteed to have; `mode: 'first'` covers DifferenceDetector, which holds one frame rather than a ring. Cheaper than the CPU path, which does a `createImageData` and a full byte copy per frame.
 >
@@ -149,11 +169,12 @@ Prerequisite for basically everything below.
 >
 > Tier 3 (WebGPU compute) is untouched, and is no longer *needed*: the sample-and-prepare hybrid handles the histogram-shaped filters without it. It remains the better home for them if the sampling ever proves too coarse, and would let the palette build move off the CPU entirely.
 
-> **Decided:** target **WebGL2 first, WebGPU later**, and keep the **CPU path permanently** as a first-class fallback rather than scaffolding to be deleted after the port.
->
-> WebGL2 is universal — Firefox and older Safari included — and it is testable headlessly through SwiftShader, which WebGPU is not yet. The reduction-shaped filters (median threshold, histogram) stay awkward until the WebGPU compute path arrives; that is the accepted cost.
->
-> Keeping both paths means every filter is implemented twice, forever. The honest risk is that the CPU side rots while nobody looks at it, so the parity tests in #6 are not a nice-to-have — they are the mechanism that stops the two drifting. A new filter is not done until both paths exist and agree.
+**The decision that shaped everything else:** target **WebGL2 first, WebGPU later**, and keep the **CPU path permanently** as a first-class fallback rather than scaffolding to be deleted after the port.
+
+WebGL2 is universal — Firefox and older Safari included — and it is testable headlessly through SwiftShader, which WebGPU is not. Keeping both paths means every filter is implemented twice, forever, and the honest risk is that the CPU side rots while nobody looks at it. So the parity tests are not a nice-to-have; they are the mechanism that stops the two drifting. **A filter is not done until both paths exist and agree.** That rule is what turned up most of the bugs listed above: writing a shader forces you to say precisely what the CPU was doing, and several times the answer was "something nobody intended".
+
+<details>
+<summary>The original write-up</summary>
 
 The headline. Today every filter is a JS loop over `ImageData`; a 1080p frame is 8.3M array writes per filter per frame, and a five-filter chain on a webcam feed is unwatchable. The README's own to-do list has said "Add WebGL function to each filter to improve performance" since 2014.
 
@@ -186,6 +207,10 @@ Filters that need real thought rather than a transliteration:
 
 Keep the CPU path as the reference implementation, not dead weight: it's the oracle for the golden-image tests in #6 (GPU output should match CPU within a tolerance), and the fallback for headless/Node use.
 
+*(The three tiers held up, but the hard part turned out not to be any of them. It was the five executor capabilities above — retained frames, `uOriginal`, data textures, size changes, sample-and-prepare — none of which are shader problems. The "genuinely sequential" list shrank to nothing: median cut, histograms and quartiles all fell to a thumbnail readback, which was not in the plan at all.)*
+
+</details>
+
 ---
 
 ## ~~4. A `Renderer` / `Pipeline` Object~~ ✓
@@ -217,7 +242,8 @@ Things that came up doing it:
 
 `Renderer` still reads back through a scratch canvas, which is exactly the CPU round-trip #3 exists to delete — but the seam is now in one place instead of seven.
 
-### Original write-up
+<details>
+<summary>The original write-up</summary>
 
 Also straight off the README's own to-do list: *"Create a renderer object that holds a canvas and its filters."* Right now every example hand-rolls the same loop:
 
@@ -244,6 +270,8 @@ pipeline.render();           // one-shot
 Fold in the other README to-do while you're here — **"a flag to each filter to only process if input/controls changed or forced"**. **#8 already added the flag** — `setProperty` sets `filter.dirty`, and nothing clears it yet because clearing it is this feature's job. A static image with unchanged controls should then cost nothing per frame, and the renderer can cache each stage's output so tweaking filter #5 doesn't recompute #1–4. On a stateful filter (`Ghoster`, `MotionDetector`) the flag has to stay permanently dirty — worth an explicit `static stateful = true`.
 
 This is also where the ping-pong FBO management from #3 lives, so it's worth designing the two together.
+
+</details>
 
 ---
 
@@ -298,20 +326,21 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** 133 passing tests, plus 56 GPU-parity cases skipping until #3 lands a backend.
+**Done.** The suite has grown with everything since — **434 tests** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
-- **60 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
+- **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
 - **Eight fixtures** at 64×48 (photographic, hard-edged, height map, alpha, a second input for the dual-input filters, a binary image with salt-and-pepper specks for `DotRemover`, and a near-identical pair for the frame-differencing filters) plus one at **33×25** for the boundary cases — `Pixelate` walked `size` down until it divided the height, `Tiler` stepped by 2, and the whole #1 sweep was off-by-ones at edges. That 33×25 fixture earned its keep twice over: both `Pixelate` and `Tiler` were visibly wrong on it.
-- **`test/gpu-parity.test.js`** is the comparison-B harness, written and wired but skipping. #3 only has to implement two functions in it: `gpuBackendAvailable()` and `runOnGPU()`. Its non-skipped assertions still run, so the cases list and comparison logic can't rot before the backend arrives.
-- **Per-case comparison metadata** lives in `test/helpers/cases.js`, tagged `POINTWISE` (±1), `KERNEL` (±2), `ACCUMULATING` (±3) or `BOUNDARY` (at most 2% of pixels may differ *at all*) — the last for thresholders, where a per-channel tolerance is meaningless because a one-unit input difference flips a pixel between 0 and 255.
+- **`test/gpu-parity.test.js`** was written and wired *before* there was a backend to drive, skipping until one arrived, so the cases list and comparison logic could not rot in the meantime. Writing the harness first turned out to be the right call twice over: it also fixed what "done" meant for #3, and the answer was "agrees with the CPU", not "produces a picture".
+- **Per-case comparison metadata** lives in `test/helpers/cases.js`, tagged `POINTWISE` (±1), `KERNEL` (±2), `ACCUMULATING` (±3) or `BOUNDARY` (at most 2% of pixels may differ *at all*) — the last for thresholders, where a per-channel tolerance is meaningless because a one-unit input difference flips a pixel between 0 and 255. #3 added a fifth, `BANDED`, for quantised output, where interiors agree to rounding and an edge pixel can flip a whole band.
 - `npm run test:golden`, `test:update-golden` and `test:fixtures` added.
 - **`npm run test:sheet`** builds `test/contact-sheet/index.html` — one self-contained page with every case's before and after side by side, what the filter does, what you should be able to see, and the percentage of pixels it actually changed. Anything changing 0% is flagged. This turned out to be the highest-value part of the whole suite: it found five real bugs the assertions and goldens had all passed clean, because a golden only tells you output *changed*, never that it was ever right. See #1 for the list.
 - **Cases can declare a `pre` chain** — filters run over the fixture before the case's own. `NormalIntensity` and `NormalFlip` want a normal map, not a height map, so they were being tested against an input that made their output meaningless; they now run on `NormalGenerator`'s output, and the sheet shows the prepared frame as the "before" image. Declaring the pipeline beats committing a derived fixture, which would go stale silently when its producer changed.
 
 One incidental fix: the "which exports are filters" check is now derived from the prototype chain (`value.prototype instanceof Filter`) rather than a hand-maintained denylist. The denylist silently misclassified each new helper export as a filter — it broke three times while building this.
 
-### Original write-up
+<details>
+<summary>The original write-up</summary>
 
 #2 added 68 tests, but they assert *properties* (no NaN, opaque alpha, output is a permutation of its input). Nothing pins down what a filter's output actually looks like. That's what this adds.
 
@@ -352,6 +381,8 @@ Not one image — a small set at ~64×48 so diffs stay reviewable: a photographi
 
 **Honest caveat:** the GPU half of B is awkward in CI, since headless runners have no real GPU. Either drive SwiftShader through headless Chrome or accept that B runs locally only — worth deciding before building the harness rather than after.
 
+</details>
+
 ---
 
 ## ~~7. Licensing — Replace the GPL Dependency~~ ✓
@@ -378,7 +409,8 @@ Noisy photographic content is the *worst* case for a histogram approach — near
 
 Note the palette differs slightly from the old implementation: it splits on unique colours weighted by population rather than sorting the raw pixel list, which is the better-behaved formulation. Output is deterministic, entries always fall inside the image's gamut, and 15 new tests cover it.
 
-### Original write-up
+<details>
+<summary>The original write-up</summary>
 
 There is **no LICENSE file** in the repo, and two pieces of vendored third-party code are compiled into the build:
 
@@ -388,6 +420,8 @@ There is **no LICENSE file** in the repo, and two pieces of vendored third-party
 Actions: pick and add a LICENSE (MIT is the norm for this kind of library); replace MCut with a from-scratch median-cut or k-means quantiser (~150 lines, and a good excuse to fix the `// TODO fix NaNs` at `MCut.js:393`); or split it out as an optional `clarity-posterise-gpl` package. Once #3 lands, palette generation moves to a compute shader anyway and the dependency largely evaporates.
 
 Unglamorous, but it's the difference between a library people can use and a repo people can only read.
+
+</details>
 
 ---
 
@@ -400,7 +434,7 @@ Unglamorous, but it's the difference between a library people can use and a repo
 - **`static schema` on 33 filters**, in `src/core/schema.ts`. Four field types: `int`, `float`, `bool` and `select`, with `label`, `min`/`max`/`step`, `default`, an optional `description` for tooltips and generated docs, and `nullable` for the "derive it from the frame" case (only `ValueThreshold` uses it, but it needed representing rather than special-casing).
 - **`setProperty(key, value)` is the single write path.** It coerces per the schema, clamps to the declared range, marks the filter dirty for #4, and calls a `propertyChanged` hook. `setInt`/`setFloat`/`toggleBool` are gone — the caller no longer has to know which one a property wanted. Unknown *keys* throw (a caller bug); out-of-range *values* clamp (user input, or a link made by an older build).
 - **`Interface` and all 31 `doCreateControls` methods deleted**, and with them the library's last DOM dependency.
-- **The examples still work**, via `examples/js/controls.js` — ~90 lines of plain DOM that renders any filter from its schema. It lives in `examples/`, not in the library, which is the whole point: the metadata is Clarity's, the markup is yours.
+- **The examples still work**, via a ~90-line plain-DOM renderer that draws any filter from its schema. It lives outside the library, which is the whole point: the metadata is Clarity's, the markup is yours. (It moved to `site/src/controls.js` with #5 and grew a little; it still handles every filter without knowing what any of them are.)
 
 Four things fell out of doing it that weren't in the original write-up:
 
@@ -409,11 +443,12 @@ Four things fell out of doing it that weren't in the original write-up:
 - **`Bleed` returned `undefined` at radius 0.** StackBlur bails out with a bare `return` below a radius of 1, and `Bleed` handed that straight back, so everything downstream died on `.data`. Found by a test that simply sets every declared field to each end of its declared range and checks the filter still produces a frame — the cheap version of the property-based fuzzing in #6, and it earned its keep immediately.
 - **Minification was renaming the classes.** `filter.constructor.name` came back as `lt`, which matters now that it is the natural key for serialising a pipeline to a URL in #5, and it was appearing in `setProperty`'s error messages. `esbuild.keepNames` fixes it for ~1.3 kB.
 
-**The anti-drift mechanism is the point.** A hand-written description of hand-written code rots, so `test/schema.test.js` compares each schema against the filter it claims to describe rather than against another document: schema keys must match the filter's actual properties exactly, every declared default must equal what the constructor builds, and every field must be internally consistent. `test/controls.test.js` then renders all 41 filters through the example renderer against a DOM stub, so "the schema carries enough to build a working control" is asserted rather than hoped for. 181 new tests.
+**The anti-drift mechanism is the point.** A hand-written description of hand-written code rots, so `test/schema.test.js` compares each schema against the filter it claims to describe rather than against another document: schema keys must match the filter's actual properties exactly, every declared default must equal what the constructor builds, and every field must be internally consistent. `test/controls.test.js` then renders all 41 filters through the playground's renderer against a DOM stub, so "the schema carries enough to build a working control" is asserted rather than hoped for. 181 new tests.
 
 Still deliberately not done: constructors don't yet *read* their defaults from the schema, so the two are pinned together by a test rather than being one declaration. That's the natural follow-up, but it means rewriting 33 constructors that each coerce their options slightly differently, and it's better done alongside #4 when the `Renderer` decides how filters get built.
 
-### Original write-up
+<details>
+<summary>The original write-up</summary>
 
 **34 filters hand-write a `doCreateControls` that builds DOM by hand** — about 550 lines of near-identical code:
 
@@ -458,49 +493,59 @@ This is why the schema earns its place in the library rather than the app — th
 
 Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControls` (~550 lines), and the DOM dependency. The enable/disable checkbox goes too — that's the pipeline editor's job, not the filter's.
 
+</details>
+
 ---
 
 ## 9. Finish the Filter Wishlist
 
-**Effort: Low each, once #3 lands**
+**Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list has been sitting there since 2014. Most are near-trivial once a kernel shader template exists:
+The README's "Filters to be made" list has been sitting there since 2014. Every mechanism they need now exists, so these are genuinely small: a shader, a CPU twin, a schema, a golden case.
 
-- **Custom 3×3 kernel** — the generic case; ship it and Sobel/Laplace/Emboss are presets rather than files.
+- **Custom 3×3 kernel** — the generic case. Ship it and Sobel/Laplace/Emboss become presets rather than files. Do this one first; the rest of the kernel family falls out of it.
 - **Sobel** and **Laplace** edge detection — the current `EdgeDetector` uses a single 8-neighbour kernel with no gradient magnitude; Sobel's dual-pass X/Y is both better and, on GPU, free.
-- **Emboss**, **Sepia** — pointwise/kernel one-liners.
-- **Bloat/Erode** — morphological ops; also makes `DotRemover` redundant (open/close does it better and generalises past binary images).
-- **Histogram** — needs a reduction, so it's the natural first WebGPU compute shader.
+- **Emboss**, **Sepia** — one-liners.
+- **Bloat/Erode** — morphological ops, which also make `DotRemover` redundant: open/close does the same job better and generalises past binary images.
+- **Histogram** — a reduction, and `static samples` + `prepare` is now exactly the shape for it. No longer waiting on WebGPU.
 - **Skeletiser**, **Crackulate**, **Screen burn**, **Dot crawl**, **Shot detector**.
 
-Also worth adding now that GPU makes them cheap: **bilateral filter**, **chromatic aberration**, **CRT/barrel distortion**, **dithering** (Bayer + Floyd–Steinberg — the latter is sequential, so CPU), **LUT/colour-grade** from a 3D texture. The LUT one in particular turns Clarity into something people would actually reach for.
+Also worth adding now that the GPU path makes them cheap: **bilateral filter**, **CRT/barrel distortion**, **dithering** (Bayer on the GPU; Floyd–Steinberg is sequential, so CPU-only and a legitimate use of `supportsGPU`), and **LUT / colour-grade** from a 3D texture. The LUT one in particular turns Clarity into something people would actually reach for — and `static data()` already uploads arbitrary texture data, so the plumbing is there.
+
+*Chromatic aberration was on this list and is now shipped — it turned out `ChannelSeparate` had been it all along, with an inverted ramp. See #3.*
 
 ---
 
 ## 10. Modernise the CPU Path
 
-**Effort: Medium** *(mostly obsoleted by #3 — do only the cheap parts)*
+**Effort: Medium** *(largely superseded — one item left worth doing)*
 
-For the WebGL-less fallback and Node use, the CPU path has easy wins:
+Written when the CPU path was the *only* path. It is now the fallback and the parity oracle, which changes the case for optimising it: the fallback runs where there is no WebGL2 at all, and the oracle wants to be obviously correct more than it wants to be fast.
 
-- **Stop allocating per frame.** Nearly every `doProcess` starts with `CLARITY.ctx.createImageData(w, h)` — at 60fps that's 60 fresh 8MB buffers per filter per second, straight into the GC. A double-buffered pool in the `Renderer` (#4) fixes it for the whole library at once.
-- **`Uint32Array` views** for pointwise filters — one 32-bit read/write per pixel instead of four 8-bit ones.
-- **Workers + `OffscreenCanvas`** — move the chain off the main thread so the page stays responsive; `ImageData` is transferable, so handoff is zero-copy.
-- **Drop `CLARITY.ctx`** as a module-level singleton (`src/clarity.js:3`) — it makes the library unimportable outside a browser and is only used as an `ImageData` factory. `new ImageData(w, h)` has been supported everywhere for years.
+Two of the four are off the list:
+
+- ~~**Drop `CLARITY.ctx`** as a module-level singleton~~ ✓ **done** — pulled forward into #2. `core/imagedata.ts` prefers the `ImageData` constructor, with `setImageDataFactory()` for headless callers.
+- ~~**Workers + `OffscreenCanvas`**~~ — **dropped**, not done. The chain left the main thread by moving onto the GPU instead; a worker would now mostly be relocating the fallback, and it would put a thread boundary between the parity oracle and the thing it is an oracle for.
+
+What is still worth doing:
+
+- **Stop allocating per frame.** Nearly every `doProcess` starts with a fresh `createImageData(w, h)` — at 60fps that is 60 new 8MB buffers per filter per second, straight into the GC. A double-buffered pool in `Pipeline` fixes it for the whole library at once, and it is the one item here that would show up in a profile.
+- **`Uint32Array` views** for pointwise filters — one 32-bit read/write per pixel instead of four 8-bit ones. Real, but it obscures the code, and the code is the reference implementation the shaders are checked against. Legibility is worth more here than speed.
 
 ---
 
 ## 11. Docs, Types & a README That Sells It
 
-**Effort: Low–Medium** *(depends on #2, #8)*
+**Effort: Low** *(most of it landed alongside #2, #5 and #8)*
 
-The README is a flat feature list with broken markdown (`####Normal Flip`, `####Histogram` — missing spaces after the hashes, so they render as literal text) and no install instructions, no usage example, no options reference, and no screenshots — for an *image* library.
+The README was a flat feature list with broken markdown and no install instructions, no usage example, no options reference, and no screenshots — for an *image* library. It now has install, a quickstart, the GPU and schema sections, the pipeline semantics and the filter list, and `.d.ts` files ship with the package.
 
-- Install + 5-line quickstart at the top.
-- **One before/after image per filter**, generated automatically from the golden-image fixtures in #6 so they can never go stale.
-- Options reference auto-generated from the schemas in #8.
-- A link to the playground (#5) above the fold.
-- Typedoc from the TypeScript in #2.
+What is left is the part that has to be *generated*, which is also the part that can never go stale once it exists:
+
+- **One before/after image per filter in the README**, from the golden images. They already exist and are already regenerated on every change; the contact sheet proves the pipeline works. This is the single highest-value item left in this document — it is an image library with no images in its README.
+- **An options reference from the schemas.** `CATALOGUE` plus `Filter.schema` already carries every label, range, default and description. This is a script, not a writing job.
+- **A link to the playground above the fold**, once it is deployed.
+- **Typedoc**, or a decision that the `.d.ts` files and the source comments are enough. Probably they are.
 
 ---
 
@@ -520,6 +565,10 @@ Fusibility is a property of each filter's **sampling footprint**, and Clarity's 
 - **Class D — barriers** (need the whole image, or a previous frame). `Blur`/`StackBlur`/`Bleed` (separable — two passes with a mandatory intermediate), `Glow` (blur + blend), `MedianThreshold` (needs a full-image histogram before it can threshold), `Posteriser`'s MCut palette, `Contourer`, and the stateful trio `MotionDetector`/`Ghoster`/`DifferenceDetector`. These terminate a fusion group. Note the nuance: `MedianThreshold`'s *reduction* is a barrier but its *apply* step is pointwise, so it ends one group and starts the next — worth modelling as two nodes rather than one opaque blocker.
 
 **Add this metadata during #3, even if fusion never ships.** The ping-pong renderer wants it anyway — to know which filters can render in place, which need a retained previous-frame texture, and which need a full intermediate. It's nearly free at that point and expensive to retrofit later.
+
+> **What #3 actually declared, and what it didn't.** The advice above was half taken, and the half that was taken was taken for the reasons predicted. Filters now declare `stateful`, `varying`, `outputSize`, `retains`, `data` and `samples` — which between them identify every Class D barrier, because a barrier is exactly a filter that needs retained frames, a whole-image statistic, or a different output size. So **the group boundaries are already computable**; `gpuBlocker` and `endOfGPURun` in `Pipeline` do a cruder version of that walk today.
+>
+> What is *not* declared is the A/B/C distinction — pointwise vs UV-transform vs kernel. Nothing in #3 needed it, so adding it would have been speculative, and a shader's sampling footprint is not something a filter can be trusted to self-report accurately. The honest position: fusion needs one new declaration per filter, and the Class B list in this section is the design for it.
 
 ### The shape of the compiler
 
@@ -550,27 +599,34 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 - It gives you a free oracle. #6 uses the CPU path to validate the GPU path; #12 uses the **unfused ping-pong path to validate the fused path** — same trick, one level up. Fused output should be within tolerance of ping-pong output for any chain, which is a property you can fuzz over randomly generated pipelines.
 - If #3 lands and profiling shows you're already GPU-idle at target resolution, you get to *not build this*, which is a legitimate outcome.
 
+> **Still the right call to defer it, and now measurable.** The playground's `Compare backends` button reports real per-frame numbers for any chain, so the question "is fusion worth building" has stopped being a guess: build a long Class B chain, read the number, decide. Two things have also moved in fusion's favour since this was written — `Rotator` can change the frame size mid-chain (a fused group has to agree on one output size, so `outputSize` is now a group boundary as well as a barrier), and several filters gained multi-pass shaders, which are ping-pong hops that fusion cannot remove.
+
 ---
 
 ## Rough Priority Order
 
+### Shipped, in the order it happened
+
+| # | Feature | Effort | Outcome |
+|---|---------|--------|---------|
+| 1 | Correctness sweep | Low | 4 crashing filters revived, 31→40 of 41 clean; 5 more found later by the contact sheet |
+| 2 | ESM + Vite + publishable package | Medium | TS classes, 3 bundles, types, `npm test`; the type system found 3 more bugs |
+| 7 | Licensing / replace GPL MCut | Low–Med | MIT throughout, and the replacement quantiser is 2–21× faster |
+| 6 | Golden-image test suite | Medium | 63 goldens, contact sheet, determinism plumbing — and the parity harness written before there was a backend |
+| 8 | Declarative filter schemas | Medium | 717 lines out, DOM dependency gone, `setProperty` the one write path |
+| 4 | `Renderer` / `Pipeline` | Medium | Headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
+| 3 | GPU shader backend | High | Every filter has a shader; 63/63 parity cases on the GPU; 6 more bugs found |
+| 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
+
+### Open
+
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
-| ✓ | Correctness sweep | Low | Done — 4 crashing filters revived, 31→40 of 41 clean |
-| ✓ | ESM + Vite + publishable package | Medium | Done — TS classes, 3 bundles, types, `npm test`; found 3 more bugs |
-| ✓ | Licensing / replace GPL MCut | Low–Med | Done — MIT, no GPL code, quantiser 2-21x faster |
-| ✓ | Golden-image test suite | Medium | Done — 60 goldens, contact sheet, determinism plumbing, GPU parity harness ready |
-| ✓ | `Renderer` / pipeline object | Medium | Done — headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
-| ✓ | Declarative filter schemas | Medium | Done — 717 lines out, DOM dependency gone, `setProperty` is the one write path |
-| ✓ | GPU shader backend | High | Done — every filter has a shader, 60/60 parity cases on the GPU, and 6 more bugs found. WebGPU compute now an optimisation rather than a requirement |
-| ✓ | Demo site / pipeline playground | Med–High | Done — one page replaces eight, driven by a browser test. Deploy with `npm run deploy` |
-| 9 | Finish the filter wishlist | Low each | Medium — cheap and fun once the kernel template exists |
-| 11 | Docs & types | Low–Med | Medium — matters the moment anyone else looks at it |
-| 12 | Pipeline fusion | High | Medium — big for UV-transform chains and weak GPUs; also fixes 8-bit precision loss. Classification metadata in #3, compiler later |
-| 10 | CPU path modernisation | Medium | Low–Medium — mostly superseded by #3; cherry-pick the allocation fix |
+| 11 | Docs — README images, options reference | Low | **High** — it is an image library with no images in its README, and both are generated from things that already exist |
+| 9 | Finish the filter wishlist | Low each | Medium — genuinely cheap now; start with the custom 3×3 kernel and the rest are presets |
+| 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
+| 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**Suggested order of attack:** ~~1~~ → ~~2~~ → ~~7~~ → ~~6~~ → ~~8~~ → ~~4~~ → ~~3~~ → ~~5~~ → **9/11** → 12.
-
-Everything on the original list is done. What is left is additive: more filters (#9), the docs pass now that there is a site to hang them off (#11), and pipeline fusion (#12), which is a performance idea rather than a gap.
+**Do #11 next.** It is the cheapest thing on the list, and it is the difference between a library that works and a library someone else can tell works.
 
 *More features to be added.*
