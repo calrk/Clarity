@@ -265,28 +265,43 @@ test('Tiler wraps seamlessly on an odd-sized frame', () => {
 	assert.equal(opaque, out.width * out.height);
 });
 
-test('ridged and billow are exact complements of the same fold', () => {
-	// With one octave the normaliser is 1, so the two modes are literally
-	// `255 - |v - 127.5| * 2` and `|v - 127.5| * 2` of the same noise value.
-	// They must therefore sum to 255 at every pixel - which pins down both the
-	// fold arithmetic and the fact that the two modes share a noise field,
-	// rather than merely pinning bytes the way a golden image does.
-		//one octave, so the normaliser is 1 and the arithmetic is visible
+test('ridged is the squared complement of billow, from one noise field', () => {
+	// Both modes are the same fold of the same octave: billow is |n| and ridged
+	// is (1 - |n|) squared. So ridged is recoverable from billow by algebra
+	// alone, which pins the fold arithmetic *and* the fact that the two modes
+	// share a noise field rather than each generating their own - neither of
+	// which a golden image can tell you.
+	//
+	// One octave, so the normaliser is 1 and the output byte is the octave.
 	const shared = { iterations: 1, initialSize: 4 };
 	const make = (fold) =>
 		new CLARITY.Cloud({ ...shared, fold, random: CLARITY.seededRandom(11) }).process(makeFrame());
 
-	const a = make('ridged');
-	const b = make('billow');
+	const ridged = make('ridged');
+	const billow = make('billow');
 
-	for (let i = 0; i < a.data.length; i += 4) {
+	for (let i = 0; i < ridged.data.length; i += 4) {
+		const expected = ((255 - billow.data[i]) ** 2) / 255;
+		// billow arrives already rounded to a byte, and squaring doubles that
+		// error at the dark end, so 2 rather than 1
 		assert.ok(
-			Math.abs(a.data[i] + b.data[i] - 255) <= 1,
-			`pixel ${i / 4}: ridged ${a.data[i]} + billow ${b.data[i]} should be 255`
+			Math.abs(ridged.data[i] - expected) <= 2,
+			`pixel ${i / 4}: billow ${billow.data[i]} implies ridged ${expected.toFixed(1)}, got ${ridged.data[i]}`
 		);
 	}
 
+	// the squaring is the whole point of the previous assertion, so prove it is
+	// actually happening: an unsquared complement would have mean 255 - mean
+	const mean = (f) => {
+		let sum = 0;
+		for (let i = 0; i < f.data.length; i += 4) sum += f.data[i];
+		return sum / (f.data.length / 4);
+	};
+	assert.ok(
+		mean(ridged) < 255 - mean(billow) - 5,
+		'ridged should sit well below the unsquared complement, or it will wash out'
+	);
+
 	// and the unfolded field is neither of them
-	const plain = make('none');
-	assert.notDeepEqual([...plain.data], [...a.data]);
+	assert.notDeepEqual([...make('none').data], [...ridged.data]);
 });
