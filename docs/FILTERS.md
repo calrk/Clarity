@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-42 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+41 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [Desaturate](#desaturate) · [DotRemover](#dotremover) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Sharpen](#sharpen) · [Smoother](#smoother) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [Desaturate](#desaturate) · [DotRemover](#dotremover) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Convolver](#convolver) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -231,41 +231,25 @@ new Posteriser({ colours: 6 });
 | `colours` | int | 1–20 | `5` | Palette size. Ignored by the fast method. |
 | `method` | select | `median` · `fast` | `median` | Median cut derives a palette from the image; fast snaps to fixed bands. |
 
-### Sharpen
+### Convolver
 
-Kernel sharpen, enhancing local contrast.
+Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace.
 
-<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Sharpen.png" width="192" alt="Sharpen applied to it">
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Convolver.png" width="192" alt="Convolver applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Sharpen,intensity=0.6)
+[Open in the playground →](https://clarity.clarklavery.com/#colours/Convolver)
 
 ```js
-import { Sharpen } from '@calrk/clarity';
+import { Convolver } from '@calrk/clarity';
 
-new Sharpen({ intensity: 0.6 });
+new Convolver();
 ```
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `intensity` | float | 0–3 | `1` | How much local contrast to add. 0 leaves the image untouched. |
-
-### Smoother
-
-Averages each pixel with its four neighbours, repeatedly.
-
-<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Smoother.png" width="192" alt="Smoother applied to it">
-
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Smoother,iterations=2)
-
-```js
-import { Smoother } from '@calrk/clarity';
-
-new Smoother({ iterations: 2 });
-```
-
-| Property | Type | Range | Default | |
-|---|---|---|---|---|
-| `iterations` | int | 1–5 | `1` | How many times to average each pixel with its four neighbours. Each pass spreads a little further. |
+| `preset` | select | `smooth` · `sharpen` · `sobel` · `laplace` · `emboss` | `sharpen` | Which 3x3 matrix to convolve with. Sobel is the magnitude of two perpendicular ones. |
+| `amount` | float | 0–3 | `1` | Blends the result back over the original. 0 does nothing, 1 is the plain kernel, above 1 overshoots. |
+| `iterations` | int | 1–5 | `1` | How many times to run the kernel, each pass over the last output. |
 
 ### hsvShifter
 

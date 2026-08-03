@@ -20,8 +20,7 @@ import { Invert } from './filters/Process/Invert.js';
 import { Noise } from './filters/Process/Noise.js';
 import { Pixelate } from './filters/Process/Pixelate.js';
 import { Posteriser } from './filters/Process/Posteriser.js';
-import { Sharpen } from './filters/Process/Sharpen.js';
-import { Smoother } from './filters/Process/Smoother.js';
+import { Convolver } from './filters/Process/Convolver.js';
 import { hsvShifter } from './filters/Process/hsvShifter.js';
 import { EdgeDetector } from './filters/Salience/EdgeDetector.js';
 import { MotionDetector } from './filters/Salience/MotionDetector.js';
@@ -76,8 +75,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Noise,
 	Pixelate,
 	Posteriser,
-	Sharpen,
-	Smoother,
+	Convolver,
 	hsvShifter,
 	EdgeDetector,
 	MotionDetector,

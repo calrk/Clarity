@@ -321,7 +321,7 @@ export class Filter {
 
 	/**
 	 * Called after a property changes, for filters holding state derived from
-	 * one - Sharpen's kernel, MotionDetector's frame ring, Puzzler's shuffle.
+	 * one - MotionDetector's frame ring, Puzzler's shuffle.
 	 *
 	 * That rebuilding used to live inside `doCreateControls`, which meant it
 	 * only ever ran when the change came from a slider. Setting the property any

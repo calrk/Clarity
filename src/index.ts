@@ -85,10 +85,8 @@ export { Pixelate } from './filters/Process/Pixelate.js';
 export type { PixelateOptions } from './filters/Process/Pixelate.js';
 export { Posteriser } from './filters/Process/Posteriser.js';
 export type { PosteriserOptions, PosteriserMethod } from './filters/Process/Posteriser.js';
-export { Sharpen } from './filters/Process/Sharpen.js';
-export type { SharpenOptions } from './filters/Process/Sharpen.js';
-export { Smoother } from './filters/Process/Smoother.js';
-export type { SmootherOptions } from './filters/Process/Smoother.js';
+export { Convolver } from './filters/Process/Convolver.js';
+export type { ConvolverOptions, ConvolverPreset } from './filters/Process/Convolver.js';
 export { hsvShifter } from './filters/Process/hsvShifter.js';
 export type { hsvShifterOptions } from './filters/Process/hsvShifter.js';
 

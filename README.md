@@ -425,14 +425,14 @@ LICENSE and is baked into every built bundle.
 Filters
 =======
 
-42 of them, in eight families. The **[full reference](docs/FILTERS.md)**
+41 of them, in eight families. The **[full reference](docs/FILTERS.md)**
 gives each one a before/after image, an options table and a live playground link -
 generated from the library by `npm run docs`, and checked by the test suite, so it
 cannot describe a filter that no longer works that way.
 
 | Family | Filters |
 |---|---|
-| Process | `Bleed`, `Blur`, `Desaturate`, `DotRemover`, `Glow`, `HanoverBars`, `Invert`, `Noise`, `Pixelate`, `Posteriser`, `Sharpen`, `Smoother`, `hsvShifter` |
+| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `DotRemover`, `Glow`, `HanoverBars`, `Invert`, `Noise`, `Pixelate`, `Posteriser`, `hsvShifter` |
 | Thresholders | `GradientThreshold`, `MedianThreshold`, `ValueThreshold` |
 | Salience | `EdgeDetector`, `MotionDetector`, `SkinDetector` |
 | Transform | `ChromaticAberration`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |

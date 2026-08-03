@@ -11,9 +11,9 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 42 of 42, each with a golden image, a GPU parity case and a generated docs entry |
+| Filters clean | 31 of 41, 4 hard crashes | 41 of 41, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 63/63 parity cases as shaders |
-| Tests | none | 480, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Tests | none | 484, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run |
 | Licence | GPL dependency | MIT throughout |
 
@@ -534,10 +534,14 @@ The README's "Filters to be made" list had been sitting there since 2014. Every 
 
 | Filter | Summary | Effort |
 |---|---|---|
-| **Convolver** | Applies a 3×3 kernel chosen from a list, optionally more than once. | Low |
-| **Sobel** | Edge strength from the gradient magnitude of two perpendicular kernels. | preset |
-| **Laplace** | Second-derivative edges — thinner than Sobel's, and signed. | preset |
-| **Emboss** | Lights the frame from one side so edges read as raised or cut into the surface. | preset |
+| ~~**Convolver**~~ ✓ | Applies a 3×3 kernel chosen from a list, optionally more than once. | Done |
+| ~~**Sobel**~~ ✓ | Edge strength from the gradient magnitude of two perpendicular kernels. | Done — preset |
+| ~~**Laplace**~~ ✓ | Second-derivative edges — thinner than Sobel's, and signed. | Done — preset |
+| ~~**Emboss**~~ ✓ | Lights the frame from one side so edges read as raised or cut into the surface. | Done — preset |
+
+**Done.** One filter, five presets, and two files deleted: `Sharpen` became `preset: sharpen` with its `intensity` generalised into `amount`, and `Smoother` became `preset: smooth`. `amount` blends the result back over the source and is allowed above 1, where it extrapolates rather than interpolates — which is exactly what over-sharpening is, and is how it covers the range `intensity` used to. `sobel` is deliberately special-cased: edge strength is the magnitude of two perpendicular gradients, so it runs both and takes `sqrt(gx² + gy²)`. Offering the halves separately would be purer and would mean nobody could get the thing they wanted in one stage.
+
+Two details worth keeping: the CPU path **clamps at the border** to match `srcTexel`, rather than skipping a one-pixel ring the way `Sharpen` did and leaving a dark frame around every result; and the checkerboard behaviour is now a regression test — the `smooth` preset takes two opposite pixels to the *same* value in one pass and holds them there, where `Smoother` swapped them and oscillated forever.
 
 Do `Convolver` first: the other three are entries in a select rather than files. It also **retires `Sharpen`** and **retires `Smoother`** — the latter takes its centre-pixel bug with it, see below.
 

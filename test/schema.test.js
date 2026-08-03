@@ -236,11 +236,6 @@ test('constructing from defaultsOf reproduces a default filter', () => {
 test('derived state is rebuilt when the property it came from changes', () => {
 	// these rebuilds used to live inside doCreateControls, so they only ran when
 	// the change arrived from a slider
-	const sharpen = new CLARITY.Sharpen({ intensity: 1 });
-	const before = JSON.stringify(sharpen.kernel);
-	sharpen.setProperty('intensity', 2.5);
-	assert.notEqual(JSON.stringify(sharpen.kernel), before, 'Sharpen rebuilt its kernel');
-
 	const motion = new CLARITY.MotionDetector({ frameCount: 1 });
 	motion.process(makeFrame());
 	motion.process(makeFrame());

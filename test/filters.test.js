@@ -164,10 +164,51 @@ test('zero-valued options survive the defaults', () => {
 	assert.equal(new CLARITY.Translator({ horizontal: 0 }).properties.horizontal, 0);
 });
 
-test('Smoother iterations actually compound', () => {
-	const one = new CLARITY.Smoother({ iterations: 1 }).process(makeFrame());
-	const three = new CLARITY.Smoother({ iterations: 3 }).process(makeFrame());
+test('Convolver iterations actually compound', () => {
+	const one = new CLARITY.Convolver({ preset: 'smooth', iterations: 1 }).process(makeFrame());
+	const three = new CLARITY.Convolver({ preset: 'smooth', iterations: 3 }).process(makeFrame());
 	assert.notDeepEqual([...one.data], [...three.data]);
+});
+
+test('the smooth preset converges instead of inverting fine detail', () => {
+	// Smoother, which this replaces, left the centre pixel out of its own
+	// average. That gives frequency response (cos 2pi u + cos 2pi v) / 2, which
+	// is exactly -1 at the diagonal Nyquist - so a one-pixel checkerboard came
+	// back inverted at full strength and iterating flipped it back and forth
+	// forever. This is the regression test for the whole reason it went.
+	const board = () => {
+		const f = new NodeImageData(16, 16);
+		for (let y = 0; y < 16; y++) {
+			for (let x = 0; x < 16; x++) {
+				const i = (y * 16 + x) * 4;
+				f.data[i] = f.data[i + 1] = f.data[i + 2] = (x + y) % 2 ? 255 : 0;
+				f.data[i + 3] = 255;
+			}
+		}
+		return f;
+	};
+
+	// two adjacent pixels, away from the border where the clamp makes the
+	// neighbourhood asymmetric. One starts black, the other white.
+	const black = (f) => f.data[(8 * 16 + 8) * 4];
+	const white = (f) => f.data[(8 * 16 + 9) * 4];
+	assert.equal(black(board()), 0, 'the premise: these start opposite');
+	assert.equal(white(board()), 255);
+
+	const smooth = (n) =>
+		new CLARITY.Convolver({ preset: 'smooth', iterations: n }).process(board());
+
+	// A Gaussian annihilates the checkerboard outright: the two opposite pixels
+	// land on the same value in a single pass. Smoother left them at 255 and 0,
+	// swapped over.
+	const once = smooth(1);
+	assert.equal(black(once), white(once), 'the checkerboard should be gone, not inverted');
+	assert.ok(Math.abs(black(once) - 128) <= 1, `expected flat grey, got ${black(once)}`);
+
+	// and it stays there under iteration rather than flipping back and forth
+	for (const n of [2, 3, 4]) {
+		assert.equal(black(smooth(n)), black(once), `pass ${n} moved a settled pixel`);
+	}
 });
 
 test('Posteriser only ever emits real palette entries', () => {

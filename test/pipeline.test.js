@@ -40,7 +40,7 @@ function buildChain() {
 	return [
 		new CLARITY.Desaturate({}),
 		new CLARITY.Blur({ radius: 3 }),
-		new CLARITY.Sharpen({ intensity: 0.8 }),
+		new CLARITY.Convolver({ preset: 'sharpen', amount: 0.8 }),
 		new CLARITY.ValueThreshold({ threshold: 120 })
 	];
 }
@@ -73,7 +73,7 @@ test('cached output is identical to output computed from scratch', () => {
 		[1, 'radius', 6],
 		[3, 'threshold', 90],
 		[0, null, null],
-		[2, 'intensity', 1.4],
+		[2, 'amount', 1.4],
 		[1, 'radius', 2],
 		[3, 'inverted', true],
 		[3, 'threshold', null]
@@ -113,7 +113,7 @@ test('a property change recomputes from that stage down, and no earlier', () => 
 	const frame = makeFrame();
 	pipeline.run(frame);
 
-	pipeline.at(2).setProperty('intensity', 2);
+	pipeline.at(2).setProperty('amount', 2);
 	pipeline.run(frame);
 
 	assert.equal(pipeline.stats.from, 2);

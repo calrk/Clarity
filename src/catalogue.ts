@@ -107,8 +107,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Noise: { category: 'Process', summary: "Adds random noise, optionally monochromatic." },
 	Pixelate: { category: 'Process', summary: "Snaps the image to fixed-size blocks." },
 	Posteriser: { category: 'Process', summary: "Quantises to a fixed number of colours via median cut." },
-	Sharpen: { category: 'Process', summary: "Kernel sharpen, enhancing local contrast." },
-	Smoother: { category: 'Process', summary: "Averages each pixel with its four neighbours, repeatedly." },
+	Convolver: { category: 'Process', summary: "Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace." },
 	hsvShifter: { category: 'Process', summary: "Rotates hue and scales saturation/value." },
 
 	// --- Thresholders ---

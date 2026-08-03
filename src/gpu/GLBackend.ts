@@ -69,7 +69,7 @@ export interface ShaderPass {
 	uniforms?: Record<string, number | number[]>;
 	/**
 	 * Number of times to repeat this pass, ping-ponging between targets.
-	 * A function so it can depend on a property - Smoother's `iterations`.
+	 * A function so it can depend on a property - Convolver's `iterations`.
 	 */
 	repeat?: (filter: Filter) => number;
 }
