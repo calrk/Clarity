@@ -539,6 +539,18 @@ The README's "Filters to be made" list has been sitting there since 2014. Every 
 
 Also worth adding now that the GPU path makes them cheap: **bilateral filter**, **CRT/barrel distortion**, **dithering** (Bayer on the GPU; Floyd–Steinberg is sequential, so CPU-only and a legitimate use of `supportsGPU`), and **LUT / colour-grade** from a 3D texture. The LUT one in particular turns Clarity into something people would actually reach for — and `static data()` already uploads arbitrary texture data, so the plumbing is there.
 
+### Difference clouds & ridged noise
+
+Photoshop's *Difference Clouds* is one menu item covering two separable ideas, and only one of them wants a new filter.
+
+**The composite half is already a chain.** Difference Clouds is not a different noise algorithm — it is the ordinary Clouds render composited against the layer below with the Difference blend mode, `|below − clouds|`. `DualInput/` has `Add`, `Subtract`, `Multiply`, `Blend` and `Mask` but no `Difference`, and `Subtract` clamps: `src/filters/DualInput/Subtract.ts:32` writes into a `Uint8ClampedArray`, so everywhere the second frame is brighter collapses to zero and half the range is lost. Add a `Difference` sibling — a one-liner in both backends — and `Cloud → Difference` *is* the Photoshop filter. Re-applying it is repeating those two stages, and because `Cloud` is `varying = true` each pass reseeds, so the marbled/veined look builds up exactly the way hammering Ctrl-F does.
+
+**The hills-and-valleys half is a `Cloud` option.** Sharp crests and broad basins — terrain rather than fog — is *ridged* noise: fold each octave about its midpoint before summing. `Cloud` accumulates `mix(top, bottom, yp) / (z + 1)`; ridged applies `255 − 2·|v − 127.5|` to that octave value, billow applies `2·|v − 127.5|` (the same fold uninverted — puffy cumulus instead of ridges). The fold must happen **inside** the octave loop: fold once at the end and you get a single crease, fold every octave and you get the branching ridge network, because each octave's midpoint crossings cut across the coarser one's. Musgrave's ridged multifractal additionally weights each octave by the previous octave's value, so detail only sprouts near existing ridges — one extra multiply, and it is the whole difference between "creased noise" and "mountains".
+
+Cheapest shape: `fold: select['none' | 'ridged' | 'billow']` on `Cloud`. No new files, three lines in the shader and three in the CPU twin, and `none` keeps every existing golden byte-identical.
+
+Two honest caveats. `Cloud` is *value* noise on an axis-aligned grid with smoothstep interpolation, so its ridges will show more grid alignment than Perlin's would; that is acceptable, and the fix is gradient noise, which is a bigger change than this. And the amplitude falloff is harmonic — `/(z+1)` rather than the usual `/2^z` — which makes fine octaves louder than standard fBm and will read as noisier once ridging sharpens them. Don't change it in place (it would move every `Cloud` golden); add `persistence` as a property defaulting to current behaviour.
+
 *Chromatic aberration was on this list and is now shipped — it turned out `ChannelSeparate` had been it all along, with an inverted ramp. See #3.*
 
 ---
