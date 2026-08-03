@@ -422,144 +422,31 @@ The one remaining piece of third-party code is `src/vendor/StackBlur.js`, by
 Mario Klingemann, which is also MIT. Its copyright notice is reproduced in
 LICENSE and is baked into every built bundle.
 
-Current Filters
-===============
+Filters
+=======
 
-### Dual Input
-#### Add
-Adds the second image to the first, clamping at white
-#### Subtract
-Subtracts the second image from the first, clamping at black
-#### Blend
-Blends two images together, with optional weighting
-#### Mask
-Binary stencil - keeps the first image where the mask is light, blacks it out
-where the mask is dark. Unlike `Multiply` the cut-off is hard, so a pixel is
-either fully kept or fully dropped
-#### Multiply
-Multiplies two images together channel by channel, so grey attenuates rather
-than cuts
+41 of them, in eight families. The **[full reference](docs/FILTERS.md)**
+gives each one a before/after image, an options table and a live playground link -
+generated from the library by `npm run docs`, and checked by the test suite, so it
+cannot describe a filter that no longer works that way.
 
-### Height Map
-#### Contourer
-Shows the contours in a height map
-#### Normal Flip
-Will flip the x/y axis values, or swap the x/y axis with each other
-#### Normal Generator
-Generates a normal based on a height map
-#### Normal Intensity
-Edits the intensity of a normal map
-
-### Misc
-#### Brickulate
-Will draw a grid pattern over an image, to turn it into bricks/tiles
-#### Difference Detector
-Will detect differences in a scene, based on the first shot
-#### Ghoster
-Adds a ghosting/onion skin effect to a video
-#### Puzzler
-Scrambles up the image like a puzzle
-
-### Process
-#### Bleed
-Composite-video colour bleed - chroma is smeared sideways while luma stays
-sharp, so colour runs past edges without softening detail
-#### Blur
-Blurs an image
-#### De-saturate
-Removes colour from an image
-#### Dot Remover
-Cleans up outlying pixels in a binary image
-#### Glow
-Blurs an image, and then adds this to the original, to create a glowing effect
-#### Hanover Bars
-Treats every third and fourth line differently - rotating their chroma, which is
-the PAL delay-line artefact, or darkening them into scan lines
-#### HSV Shifter
-Allows editing an images hue/saturation/lightness values
-#### Invert
-Inverts an image's colour
-#### Noise
-Adds variable noise to an image, can be monochromatic
-#### Pixelate
-Pixelates the image to a fixed size per pixel
-#### Posterise
-Reduces an image into a fixed number of colours
-#### Sharpen
-Applies a sharpening mask to an image, to enhance edges/detail
-#### Smoother
-Simple neighbouring blur function
-
-### Salience
-#### Edge Detector
-Detects the edges in a scene
-#### Motion Detector
-Detects any motion between a series of frames
-#### Skin Detection
-Detects skin in a scene. Relies on correct lighting.
-
-### Starters
-#### Cloud
-A filter that fills the canvas with Perlin Noise, with an RGB input for colour
-#### FillHSV
-Will fill a canvas with a blank colour, based on HSV input
-#### FillRGB
-Will fill a canvas with a blank colour, based on RGB input
-
-### Thresholders
-#### Gradient Thresholder
-Thresholds over changes in gradient in an image, resulting in edge detection
-#### Median Thresholder
-Colour quantisation over median and quartile pixel values
-#### Value Thresholder
-Thresholds the image at a given value, or at the midpoint of the frame's own
-range
-
-### Transform
-#### Chromatic Aberration
-Displaces the red and green channels in opposite directions, growing toward the
-edges of the frame like a lens does - or uniformly, with `fixed`
-#### Mirror
-Flips the image in horizontal or vertical axis
-#### Rotator
-Rotates an image in 90 degree increments. A quarter turn of a non-square frame
-swaps its dimensions, or crops it to a centred square with `fit: 'crop'`
-#### Tiler
-Will tile an image so it's edges all line up
-#### Translator
-Will move an image in horizontal or vertical axis based on a percentage
-#### Wave
-Translates the pixels of an image according to a mathematical function
-
+| Family | Filters |
+|---|---|
+| Process | `Bleed`, `Blur`, `Desaturate`, `DotRemover`, `Glow`, `HanoverBars`, `Invert`, `Noise`, `Pixelate`, `Posteriser`, `Sharpen`, `Smoother`, `hsvShifter` |
+| Thresholders | `GradientThreshold`, `MedianThreshold`, `ValueThreshold` |
+| Salience | `EdgeDetector`, `MotionDetector`, `SkinDetector` |
+| Transform | `ChromaticAberration`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
+| Height Map | `Contourer`, `NormalFlip`, `NormalGenerator`, `NormalIntensity` |
+| Starters | `Cloud`, `FillHSV`, `FillRGB` |
+| Dual Input | `Add`, `Subtract`, `Blend`, `Mask`, `Multiply` |
+| Misc | `Brickulate`, `DifferenceDetector`, `Ghoster`, `Puzzler` |
 
 Filters to be made
 ==================
-#### Skeletiser
-Will draw the skeleton of the image
-#### Histogram
-Will output a visual histogram of an image, or just the histogram values
-#### Bloat/Erode
-Will expand/reduce blobs in a binary image
-#### Crackulate
-Will draw procedural cracks over a texture
-#### Laplace Edge
-Implement edge detection with a faster algorithm
-#### Sobel Edge
-Implement edge detection with another more complex algorithm
-#### Custom kernel
-Allow a custom 3x3 kernel to be used over an image.
-#### Shot Detector
-Will detect scene changes in a video
-#### Emboss
-Embosses an image
-#### Sepia
-Applies a sepia effect to an image
-#### Target finder
-Highlights a particular point of interest in an image
-#### Screen burn
-Adds screen burn effect to a video, similar to ghosting
-#### Dot crawl
-Adds a dot crawl effect
+
+Tracked in [FEATURES.md](FEATURES.md) #9, which carries the same list plus an
+effort rating and the dependencies between them - a custom 3x3 kernel makes
+Sobel, Laplace and Emboss into presets rather than files, so it goes first.
 
 Other things to work on
 =======================
