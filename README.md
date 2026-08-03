@@ -1,8 +1,41 @@
 Clarity
 =======
 
-Canvas image filter library. Every filter is a class that takes `ImageData` and
-returns `ImageData`, so filters compose into a pipeline by chaining them.
+Forty-one composable image filters for canvas — blur, edge detection, chromatic
+aberration, posterising, normal maps, motion detection — running as fragment
+shaders by default, with a CPU implementation of every one of them behind it.
+
+Every filter takes `ImageData` and returns `ImageData`, so they compose by
+chaining. You never write a shader, manage a context, or touch a framebuffer.
+
+**[Open the playground →](https://clarity.clarklavery.com/)**
+
+Stack filters, point it at an image or your webcam, and watch it run. The chain
+lives in the URL, so any stack you build is a link you can send:
+
+- [Colour bleed and chromatic aberration](https://clarity.clarklavery.com/#colours/Bleed,radius=24/ChromaticAberration,xdistance=8) — the composite-video look
+- [Posterised to six colours](https://clarity.clarklavery.com/#colours/Posteriser,colours=6) — median-cut palette, per frame
+- [A cloud texture from nothing](https://clarity.clarklavery.com/#blank/Cloud,iterations=6) — the starters need no input at all
+- [Height map to normal map](https://clarity.clarklavery.com/#heightmap/NormalGenerator) — then [flipped and re-lit](https://clarity.clarklavery.com/#heightmap/NormalGenerator/NormalIntensity)
+- [Scrambled like a puzzle](https://clarity.clarklavery.com/#colours/Puzzler,horizontalSegs=8,verticalSegs=6)
+
+Why you might want it
+---------------------
+
+- **The GPU path is the default, not an add-on.** An N-filter chain is N draw
+  calls with no CPU round-trip between them. Where there's no WebGL2 it falls
+  back silently, per stage rather than all-or-nothing.
+- **CSS can't do most of these.** `filter: blur()` already covers blur and
+  saturation, and does it better. Clarity is for the ones the platform has no
+  answer for — chromatic aberration, colour bleed, posterising, normal
+  generation, motion and difference detection, puzzling.
+- **Filters describe themselves.** Each carries a schema of its properties, so
+  a host app can build controls for filters it has never heard of. Clarity
+  ships no UI code at all.
+- **Chains are text.** `'Blur,radius=8/Invert'` round-trips through a URL, a
+  data attribute or a saved preset.
+- **No dependencies, no DOM requirement.** It runs in Node against a plain
+  `ImageData`, which is how its own test suite works.
 
 Install
 -------
@@ -13,6 +46,19 @@ npm install @calrk/clarity
 
 Usage
 -----
+
+A single filter is a function from `ImageData` to `ImageData`. If that is all
+you need, that is all there is:
+
+```js
+import { Blur } from '@calrk/clarity';
+
+const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+ctx.putImageData(new Blur({ radius: 8 }).process(frame), 0, 0);
+```
+
+For anything moving, `Renderer` owns the canvas, the source, the ordered chain
+and the frame loop — and puts the whole stack on the GPU:
 
 ```js
 import { Renderer, Blur, EdgeDetector, Invert } from '@calrk/clarity';
@@ -26,17 +72,9 @@ const renderer = new Renderer(canvas)
 renderer.start();
 ```
 
-`Renderer` owns the canvas, the source, the ordered chain and the frame loop.
-`start()` runs a `requestAnimationFrame` loop; `render()` does one frame.
-`move(from, to)`, `insert`, `remove` and `clear` reorder the chain live.
-
-A single filter is just a function from `ImageData` to `ImageData`, so you can
-skip all of that:
-
-```js
-const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-ctx.putImageData(new Blur({ radius: 8 }).process(frame), 0, 0);
-```
+`source()` takes an image, a video, a canvas or a webcam stream. `start()` runs
+a `requestAnimationFrame` loop; `render()` does one frame. `move(from, to)`,
+`insert`, `remove` and `clear` reorder the chain live, mid-playback.
 
 Each filter takes a typed options bag, exposes `enabled` to bypass it without
 removing it from the chain, and describes its own tweakable properties through a
@@ -309,9 +347,10 @@ npm test
 
 ### Playground
 
-`site/` is a single-page playground: pick a source, drag filters into a chain,
-and watch it run. It is also the demo, so it doubles as the answer to "what does
-this library actually do".
+`site/` is the single-page playground live at
+**[clarity.clarklavery.com](https://clarity.clarklavery.com/)**: pick a source,
+drag filters into a chain, and watch it run. It is also the demo, so it doubles
+as the answer to "what does this library actually do".
 
 ```sh
 npm run site           # dev server, library loaded from src/ rather than dist/
@@ -329,7 +368,8 @@ exact stack. A dropped file joins the source list for the session; nothing is
 uploaded anywhere, so it only exists in that tab.
 
 Deployment is an assets-only Cloudflare Worker (`wrangler.jsonc`), so there is
-no server code.
+no server code — a push to `main` builds and ships it. `npm run deploy` does the
+same thing by hand.
 
 ### Tests
 
