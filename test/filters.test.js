@@ -58,14 +58,29 @@ function sameHistogram(a, b) {
 	return true;
 }
 
-const DUAL_INPUT = new Set(['Add', 'Subtract', 'Blend', 'Mask', 'Multiply']);
+// Which filters need a second frame, asked rather than listed - the same
+// lookup the playground uses. A hardcoded set here is how a new dual-input
+// filter gets handed one frame and crashes in a test that looks unrelated.
+const isDualInput = (name) => (CLARITY.CATALOGUE[name]?.traits ?? []).includes('dual');
 
 // derived from the prototype chain, so exporting a new helper can't be
 // mistaken for a filter - see helpers/exports.js
 const filterNames = detectFilters();
 
-test('the bundle exports every filter', () => {
-	assert.equal(filterNames.length, 41);
+test('the bundle exports every filter, and the registry agrees', () => {
+	// This used to assert a hardcoded count, which meant adding a filter failed
+	// a test that said nothing about what was wrong. The invariant it was
+	// standing in for is that the three ways to reach a filter - a named export,
+	// the FILTERS registry, and the catalogue - list the same set. A filter
+	// missing from the registry cannot be built from a chain string; one missing
+	// from the exports cannot be imported by name.
+	const exported = [...filterNames].sort();
+	const registered = Object.keys(CLARITY.FILTERS).sort();
+	const catalogued = Object.keys(CLARITY.CATALOGUE).sort();
+
+	assert.deepEqual(registered, exported, 'FILTERS and the named exports disagree');
+	assert.deepEqual(catalogued, exported, 'the catalogue and the named exports disagree');
+	assert.ok(exported.length > 40, 'sanity: the bundle is not empty');
 });
 
 test('importing the library does not require a DOM', () => {
@@ -77,7 +92,7 @@ for (const name of filterNames) {
 	test(`${name} runs clean over two frames`, () => {
 		const filter = new CLARITY[name]({});
 		const frame = makeFrame();
-		const input = DUAL_INPUT.has(name) ? [frame, makeFrame(90)] : frame;
+		const input = isDualInput(name) ? [frame, makeFrame(90)] : frame;
 
 		// twice, so stateful filters get a second pass
 		filter.process(input);
@@ -248,4 +263,30 @@ test('Tiler wraps seamlessly on an odd-sized frame', () => {
 	let opaque = 0;
 	for (let i = 3; i < out.data.length; i += 4) if (out.data[i] === 255) opaque++;
 	assert.equal(opaque, out.width * out.height);
+});
+
+test('ridged and billow are exact complements of the same fold', () => {
+	// With one octave the normaliser is 1, so the two modes are literally
+	// `255 - |v - 127.5| * 2` and `|v - 127.5| * 2` of the same noise value.
+	// They must therefore sum to 255 at every pixel - which pins down both the
+	// fold arithmetic and the fact that the two modes share a noise field,
+	// rather than merely pinning bytes the way a golden image does.
+		//one octave, so the normaliser is 1 and the arithmetic is visible
+	const shared = { iterations: 1, initialSize: 4 };
+	const make = (fold) =>
+		new CLARITY.Cloud({ ...shared, fold, random: CLARITY.seededRandom(11) }).process(makeFrame());
+
+	const a = make('ridged');
+	const b = make('billow');
+
+	for (let i = 0; i < a.data.length; i += 4) {
+		assert.ok(
+			Math.abs(a.data[i] + b.data[i] - 255) <= 1,
+			`pixel ${i / 4}: ridged ${a.data[i]} + billow ${b.data[i]} should be 255`
+		);
+	}
+
+	// and the unfolded field is neither of them
+	const plain = make('none');
+	assert.notDeepEqual([...plain.data], [...a.data]);
 });

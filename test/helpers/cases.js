@@ -126,12 +126,17 @@ export const cases = [
 	{ filter: 'Cloud', input: 'photo', options: { red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 	// alpha derived from the colour rather than opaque - the texture-mask mode,
 	// and the only case that exercises a non-255 alpha out of a starter
+	{ filter: 'Cloud', name: 'ridged', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'ridged', persistence: 0.5 }, seed: 7, gpu: ACCUMULATING },
+	{ filter: 'Cloud', name: 'billow', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'billow', persistence: 0.5 }, seed: 7, gpu: ACCUMULATING },
 	{ filter: 'Cloud', name: 'mask', input: 'photo', options: { red: 255, green: 200, blue: 120, opaque: false, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 
 	// --- Dual input ------------------------------------------------------
 	{ filter: 'Blend', input: ['photo', 'second'], options: { ratio: 0.35 }, gpu: POINTWISE },
 	{ filter: 'Add', input: ['photo', 'second'], options: {}, gpu: POINTWISE },
 	{ filter: 'Subtract', input: ['photo', 'second'], options: {}, gpu: POINTWISE },
+	// the point of Difference is the half of the range Subtract clamps to black,
+	// so it shares an input pair with Subtract to make the two comparable
+	{ filter: 'Difference', input: ['photo', 'second'], options: {}, gpu: POINTWISE },
 	{ filter: 'Mask', input: ['photo', 'second'], options: {}, gpu: BOUNDARY },
 	{ filter: 'Mask', name: 'inverted', input: ['photo', 'second'], options: { inverted: true }, gpu: BOUNDARY },
 	{ filter: 'Multiply', input: ['photo', 'second'], options: {}, gpu: POINTWISE },

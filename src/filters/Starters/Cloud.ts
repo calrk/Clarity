@@ -6,11 +6,17 @@ import { hashedByte, seedFrom } from '../../helpers/hash.js';
 import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
 
+export type CloudFold = 'none' | 'ridged' | 'billow';
+
 export interface CloudOptions extends FilterOptions {
 	red?: number;
 	green?: number;
 	blue?: number;
 	linear?: boolean;
+	/** Folds each octave about its midpoint - see {@link Cloud}. */
+	fold?: CloudFold;
+	/** Amplitude falloff per octave. Null keeps the original harmonic one. */
+	persistence?: number | null;
 	iterations?: number;
 	initialSize?: number;
 	/** Opaque output. Off derives alpha from the colour - see {@link Cloud}. */
@@ -27,6 +33,9 @@ uniform float u_green;
 uniform float u_blue;
 uniform float u_opaque;
 uniform float u_linear;
+uniform float u_fold;
+uniform float u_persistence;
+uniform float u_persistence_auto;
 uniform float u_iterations;
 uniform float u_initialSize;
 
@@ -36,6 +45,7 @@ void main(){
 	int grid = int(u_initialSize);
 	int used = 0;
 	float total = 0.0;
+	float weight = 0.0;
 
 	//the schema caps iterations at 10, and a loop bound has to be a constant
 	for(int z = 0; z < 10; z++){
@@ -70,7 +80,26 @@ void main(){
 		float top = mix(hashedByte(x1, y1, z, uSeed), hashedByte(x2, y1, z, uSeed), xp);
 		float bottom = mix(hashedByte(x1, y2, z, uSeed), hashedByte(x2, y2, z, uSeed), xp);
 
-		total += mix(top, bottom, yp) / float(z + 1);
+		float octave = mix(top, bottom, yp);
+
+		//The fold, and it has to happen here rather than on the finished sum.
+		//Folding once gives a single crease; folding every octave gives the
+		//branching ridge network, because each octave's midpoint crossings cut
+		//across the coarser one's.
+		if(u_fold > 0.5){
+			float folded = abs(octave - 127.5) * 2.0;
+			octave = u_fold > 1.5 ? folded : 255.0 - folded;
+		}
+
+		//Amplitude of this octave. The original falloff is harmonic - 1, 1/2,
+		//1/3, 1/4 - which keeps the fine octaves louder than standard fBm does.
+		//That is tolerable on plain cloud and much less so once folding sharpens
+		//every octave, so persistence offers the usual p^z instead. Weighting
+		//the normaliser the same way keeps the harmonic path arithmetically
+		//identical to what it was.
+		float amp = u_persistence_auto > 0.5 ? 1.0 / float(z + 1) : pow(u_persistence, float(z));
+		total += octave * amp;
+		weight += u_persistence_auto > 0.5 ? 1.0 : amp;
 	}
 
 	if(used == 0){
@@ -78,7 +107,7 @@ void main(){
 		return;
 	}
 
-	float value = total / float(used);
+	float value = total / weight;
 	writePixel(vec4(
 		value * u_red / 255.0,
 		value * u_green / 255.0,
@@ -96,6 +125,28 @@ void main(){
 		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 255, description: 'Scales the noise into the blue channel.' },
 		opaque: { type: 'bool', label: 'Opaque', default: true, description: 'Off derives alpha from the colour, for use as a texture mask.' },
 		linear: { type: 'bool', label: 'Linear', default: false, description: 'Interpolate straight between grid values instead of smoothing, which makes the cell edges visible.' },
+		fold: {
+			type: 'select',
+			label: 'Fold',
+			default: 'none',
+			description: 'Folds each octave about its midpoint. Ridged gives sharp crests and broad basins - terrain rather than fog.',
+			options: [
+				{ value: 'none', label: 'None' },
+				{ value: 'ridged', label: 'Ridged - hills and valleys' },
+				{ value: 'billow', label: 'Billow - puffy' }
+			]
+		},
+		persistence: {
+			type: 'float',
+			label: 'Persistence',
+			min: 0.1,
+			max: 0.9,
+			step: 0.05,
+			default: null,
+			nullable: true,
+			nullLabel: 'Harmonic',
+			description: 'How much quieter each octave is than the last. Lower is smoother; 0.5 is standard fBm. Worth setting whenever Fold is on.'
+		},
 		iterations: { type: 'int', label: 'Iterations', min: 1, max: 10, step: 1, default: 4, description: 'Octaves of value noise.' },
 		initialSize: { type: 'int', label: 'Initial size', min: 1, max: 16, step: 1, default: 4, description: 'Grid size of the coarsest octave.' }
 	};
@@ -106,6 +157,8 @@ void main(){
 		blue: number;
 		opaque: boolean;
 		linear: boolean;
+		fold: CloudFold;
+		persistence: number | null;
 		iterations: number;
 		initialSize: number;
 	};
@@ -118,6 +171,8 @@ void main(){
 			blue: options.blue === undefined ? 255 : options.blue,
 			opaque: options.opaque !== false,
 			linear: options.linear || false,
+			fold: options.fold ?? 'none',
+			persistence: options.persistence ?? null,
 			iterations: options.iterations || 4,
 			initialSize: options.initialSize || 4
 		};
@@ -134,6 +189,7 @@ void main(){
 
 		let size = this.properties.initialSize;
 		let used = 0;
+		let weight = 0;
 		let totals = new Float64Array(frame.width*frame.height);
 
 		for(let z = 0; z < this.properties.iterations; z++){
@@ -144,6 +200,12 @@ void main(){
 				break;
 			}
 			used ++;
+
+			//see the shader: harmonic weights every octave 1 for normalising, so
+			//that path stays bit-for-bit what it was before persistence existed
+			const persistence = this.properties.persistence;
+			const amp = persistence === null ? 1/(z+1) : Math.pow(persistence, z);
+			weight += persistence === null ? 1 : amp;
 
 			for(let y = 0; y < frame.height; y++){
 				//Which cell this row falls in, and how far through it, in integer
@@ -172,7 +234,14 @@ void main(){
 					let bottom = this.linearInterpolate(
 						hashedByte(x1, y2, z, seed), hashedByte(x2, y2, z, seed), xpercent);
 
-					totals[y*frame.width + x] += this.linearInterpolate(top, bottom, ypercent)/(z+1);
+					let octave = this.linearInterpolate(top, bottom, ypercent);
+					//per octave, not on the finished sum - see the shader
+					if(this.properties.fold !== 'none'){
+						let folded = Math.abs(octave - 127.5) * 2;
+						octave = this.properties.fold === 'billow' ? folded : 255 - folded;
+					}
+
+					totals[y*frame.width + x] += octave * amp;
 				}
 			}
 		}
@@ -183,7 +252,7 @@ void main(){
 
 		for(let k = 0; k < frame.width*frame.height; k ++){
 			let j = k * 4;
-			let value = totals[k]/used;
+			let value = totals[k]/weight;
 			output.data[j  ] = value * this.properties.red/255;
 			output.data[j+1] = value * this.properties.green/255;
 			output.data[j+2] = value * this.properties.blue/255;

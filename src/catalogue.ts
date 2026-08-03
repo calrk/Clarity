@@ -143,6 +143,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	// --- Dual Input ---
 	Add: { category: 'Dual Input', summary: "Adds the second image to the first, clamping at white.", traits: ['dual'] },
 	Subtract: { category: 'Dual Input', summary: "Subtracts the second image from the first, clamping at black.", traits: ['dual'] },
+	Difference: { category: 'Dual Input', summary: "Absolute difference between two images - symmetric, and it keeps the range Subtract clamps away.", traits: ['dual'] },
 	Blend: { category: 'Dual Input', summary: "Weighted mix of two images.", traits: ['dual'] },
 	Mask: { category: 'Dual Input', summary: "Binary stencil - keeps the first image where the mask is light, blacks it out where the mask is dark.", traits: ['dual'] },
 	Multiply: { category: 'Dual Input', summary: "Multiplies the two images together, channel by channel.", traits: ['dual'] },

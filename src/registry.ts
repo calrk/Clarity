@@ -2,6 +2,7 @@ import type { Filter, FilterOptions } from './core/Filter.js';
 
 import { Add } from './filters/DualInput/Add.js';
 import { Subtract } from './filters/DualInput/Subtract.js';
+import { Difference } from './filters/DualInput/Difference.js';
 import { Blend } from './filters/DualInput/Blend.js';
 import { Mask } from './filters/DualInput/Mask.js';
 import { Multiply } from './filters/DualInput/Multiply.js';
@@ -57,6 +58,7 @@ export type FilterConstructor = (new (options?: FilterOptions) => Filter) & type
 export const FILTERS: Record<string, FilterConstructor> = {
 	Add,
 	Subtract,
+	Difference,
 	Blend,
 	Mask,
 	Multiply,

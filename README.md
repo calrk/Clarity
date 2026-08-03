@@ -425,7 +425,7 @@ LICENSE and is baked into every built bundle.
 Filters
 =======
 
-41 of them, in eight families. The **[full reference](docs/FILTERS.md)**
+42 of them, in eight families. The **[full reference](docs/FILTERS.md)**
 gives each one a before/after image, an options table and a live playground link -
 generated from the library by `npm run docs`, and checked by the test suite, so it
 cannot describe a filter that no longer works that way.
@@ -438,7 +438,7 @@ cannot describe a filter that no longer works that way.
 | Transform | `ChromaticAberration`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
 | Height Map | `Contourer`, `NormalFlip`, `NormalGenerator`, `NormalIntensity` |
 | Starters | `Cloud`, `FillHSV`, `FillRGB` |
-| Dual Input | `Add`, `Subtract`, `Blend`, `Mask`, `Multiply` |
+| Dual Input | `Add`, `Subtract`, `Difference`, `Blend`, `Mask`, `Multiply` |
 | Misc | `Brickulate`, `DifferenceDetector`, `Ghoster`, `Puzzler` |
 
 Filters to be made

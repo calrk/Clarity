@@ -45,6 +45,8 @@ export { Add } from './filters/DualInput/Add.js';
 export type { AddOptions } from './filters/DualInput/Add.js';
 export { Subtract } from './filters/DualInput/Subtract.js';
 export type { SubtractOptions } from './filters/DualInput/Subtract.js';
+export { Difference } from './filters/DualInput/Difference.js';
+export type { DifferenceOptions } from './filters/DualInput/Difference.js';
 export { Blend } from './filters/DualInput/Blend.js';
 export type { BlendOptions } from './filters/DualInput/Blend.js';
 export { Mask } from './filters/DualInput/Mask.js';
@@ -100,7 +102,7 @@ export type { SkinDetectorOptions } from './filters/Salience/SkinDetector.js';
 
 // Starters
 export { Cloud } from './filters/Starters/Cloud.js';
-export type { CloudOptions } from './filters/Starters/Cloud.js';
+export type { CloudOptions, CloudFold } from './filters/Starters/Cloud.js';
 export { FillHSV } from './filters/Starters/FillHSV.js';
 export type { FillHSVOptions } from './filters/Starters/FillHSV.js';
 export { FillRGB } from './filters/Starters/FillRGB.js';

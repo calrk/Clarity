@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-41 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+42 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -26,7 +26,7 @@ playground link to see one at a sensible size.
 
 **Starters** — [Cloud](#cloud) · [FillHSV](#fillhsv) · [FillRGB](#fillrgb)
 
-**Dual Input** — [Add](#add) · [Subtract](#subtract) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply)
+**Dual Input** — [Add](#add) · [Subtract](#subtract) · [Difference](#difference) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply)
 
 **Misc** — [Brickulate](#brickulate) · [DifferenceDetector](#differencedetector) · [Ghoster](#ghoster) · [Puzzler](#puzzler)
 
@@ -634,6 +634,8 @@ new Cloud({ red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 });
 | `blue` | int | 0–255 | `255` | Scales the noise into the blue channel. |
 | `opaque` | bool | true / false | `true` | Off derives alpha from the colour, for use as a texture mask. |
 | `linear` | bool | true / false | `false` | Interpolate straight between grid values instead of smoothing, which makes the cell edges visible. |
+| `fold` | select | `none` · `ridged` · `billow` | `none` | Folds each octave about its midpoint. Ridged gives sharp crests and broad basins - terrain rather than fog. |
+| `persistence` | float | 0.1–0.9, or empty for Harmonic | _Harmonic_ | How much quieter each octave is than the last. Lower is smoother; 0.5 is standard fBm. Worth setting whenever Fold is on. |
 | `iterations` | int | 1–10 | `4` | Octaves of value noise. |
 | `initialSize` | int | 1–16 | `4` | Grid size of the coarsest octave. |
 
@@ -715,6 +717,24 @@ Subtracts the second image from the first, clamping at black.
 import { Subtract } from '@calrk/clarity';
 
 new Subtract();
+```
+
+_No options._
+
+### Difference
+
+Absolute difference between two images - symmetric, and it keeps the range Subtract clamps away.
+
+**Two inputs**
+
+<img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Difference.png" width="192" alt="Difference applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#colours/Difference)
+
+```js
+import { Difference } from '@calrk/clarity';
+
+new Difference();
 ```
 
 _No options._

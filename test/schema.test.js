@@ -31,10 +31,13 @@ function makeFrame() {
 	return f;
 }
 
-const DUAL_INPUT = new Set(['Add', 'Subtract', 'Blend', 'Mask', 'Multiply']);
+// Which filters need a second frame, asked rather than listed - the same
+// lookup the playground uses. A hardcoded set here is how a new dual-input
+// filter gets handed one frame and crashes in a test that looks unrelated.
+const isDualInput = (name) => (CLARITY.CATALOGUE[name]?.traits ?? []).includes('dual');
 
 const run = (filter) =>
-	filter.process(DUAL_INPUT.has(filter.constructor.name) ? [makeFrame(), makeFrame()] : makeFrame());
+	filter.process(isDualInput(filter.constructor.name) ? [makeFrame(), makeFrame()] : makeFrame());
 
 for (const name of filterNames) {
 	const Ctor = CLARITY[name];
