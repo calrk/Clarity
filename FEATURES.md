@@ -528,16 +528,77 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list has been sitting there since 2014. Every mechanism they need now exists, so these are genuinely small: a shader, a CPU twin, a schema, a golden case.
+The README's "Filters to be made" list had been sitting there since 2014. Every mechanism they need now exists, so most of these are genuinely small: a shader, a CPU twin, a schema, a golden case. Grouped by what they *need*, because that is what decides the effort — several are nearly free once one parent filter exists.
 
-- **Custom 3×3 kernel** — the generic case. Ship it and Sobel/Laplace/Emboss become presets rather than files. Do this one first; the rest of the kernel family falls out of it.
-- **Sobel** and **Laplace** edge detection — the current `EdgeDetector` uses a single 8-neighbour kernel with no gradient magnitude; Sobel's dual-pass X/Y is both better and, on GPU, free.
-- **Emboss**, **Sepia** — one-liners.
-- **Bloat/Erode** — morphological ops, which also make `DotRemover` redundant: open/close does the same job better and generalises past binary images.
-- **Histogram** — a reduction, and `static samples` + `prepare` is now exactly the shape for it. No longer waiting on WebGPU.
-- **Skeletiser**, **Crackulate**, **Screen burn**, **Dot crawl**, **Shot detector**.
+### The kernel family — one filter, then presets
 
-Also worth adding now that the GPU path makes them cheap: **bilateral filter**, **CRT/barrel distortion**, **dithering** (Bayer on the GPU; Floyd–Steinberg is sequential, so CPU-only and a legitimate use of `supportsGPU`), and **LUT / colour-grade** from a 3D texture. The LUT one in particular turns Clarity into something people would actually reach for — and `static data()` already uploads arbitrary texture data, so the plumbing is there.
+| Filter | Summary | Effort |
+|---|---|---|
+| **Convolver** | Applies a 3×3 kernel chosen from a list, optionally more than once. | Low |
+| **Sobel** | Edge strength from the gradient magnitude of two perpendicular kernels. | preset |
+| **Laplace** | Second-derivative edges — thinner than Sobel's, and signed. | preset |
+| **Emboss** | Lights the frame from one side so edges read as raised or cut into the surface. | preset |
+
+Do `Convolver` first: the other three are entries in a select rather than files. It also **retires `Sharpen`** and **retires `Smoother`** — the latter takes its centre-pixel bug with it, see below.
+
+The open question is the *custom* kernel. `FilterSchema` has no matrix type, so nine `float` fields is the only way to express one, and nine controls would clutter the panel for the 95% of uses that want a preset. Shipping presets first keeps the door open: adding `custom` to the select plus nine fields later does not break any existing link, because `formatChain` only writes non-defaults.
+
+*`Smoother` is not merely redundant, it is wrong.* Its kernel **excludes the centre pixel**, giving frequency response `(cos 2πu + cos 2πv)/2`, which is exactly **−1** at the diagonal Nyquist. A one-pixel checkerboard is inverted at full strength rather than smoothed, and iterating flips it back and forth forever — measured: 0→255→0→255 over three passes, where `Blur` collapses the same input to flat grey. It is also ~4× slower than `Blur` for 1/36th of the reach, and it forces alpha to 255 where `Blur` preserves it. Deleting it in favour of a `smooth` preset fixes the bug by replacement.
+
+### Morphology — one filter
+
+| Filter | Summary | Effort |
+|---|---|---|
+| **Morphology** | Grows or shrinks light regions; open and close remove speckle without moving the edges that remain. | Low–Medium |
+
+Modes `dilate / erode / open / close`. **Retires `DotRemover`.** It generalises past binary images because morphology is defined by ordering, not by 0 and 1: dilate is the local maximum over the structuring element and erode the local minimum, so on a photograph dilate spreads highlights and swallows dark speckle while erode does the reverse. The binary case is the special case, not the only case.
+
+### Colour
+
+| Filter | Summary | Effort |
+|---|---|---|
+| **Levels** | Remaps the black point, white point and gamma — the everyday contrast control. | Low |
+| **Sepia** | Tones the frame to warm monochrome. | Low |
+| **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
+| **LUT** | Remaps every colour through a lookup table, for film-style grades. | Medium |
+
+**`Levels` is a real gap rather than a nicety**: there is currently no brightness or contrast control anywhere in the library. `hsvShifter.value` multiplies brightness and that is the whole of it — no black point, no white point, no gamma.
+
+`Dither` is the one honest use of `supportsGPU`: Bayer is an ordered threshold and runs as a shader, while Floyd–Steinberg diffuses error to pixels not yet visited and is inherently sequential, so it stays CPU-only. `LUT` needs a decision on where the table comes from — a second input image, or `static data()`, which already uploads arbitrary texture data.
+
+### Starters
+
+| Filter | Summary | Effort |
+|---|---|---|
+| **Gradient** | Fills the frame with a linear or radial ramp. | Low |
+| **Voronoi** | Fills the frame with cellular noise — stone, scales, cracked ground, caustics. | Low–Medium |
+
+`Gradient` is trivial and disproportionately useful: it is the compositing primitive the library lacks, and it is what you feed `Mask` or `Blend` to make anything fade. `Voronoi` is the natural sibling of the gradient noise in `Cloud` and reuses the same hashing.
+
+### Video and CRT
+
+| Filter | Summary | Effort |
+|---|---|---|
+| **CRT** | Bows the frame outward like a curved screen, with optional scanlines and vignette. | Low–Medium |
+| **DotCrawl** | The crawling dot pattern composite video leaves along chroma edges. | Low |
+| **ScreenBurn** | Burns a persistent ghost of bright areas into the frame over time. | Low |
+| **ShotDetector** | Flags a cut by how far the frame moved from the one before it. | Low |
+
+`DotCrawl` completes the composite-video set alongside `Bleed`, `HanoverBars` and `ChromaticAberration`. `ScreenBurn` and `ShotDetector` are `temporal` and need `retains`, which exists.
+
+### The rest
+
+| Filter | Summary | Effort |
+|---|---|---|
+| **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
+| **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
+| **ChromaKey** | Makes one colour transparent, with tolerance and edge softening. | Low |
+| **Crackulate** | Draws procedural cracks across the frame. | Medium |
+| **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium–High |
+
+`Histogram` wants `samples` + `prepare`, which is exactly the shape that already exists for `Posteriser`'s palette. `ChromaKey` was not on the old list and is the obvious partner to `Mask`. **`Skeletiser` is the only genuinely hard one** — iterative thinning is sequential and needs a repeat-until-stable loop, which is a poor fit for a shader and the one item here that is a day rather than an hour.
+
+*Chromatic aberration was on this list and is now shipped — it turned out `ChannelSeparate` had been it all along, with an inverted ramp. See #3. Difference clouds and ridged noise are done; see below.*
 
 ### ~~Difference clouds & ridged noise~~ ✓
 
