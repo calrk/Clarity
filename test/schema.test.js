@@ -213,11 +213,11 @@ test('channel is routed to the filter rather than into properties', () => {
 
 test('toggleProperty flips a boolean', () => {
 	const mirror = new CLARITY.Mirror({});
-	assert.equal(mirror.properties.Vertical, false);
-	mirror.toggleProperty('Vertical');
-	assert.equal(mirror.properties.Vertical, true);
-	mirror.toggleProperty('Vertical');
-	assert.equal(mirror.properties.Vertical, false);
+	assert.equal(mirror.properties.vertical, false);
+	mirror.toggleProperty('vertical');
+	assert.equal(mirror.properties.vertical, true);
+	mirror.toggleProperty('vertical');
+	assert.equal(mirror.properties.vertical, false);
 });
 
 test('constructing from defaultsOf reproduces a default filter', () => {
@@ -318,8 +318,8 @@ test('a chain survives a round trip through text', () => {
 test('only non-default properties are written', () => {
 	// keeps a link short, and keeps it working when a default changes underneath
 	assert.equal(CLARITY.formatChain([new CLARITY.Blur({})]), 'Blur');
-	assert.equal(CLARITY.formatChain([new CLARITY.Mirror({ Horizontal: true })]), 'Mirror');
-	assert.equal(CLARITY.formatChain([new CLARITY.Mirror({ Horizontal: false })]), 'Mirror,Horizontal=false');
+	assert.equal(CLARITY.formatChain([new CLARITY.Mirror({ horizontal: true })]), 'Mirror');
+	assert.equal(CLARITY.formatChain([new CLARITY.Mirror({ horizontal: false })]), 'Mirror,horizontal=false');
 });
 
 test('reading a chain is forgiving, because the text comes from outside', () => {
@@ -334,4 +334,97 @@ test('reading a chain is forgiving, because the text comes from outside', () => 
 	assert.equal(CLARITY.buildChain('Blur,radius=99999')[0].properties.radius, CLARITY.Blur.schema.radius.max);
 	// and an unknown property is ignored rather than being an error
 	assert.equal(CLARITY.buildChain('Blur,nonsense=3').length, 1);
+});
+
+test('a property a filter does not declare is skipped, whatever it is called', () => {
+	// `channel` used to be waved past the schema guard on the grounds that it
+	// lives on the base class - and then setProperty threw, because the guard
+	// there is the filter's own schema. So `Blur,nonsense=1` was forgiven and
+	// `Blur,channel=red` was fatal: the one shape of stale link most likely to
+	// exist, since channel *is* a real option on other filters.
+	for (const name of Object.keys(CLARITY.FILTERS)) {
+		if ('channel' in CLARITY.FILTERS[name].schema) continue;
+		assert.doesNotThrow(
+			() => CLARITY.buildChain(`${name},channel=red`),
+			`${name},channel=red should be skipped, not fatal`
+		);
+	}
+
+	// where it is declared it still works, and still round-trips
+	assert.equal(CLARITY.buildChain('EdgeDetector,channel=red')[0].channel, 'red');
+	assert.equal(CLARITY.formatChain(CLARITY.buildChain('EdgeDetector,channel=red')), 'EdgeDetector,channel=red');
+});
+
+// --- documentation completeness ---------------------------------------
+//
+// The filter reference is generated from this metadata, so a missing
+// description is not a cosmetic problem - it is a blank cell in the docs and a
+// control in the playground with no tooltip. Failing here is what makes
+// "the docs write themselves" true rather than "the docs generate themselves
+// empty".
+
+test('every schema field says what it does', () => {
+	const missing = [];
+	for (const name of filterNames) {
+		const schema = CLARITY.FILTERS[name].schema ?? {};
+		for (const [key, field] of Object.entries(schema)) {
+			if (typeof field.description !== 'string' || field.description.trim() === '') {
+				missing.push(`${name}.${key}`);
+			}
+			if (typeof field.label !== 'string' || field.label.trim() === '') {
+				missing.push(`${name}.${key} (no label)`);
+			}
+		}
+	}
+	assert.deepEqual(missing, [], 'schema fields with no description');
+});
+
+test('every filter is in the catalogue, with a summary', () => {
+	const missing = filterNames.filter((name) => !CLARITY.CATALOGUE[name]?.summary?.trim());
+	assert.deepEqual(missing, [], 'filters with no catalogue summary');
+
+	// and nothing in the catalogue has outlived the filter it describes
+	const orphaned = Object.keys(CLARITY.CATALOGUE).filter((name) => !filterNames.includes(name));
+	assert.deepEqual(orphaned, [], 'catalogue entries with no filter');
+});
+
+test('declared traits agree with what the filters actually are', () => {
+	// Three of the traits restate something the code already knows, so they can
+	// be checked rather than trusted. The rest - what kind of image a filter
+	// wants - is a claim about meaning that nothing in the code can confirm,
+	// which is exactly why it has to be written down.
+	const wrong = [];
+	const has = (name, trait) => (CLARITY.CATALOGUE[name].traits ?? []).includes(trait);
+
+	for (const name of filterNames) {
+		const Ctor = CLARITY.FILTERS[name];
+		const entry = CLARITY.CATALOGUE[name];
+
+		for (const trait of entry.traits ?? []) {
+			if (!(trait in CLARITY.TRAITS)) wrong.push(`${name}: unknown trait "${trait}"`);
+		}
+
+		const derived = {
+			starter: entry.category === 'Starters',
+			dual: entry.category === 'Dual Input',
+			temporal: Ctor.retains(new Ctor()) !== null
+		};
+		for (const [trait, expected] of Object.entries(derived)) {
+			if (has(name, trait) !== expected) {
+				wrong.push(`${name}: ${expected ? 'should' : 'should not'} be tagged "${trait}"`);
+			}
+		}
+	}
+	assert.deepEqual(wrong, []);
+});
+
+test('every trait in the vocabulary is used, and describes itself', () => {
+	const used = new Set(Object.values(CLARITY.CATALOGUE).flatMap((entry) => entry.traits ?? []));
+	for (const [trait, info] of Object.entries(CLARITY.TRAITS)) {
+		assert.ok(info.label?.trim(), `${trait} has no label`);
+		assert.ok(info.description?.trim(), `${trait} has no description`);
+		// an unused trait is a vocabulary word nobody needed - drop it rather
+		// than leave it to be mistakenly applied later
+		assert.ok(used.has(trait), `trait "${trait}" is declared but tags no filter`);
+	}
 });

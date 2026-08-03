@@ -119,16 +119,16 @@ test('Pixel round-trips RGB through HSV in 0-255', () => {
 
 test('Mirror preserves every pixel and is its own inverse', () => {
 	const original = makeFrame();
-	const once = new CLARITY.Mirror({ Horizontal: true }).process(makeFrame());
+	const once = new CLARITY.Mirror({ horizontal: true }).process(makeFrame());
 	assert.ok(sameHistogram(once.data, original.data));
 
-	const twice = new CLARITY.Mirror({ Horizontal: true }).process(once);
+	const twice = new CLARITY.Mirror({ horizontal: true }).process(once);
 	assert.deepEqual([...twice.data], [...original.data]);
 });
 
-test('Mirror honours Horizontal: false', () => {
+test('Mirror honours horizontal: false', () => {
 	const original = makeFrame();
-	const out = new CLARITY.Mirror({ Horizontal: false }).process(makeFrame());
+	const out = new CLARITY.Mirror({ horizontal: false }).process(makeFrame());
 	assert.deepEqual([...out.data], [...original.data]);
 });
 

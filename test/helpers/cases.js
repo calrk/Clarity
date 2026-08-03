@@ -98,8 +98,8 @@ export const cases = [
 	{ filter: 'Contourer', input: 'heightmap', options: { contours: 6 }, gpu: BANDED },
 
 	// --- Transform (gather/scatter; odd sizes matter) --------------------
-	{ filter: 'Mirror', input: 'photo', options: { Horizontal: true }, gpu: POINTWISE },
-	{ filter: 'Mirror', name: 'both-odd', input: 'odd', options: { Horizontal: true, Vertical: true }, gpu: POINTWISE },
+	{ filter: 'Mirror', input: 'photo', options: { horizontal: true }, gpu: POINTWISE },
+	{ filter: 'Mirror', name: 'both-odd', input: 'odd', options: { horizontal: true, vertical: true }, gpu: POINTWISE },
 	{ filter: 'Rotator', input: 'photo', options: { turns: 1 }, gpu: POINTWISE },
 	{ filter: 'Rotator', name: 'half', input: 'photo', options: { turns: 2 }, gpu: POINTWISE },
 	//the two fits only differ on a non-square frame, and the fixture is 4:3

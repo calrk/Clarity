@@ -57,10 +57,10 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		horizontalSegs: { type: 'int', label: 'Columns', min: 1, max: 20, step: 1, default: 4 },
-		verticalSegs: { type: 'int', label: 'Rows', min: 1, max: 20, step: 1, default: 4 },
-		grooveSize: { type: 'int', label: 'Groove size', min: 1, max: 20, step: 1, default: 5 },
-		offset: { type: 'bool', label: 'Offset rows', default: false }
+		horizontalSegs: { type: 'int', label: 'Columns', min: 1, max: 20, step: 1, default: 4, description: 'How many bricks across the frame.' },
+		verticalSegs: { type: 'int', label: 'Rows', min: 1, max: 20, step: 1, default: 4, description: 'How many bricks down the frame.' },
+		grooveSize: { type: 'int', label: 'Groove size', min: 1, max: 20, step: 1, default: 5, description: 'Width of the bevelled mortar line between bricks, in pixels.' },
+		offset: { type: 'bool', label: 'Offset rows', default: false, description: 'Shift alternate rows by half a brick, for a running bond rather than a stacked grid.' }
 	};
 
 	override properties: {

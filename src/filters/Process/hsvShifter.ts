@@ -36,8 +36,8 @@ void main(){
 
 	static override schema: FilterSchema = {
 		hue: { type: 'float', label: 'Hue', min: 0, max: 360, step: 1, default: 0, description: 'Rotation in degrees.' },
-		saturation: { type: 'float', label: 'Saturation', min: 0, max: 2, step: 0.1, default: 1 },
-		value: { type: 'float', label: 'Value', min: 0, max: 2, step: 0.1, default: 1 }
+		saturation: { type: 'float', label: 'Saturation', min: 0, max: 2, step: 0.1, default: 1, description: 'Multiplies saturation. 0 is greyscale, 1 leaves it alone.' },
+		value: { type: 'float', label: 'Value', min: 0, max: 2, step: 0.1, default: 1, description: 'Multiplies brightness. 1 leaves it alone.' }
 	};
 
 	override properties: {

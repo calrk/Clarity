@@ -23,9 +23,9 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 0 },
-		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 0 },
-		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 0 }
+		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 0, description: 'Red channel of the fill colour.' },
+		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 0, description: 'Green channel of the fill colour.' },
+		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 0, description: 'Blue channel of the fill colour.' }
 	};
 
 	override properties: {

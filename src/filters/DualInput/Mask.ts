@@ -36,7 +36,7 @@ void main(){
 
 	static override schema: FilterSchema = {
 		threshold: { type: 'int', label: 'Threshold', min: 0, max: 255, step: 1, default: 128, description: 'Mask values at or above this keep the first image.' },
-		inverted: { type: 'bool', label: 'Inverted', default: false },
+		inverted: { type: 'bool', label: 'Inverted', default: false, description: 'Keep the dark parts of the mask instead of the light ones.' },
 		channel: CHANNEL_FIELD
 	};
 

@@ -7,7 +7,7 @@
 // never had controls.
 
 import * as CLARITY from '@calrk/clarity';
-import { CATALOGUE, CATEGORY_ORDER, Pipeline, Renderer } from '@calrk/clarity';
+import { CATALOGUE, CATEGORY_ORDER, Pipeline, Renderer, TRAITS } from '@calrk/clarity';
 
 import { createChainView, isDualInput } from './chain.js';
 import { readHash, writeHash } from './share.js';
@@ -30,6 +30,32 @@ let currentElement = null;
 let smoothedFrameTime = 0;
 
 // ---------------------------------------------------------------- palette
+
+/**
+ * The chips that say what a filter needs before it will do anything.
+ *
+ * These are the failures that look like nothing happening: a motion detector on
+ * a still photograph, a dot remover on a picture that was never thresholded.
+ * The text comes from `TRAITS` in the library rather than from a list here,
+ * because the playground keeping its own copy is how the three filter lists
+ * that `CATALOGUE` replaced went out of date in the first place.
+ *
+ * @returns {HTMLElement|null} null when the filter is the ordinary case
+ */
+function traitChips(entry) {
+	if (!entry.traits?.length) return null;
+
+	const row = document.createElement('span');
+	row.className = 'chips';
+	for (const trait of entry.traits) {
+		const chip = document.createElement('span');
+		chip.className = `chip chip-${trait}`;
+		chip.textContent = TRAITS[trait].label;
+		chip.title = TRAITS[trait].description;
+		row.appendChild(chip);
+	}
+	return row;
+}
 
 function buildPalette(query = '') {
 	const palette = $('palette');
@@ -69,6 +95,9 @@ function buildPalette(query = '') {
 			const summary = document.createElement('small');
 			summary.textContent = entry.summary;
 			button.appendChild(summary);
+
+			const chips = traitChips(entry);
+			if (chips) button.appendChild(chips);
 
 			button.addEventListener('click', () => addFilter(name));
 			palette.appendChild(button);

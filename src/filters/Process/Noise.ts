@@ -42,8 +42,8 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		intensity: { type: 'float', label: 'Intensity', min: 0, max: 100, step: 0.1, default: 1 },
-		monochromatic: { type: 'bool', label: 'Monochromatic', default: false }
+		intensity: { type: 'float', label: 'Intensity', min: 0, max: 100, step: 0.1, default: 1, description: 'Largest amount a channel can be pushed up or down.' },
+		monochromatic: { type: 'bool', label: 'Monochromatic', default: false, description: 'Move all three channels together, so the grain is grey rather than coloured.' }
 	};
 
 	override properties: {

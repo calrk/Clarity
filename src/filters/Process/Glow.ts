@@ -30,7 +30,7 @@ void main(){
 	];
 
 	static override schema: FilterSchema = {
-		radius: { type: 'int', label: 'Radius', min: 1, max: 180, step: 1, default: 10 }
+		radius: { type: 'int', label: 'Radius', min: 1, max: 180, step: 1, default: 10, description: 'Radius of the blur that is blended back over the original.' }
 	};
 
 	override properties: {

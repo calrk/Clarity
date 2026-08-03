@@ -45,7 +45,7 @@ void main(){
 	];
 
 	static override schema: FilterSchema = {
-		inverted: { type: 'bool', label: 'Inverted', default: false },
+		inverted: { type: 'bool', label: 'Inverted', default: false, description: 'Light the pixels below the threshold instead of those above it.' },
 		threshold: { type: 'int', label: 'Threshold', min: 0, max: 255, step: 1, default: null, nullable: true, nullLabel: 'Auto', description: 'Auto splits the frame at the midpoint of its own range.' },
 		channel: CHANNEL_FIELD
 	};

@@ -91,11 +91,11 @@ void main(){
 	static override schema: FilterSchema = {
 		//White by default. The colour scales the noise, so zero meant a black
 		//frame - and with the old alpha rule, an invisible one.
-		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 255 },
-		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 255 },
-		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 255 },
+		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 255, description: 'Scales the noise into the red channel. All three at 255 gives grey cloud.' },
+		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 255, description: 'Scales the noise into the green channel.' },
+		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 255, description: 'Scales the noise into the blue channel.' },
 		opaque: { type: 'bool', label: 'Opaque', default: true, description: 'Off derives alpha from the colour, for use as a texture mask.' },
-		linear: { type: 'bool', label: 'Linear', default: false },
+		linear: { type: 'bool', label: 'Linear', default: false, description: 'Interpolate straight between grid values instead of smoothing, which makes the cell edges visible.' },
 		iterations: { type: 'int', label: 'Iterations', min: 1, max: 10, step: 1, default: 4, description: 'Octaves of value noise.' },
 		initialSize: { type: 'int', label: 'Initial size', min: 1, max: 16, step: 1, default: 4, description: 'Grid size of the coarsest octave.' }
 	};

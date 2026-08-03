@@ -26,9 +26,9 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		hue: { type: 'float', label: 'Hue', min: 0, max: 360, step: 1, default: 0 },
-		saturation: { type: 'float', label: 'Saturation', min: 0, max: 1, step: 0.01, default: 0 },
-		value: { type: 'float', label: 'Value', min: 0, max: 1, step: 0.01, default: 0 }
+		hue: { type: 'float', label: 'Hue', min: 0, max: 360, step: 1, default: 0, description: 'Position on the colour wheel, in degrees.' },
+		saturation: { type: 'float', label: 'Saturation', min: 0, max: 1, step: 0.01, default: 0, description: 'How much colour. 0 is grey.' },
+		value: { type: 'float', label: 'Value', min: 0, max: 1, step: 0.01, default: 0, description: 'Brightness. 0 is black.' }
 	};
 
 	override properties: {

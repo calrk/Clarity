@@ -76,8 +76,8 @@ void main(){
 	}
 
 	static override schema: FilterSchema = {
-		horizontalSegs: { type: 'int', label: 'Columns', min: 2, max: 16, step: 1, default: 4 },
-		verticalSegs: { type: 'int', label: 'Rows', min: 2, max: 16, step: 1, default: 4 }
+		horizontalSegs: { type: 'int', label: 'Columns', min: 2, max: 16, step: 1, default: 4, description: 'How many tiles across. Changing it reshuffles.' },
+		verticalSegs: { type: 'int', label: 'Rows', min: 2, max: 16, step: 1, default: 4, description: 'How many tiles down. Changing it reshuffles.' }
 	};
 
 	override properties: {

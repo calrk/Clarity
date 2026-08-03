@@ -292,6 +292,47 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 .palette button small { display: block; color: var(--muted); font-size: .7rem; line-height: 1.35; }
 .palette button:hover small { color: inherit; opacity: .8; }
 
+/* ---------- trait chips ---------- */
+/*
+ * What a filter needs before it will do anything - a second input, motion, an
+ * already-thresholded image. Deliberately quiet: they are a caveat on a filter
+ * you are reading about, not a call to action, and most filters carry none, so
+ * anything louder would make the seven that do look like the important ones.
+ */
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .25rem;
+	margin-top: .3rem;
+}
+
+.chip {
+	display: inline-block;
+	padding: .1rem .35rem;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: var(--bg-tint);
+	color: var(--muted);
+	font-size: .62rem;
+	line-height: 1.5;
+	letter-spacing: .01em;
+	white-space: nowrap;
+	cursor: help;
+}
+
+/* The two that mean "this needs something you have not given it" carry the
+   accent; the rest are neutral facts about the filter. */
+.chip-temporal,
+.chip-binary-in,
+.chip-heightmap-in,
+.chip-normalmap-in {
+	border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+	background: var(--accent-wash);
+	color: var(--accent);
+}
+
+.stage-card .chips { padding: 0 .5rem .1rem; }
+
 /* ---------- stage ---------- */
 
 .stage { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }

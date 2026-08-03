@@ -78,7 +78,13 @@ export function buildChain(spec: string): Filter[] {
 		filter.enabled = stage.enabled;
 
 		for (const [key, value] of Object.entries(stage.options)) {
-			if (key in filter.schema || key === 'channel') {
+			//`key in filter.schema` is the whole guard. It used to be
+			//`|| key === 'channel'`, on the assumption that channel lives on the
+			//base class and so is always settable - but `setProperty` throws for a
+			//key its schema does not carry, so `EdgeDetector,channel=red` was fatal
+			//while `EdgeDetector,bogus=1` was skipped. Filters that honour the
+			//channel declare it, and declaring it is what makes it reachable.
+			if (key in filter.schema) {
 				filter.setProperty(key, value);
 			}
 		}

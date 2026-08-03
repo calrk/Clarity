@@ -50,7 +50,7 @@ export class Blur extends Filter {
 	];
 
 	static override schema: FilterSchema = {
-		radius: { type: 'int', label: 'Radius', min: 1, max: 180, step: 1, default: 10 }
+		radius: { type: 'int', label: 'Radius', min: 1, max: 180, step: 1, default: 10, description: 'Radius of the blur, in pixels.' }
 	};
 
 	override properties: {

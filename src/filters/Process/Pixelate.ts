@@ -27,7 +27,7 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		size: { type: 'int', label: 'Block size', min: 1, max: 256, step: 1, default: 64 }
+		size: { type: 'int', label: 'Block size', min: 1, max: 256, step: 1, default: 64, description: 'Side of each block, in pixels. Every block takes the colour of its centre.' }
 	};
 
 	override properties: {

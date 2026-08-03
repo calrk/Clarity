@@ -3,6 +3,7 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import { CHANNEL_FIELD } from '../../core/schema.js';
 import type { FilterSchema } from '../../core/schema.js';
 
 export interface EdgeDetectorOptions extends FilterOptions {
@@ -24,18 +25,18 @@ void main(){
 	}
 
 	if(u_fast > 0.5){
-		float here = luma(srcTexel(p));
-		float next = luma(srcTexel(p + ivec2(1, 0)));
+		float here = channelValue(srcTexel(p));
+		float next = channelValue(srcTexel(p + ivec2(1, 0)));
 		writeRGB(vec3(abs(next - here) * 5.0));
 		return;
 	}
 
 	//3x3 with the centre at 8 and the ring at -1
-	float sum = 8.0 * luma(srcTexel(p));
+	float sum = 8.0 * channelValue(srcTexel(p));
 	for(int ky = -1; ky <= 1; ky++){
 		for(int kx = -1; kx <= 1; kx++){
 			if(kx == 0 && ky == 0) continue;
-			sum -= luma(srcTexel(p + ivec2(kx, ky)));
+			sum -= channelValue(srcTexel(p + ivec2(kx, ky)));
 		}
 	}
 	writeRGB(vec3(sum));
@@ -43,7 +44,11 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		fast: { type: 'bool', label: 'Fast', default: false, description: 'Two-sample difference instead of the 3x3 kernel.' }
+		fast: { type: 'bool', label: 'Fast', default: false, description: 'Two-sample difference instead of the 3x3 kernel.' },
+		//The CPU path always honoured `channel`; the shader hardcoded luma, so
+		//the two only agreed on the default. Declaring it here is what makes it
+		//reachable from a control or a chain string at all.
+		channel: CHANNEL_FIELD
 	};
 
 	override properties: {

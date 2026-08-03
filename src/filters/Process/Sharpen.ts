@@ -35,7 +35,7 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		intensity: { type: 'float', label: 'Intensity', min: 0, max: 3, step: 0.1, default: 1 }
+		intensity: { type: 'float', label: 'Intensity', min: 0, max: 3, step: 0.1, default: 1, description: 'How much local contrast to add. 0 leaves the image untouched.' }
 	};
 
 	override properties: {

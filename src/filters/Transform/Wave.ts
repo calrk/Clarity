@@ -62,11 +62,11 @@ void main(){
 	static override varying = true;
 
 	static override schema: FilterSchema = {
-		horizontal: { type: 'bool', label: 'Horizontal', default: false },
-		vertical: { type: 'bool', label: 'Vertical', default: false },
-		speed: { type: 'int', label: 'Speed', min: -10, max: 10, step: 1, default: 1 },
-		frequency: { type: 'float', label: 'Frequency', min: 1, max: 100, step: 1, default: 10 },
-		amplitude: { type: 'float', label: 'Amplitude', min: 1, max: 100, step: 1, default: 10 }
+		horizontal: { type: 'bool', label: 'Horizontal', default: false, description: 'Displace rows sideways.' },
+		vertical: { type: 'bool', label: 'Vertical', default: false, description: 'Displace columns up and down. Both together give a swimming effect.' },
+		speed: { type: 'int', label: 'Speed', min: -10, max: 10, step: 1, default: 1, description: 'Cycles per second. Negative runs the wave backwards, 0 freezes it.' },
+		frequency: { type: 'float', label: 'Frequency', min: 1, max: 100, step: 1, default: 10, description: 'Divides the coordinate, so a higher number means longer, gentler waves.' },
+		amplitude: { type: 'float', label: 'Amplitude', min: 1, max: 100, step: 1, default: 10, description: 'How far a pixel travels at the crest, in pixels.' }
 	};
 
 	override properties: {

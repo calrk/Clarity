@@ -6,12 +6,20 @@
 // now a *view* of `renderer.pipeline` rather than the place the ordering lives,
 // so reordering the DOM and reordering the chain cannot disagree.
 
+import { CATALOGUE, TRAITS } from '@calrk/clarity';
 import { createControls } from './controls.js';
 
-const DUAL_INPUT = new Set(['Add', 'Subtract', 'Blend', 'Mask', 'Multiply']);
-
+/**
+ * Two-input filters, asked rather than listed.
+ *
+ * This used to be a hardcoded Set of five names beside a hardcoded list of
+ * categories beside a hardcoded list of descriptions - the drift that
+ * `CATALOGUE` exists to stop. A new dual-input filter now shows its second
+ * input picker without the playground being edited, which is the test of
+ * whether the metadata is carrying its weight.
+ */
 export function isDualInput(name) {
-	return DUAL_INPUT.has(name);
+	return CATALOGUE[name]?.traits?.includes('dual') ?? false;
 }
 
 /**
@@ -65,6 +73,23 @@ export function createChainView(list, handlers) {
 
 		head.append(grip, title, power, remove);
 		item.appendChild(head);
+
+		// The same chips as the palette, repeated here on purpose: the palette
+		// tells you what you are about to add, this tells you why the thing you
+		// already added is doing nothing to your still photograph.
+		const traits = CATALOGUE[name]?.traits ?? [];
+		if (traits.length) {
+			const row = document.createElement('div');
+			row.className = 'chips';
+			for (const trait of traits) {
+				const chip = document.createElement('span');
+				chip.className = `chip chip-${trait}`;
+				chip.textContent = TRAITS[trait].label;
+				chip.title = TRAITS[trait].description;
+				row.appendChild(chip);
+			}
+			item.appendChild(row);
+		}
 
 		/*
 		 * Draggable only while the header is held.

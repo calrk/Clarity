@@ -35,7 +35,7 @@ void main(){
 	];
 
 	static override schema: FilterSchema = {
-		iterations: { type: 'int', label: 'Iterations', min: 1, max: 5, step: 1, default: 1 }
+		iterations: { type: 'int', label: 'Iterations', min: 1, max: 5, step: 1, default: 1, description: 'How many times to average each pixel with its four neighbours. Each pass spreads a little further.' }
 	};
 
 	override properties: {

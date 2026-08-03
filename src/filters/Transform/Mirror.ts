@@ -7,40 +7,40 @@ import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
 
 export interface MirrorOptions extends FilterOptions {
-	Horizontal?: boolean;
-	Vertical?: boolean;
+	horizontal?: boolean;
+	vertical?: boolean;
 }
 
 export class Mirror extends Filter {
 	static override shader = /* glsl */ `
-uniform float u_Horizontal;
-uniform float u_Vertical;
+uniform float u_horizontal;
+uniform float u_vertical;
 
 void main(){
 	ivec2 p = outPixel();
 	ivec2 size = ivec2(uSize);
-	if(u_Horizontal > 0.5) p.x = size.x - 1 - p.x;
-	if(u_Vertical > 0.5)   p.y = size.y - 1 - p.y;
+	if(u_horizontal > 0.5) p.x = size.x - 1 - p.x;
+	if(u_vertical > 0.5)   p.y = size.y - 1 - p.y;
 	writeRGB(srcTexel(p).rgb);
 }
 `;
 
 	static override schema: FilterSchema = {
-		Horizontal: { type: 'bool', label: 'Horizontal', default: true },
-		Vertical: { type: 'bool', label: 'Vertical', default: false }
+		horizontal: { type: 'bool', label: 'Horizontal', default: true, description: 'Flip left to right.' },
+		vertical: { type: 'bool', label: 'Vertical', default: false, description: 'Flip top to bottom. With both set the image is rotated 180 degrees.' }
 	};
 
 	override properties: {
-		Horizontal: boolean;
-		Vertical: boolean;
+		horizontal: boolean;
+		vertical: boolean;
 	};
 
 	constructor(options: MirrorOptions = {}) {
 		super(options);
 		this.properties = {
-			//`options.Horizontal || true` is always true - it could never be turned off
-			Horizontal: options.Horizontal === undefined ? true : options.Horizontal,
-			Vertical: options.Vertical || false
+			//`options.horizontal || true` is always true - it could never be turned off
+			horizontal: options.horizontal === undefined ? true : options.horizontal,
+			vertical: options.vertical || false
 		};
 	}
 
@@ -56,10 +56,10 @@ void main(){
 				let to = (y*frame.width + x)*4;
 				let fromX = x;
 				let fromY = y;
-				if(this.properties.Horizontal){
+				if(this.properties.horizontal){
 					fromX = frame.width-1-x;
 				}
-				if(this.properties.Vertical){
+				if(this.properties.vertical){
 					fromY = frame.height-1-y;
 				}
 

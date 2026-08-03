@@ -3,6 +3,7 @@
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
 import type { FilterOptions } from '../../core/Filter.js';
+import { CHANNEL_FIELD } from '../../core/schema.js';
 import type { FilterSchema } from '../../core/schema.js';
 import type { RetainedFrames } from '../../gpu/GLBackend.js';
 
@@ -40,7 +41,11 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		frameCount: { type: 'int', label: 'Frame count', min: 1, max: 24, step: 1, default: 1, description: 'How many frames back to compare against.' }
+		frameCount: { type: 'int', label: 'Frame count', min: 1, max: 24, step: 1, default: 1, description: 'How many frames back to compare against.' },
+		//Both paths already honoured it - `channelValue` in the shader, the
+		//two-argument `getColourValue` on the CPU - but nothing declared it, so
+		//no control and no chain string could reach it.
+		channel: CHANNEL_FIELD
 	};
 
 	override properties: {

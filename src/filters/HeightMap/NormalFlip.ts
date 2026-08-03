@@ -29,9 +29,9 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		red: { type: 'bool', label: 'Flip X', default: false },
-		green: { type: 'bool', label: 'Flip Y', default: false },
-		swap: { type: 'bool', label: 'Swap X/Y', default: false }
+		red: { type: 'bool', label: 'Flip X', default: false, description: 'Negates the X component, in the red channel. Use it when lighting comes out mirrored left to right.' },
+		green: { type: 'bool', label: 'Flip Y', default: false, description: 'Negates the Y component, in the green channel. This is the OpenGL/DirectX normal map difference.' },
+		swap: { type: 'bool', label: 'Swap X/Y', default: false, description: 'Exchanges the X and Y components, for a map generated with the axes transposed.' }
 	};
 
 	override properties: {

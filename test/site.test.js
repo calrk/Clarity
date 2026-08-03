@@ -179,7 +179,7 @@ if (!existsSync(join(dist, 'index.html'))) {
 	});
 
 	test('a shared link reproduces the chain it was made from', async () => {
-		await open('#colours/Desaturate/Posteriser,colours=4/Mirror,Vertical=true');
+		await open('#colours/Desaturate/Posteriser,colours=4/Mirror,vertical=true');
 
 		const chain = await page.$$eval('#chain .stage-name', (els) => els.map((el) => el.textContent));
 		assert.deepEqual(chain, ['Desaturate', 'Posteriser', 'Mirror']);
@@ -192,10 +192,10 @@ if (!existsSync(join(dist, 'index.html'))) {
 
 		// The link the page now advertises should be the one that produced it -
 		// and readable, not percent-escaped into soup. Only values that differ
-		// from a filter's default appear, which is why `Mirror.Horizontal` never
+		// from a filter's default appear, which is why `Mirror.horizontal` never
 		// shows up: it defaults to true.
 		const hash = await page.evaluate(() => decodeURIComponent(location.hash));
-		assert.equal(hash, '#colours/Desaturate/Posteriser,colours=4/Mirror,Vertical=true');
+		assert.equal(hash, '#colours/Desaturate/Posteriser,colours=4/Mirror,vertical=true');
 	});
 
 	test('a link naming a filter that no longer exists still loads', async () => {
@@ -349,6 +349,54 @@ if (!existsSync(join(dist, 'index.html'))) {
 			await page.$$eval('#sources button', (els) => els.length),
 			before + 1,
 			'switching away must not drop the file from the list'
+		);
+	});
+
+	test('a filter with a caveat wears it as a chip', async () => {
+		// The chips exist for the failures that look like nothing happening -
+		// MotionDetector on a still, DotRemover on a photograph. If they stop
+		// rendering, the playground goes back to silently doing nothing.
+		const chips = await page.evaluate(() => {
+			const read = (wanted) => {
+				const button = [...document.querySelectorAll('#palette button')].find(
+					(el) => el.childNodes[0].textContent.trim() === wanted
+				);
+				return [...button.querySelectorAll('.chip')].map((chip) => ({
+					text: chip.textContent,
+					title: chip.title
+				}));
+			};
+			return {
+				motion: read('MotionDetector'),
+				dots: read('DotRemover'),
+				blend: read('Blend'),
+				// the ordinary case carries nothing, or the chips mean nothing
+				blur: read('Blur')
+			};
+		});
+
+		assert.equal(chips.motion.length, 1);
+		assert.match(chips.motion[0].text, /motion/i);
+		assert.ok(chips.motion[0].title.length > 20, 'the chip explains itself on hover');
+		assert.match(chips.dots[0].text, /black & white/i);
+		assert.match(chips.blend[0].text, /two inputs/i);
+		assert.deepEqual(chips.blur, []);
+	});
+
+	test('the second-input picker still appears, now that it comes from the traits', async () => {
+		// `isDualInput` used to be a hardcoded Set in the playground and is now
+		// a catalogue lookup, so a mistake there would quietly leave two-input
+		// filters with no way to choose their second frame.
+		await page.evaluate(() => document.getElementById('clearChain')?.click());
+		await addFilter('Blend');
+		const selects = await page.$$eval('#chain select', (els) => els.length);
+		assert.ok(selects >= 1, 'Blend should offer somewhere to get its second frame');
+
+		await addFilter('Blur');
+		assert.equal(
+			await page.$$eval('#chain select', (els) => els.length),
+			selects,
+			'a one-input filter must not gain a second-input picker'
 		);
 	});
 
