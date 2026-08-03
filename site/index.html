@@ -3,8 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!--
+	The description, the filter count and the JSON-LD are filled in by
+	`site/seo.js` from the library's own catalogue, so the page cannot claim a
+	number of filters that the library no longer has. It said 41 for a while.
+-->
 <title>Clarity - canvas image filters, live</title>
-<meta name="description" content="Build a filter chain, drag to reorder, watch it run on the GPU at 60fps. Clarity is a canvas image-filter library with 41 composable filters.">
+<meta name="description" content="{{DESCRIPTION}}">
+<link rel="canonical" href="https://clarity.clarklavery.com/">
+<meta name="author" content="Clark Lavery">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="keywords" content="canvas image filters, image processing, WebGL2, GPU filters, edge detection, normal map generator, chromatic aberration, posterise, motion detection, ImageData, JavaScript image library">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Clarity">
+<meta property="og:title" content="Clarity - canvas image filters, live">
+<meta property="og:description" content="{{DESCRIPTION}}">
+<meta property="og:url" content="https://clarity.clarklavery.com/">
+<meta property="og:image" content="https://clarity.clarklavery.com/og-image.png">
+<meta property="og:image:width" content="2472">
+<meta property="og:image:height" content="1267">
+<meta property="og:image:alt" content="The Clarity playground: a colour gradient pixelated on the GPU, with the source list, the filter palette, the live pipeline and the generated code around it">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Clarity - canvas image filters, live">
+<meta name="twitter:description" content="{{DESCRIPTION}}">
+<meta name="twitter:image" content="https://clarity.clarklavery.com/og-image.png">
+<meta name="twitter:image:alt" content="The Clarity playground, mid-chain: a pixelated gradient with the filter palette and pipeline around it">
+
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f4f6f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12181a" media="(prefers-color-scheme: dark)">
+
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/src/styles.css">
 </head>
@@ -30,6 +61,7 @@
 			<span aria-hidden="true">◑</span>
 		</button>
 		<a class="ghost" href="https://github.com/calrk/clarity" rel="noreferrer">GitHub</a>
+		<a class="ghost byline" href="https://clarklavery.com/projects/web/clarity">by Clark Lavery</a>
 	</div>
 </header>
 
@@ -92,6 +124,13 @@
 	</aside>
 
 </main>
+
+<!--
+	The page's static half - what it is, the FAQ, and a reference for every
+	filter - generated from the catalogue by `site/seo.js`. Everything above
+	this line needs JavaScript to mean anything; this does not.
+-->
+<!-- seo:footer -->
 
 <script type="module" src="/src/main.js"></script>
 </body>

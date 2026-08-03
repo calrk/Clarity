@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	One page, because there is one page: the chain lives in the fragment, and a
+	crawler does not treat `#colours/Blur` as a separate URL. If the chains ever
+	become real paths, this becomes generated rather than written.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+	<url>
+		<loc>https://clarity.clarklavery.com/</loc>
+		<priority>1.0</priority>
+	</url>
+</urlset>

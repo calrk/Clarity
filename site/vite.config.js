@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
 
+import seo from './seo.js';
+
 /**
  * The playground's build, separate from the library's.
  *
@@ -11,6 +13,9 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
 	root: fileURLToPath(new URL('.', import.meta.url)),
 	base: '/',
+	// bakes the metadata a crawler needs into index.html, from the same
+	// catalogue the palette is built from - see site/seo.js
+	plugins: [seo()],
 	resolve: {
 		alias: {
 			'@calrk/clarity': fileURLToPath(new URL('../src/index.ts', import.meta.url))

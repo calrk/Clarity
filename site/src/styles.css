@@ -473,6 +473,66 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 	tab-size: 2;
 }
 
+/* ---------- about ---------- */
+
+/*
+	The page's static half - what the thing is, the FAQ, and the filter
+	reference. It is below the app rather than beside it because the app is
+	what you came for; this is what a crawler, and anyone who scrolls, came for.
+	Markup generated in site/seo.js.
+*/
+
+.about {
+	border-top: 1px solid var(--line);
+	background: var(--panel);
+	padding: 2.5rem 1.25rem 3rem;
+	margin-top: 1rem;
+}
+
+.about-inner { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 2.25rem; }
+
+.about-block h2 { font-size: 1rem; margin-bottom: .6rem; }
+.about-block h3 { font-size: .82rem; color: var(--accent); margin-bottom: .35rem; }
+.about-block p { margin: 0 0 .7rem; max-width: 68ch; color: var(--muted); font-size: .88rem; }
+.about-block code { font: 12.5px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--bg-tint); padding: .1rem .3rem; border-radius: 4px; }
+.about-note { font-size: .82rem; }
+
+.about a { color: var(--accent); text-decoration: none; }
+.about a:hover { text-decoration: underline; }
+
+.examples { margin: 0; padding: 0; list-style: none; display: grid; gap: .3rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.examples li { font-size: .85rem; }
+.examples span { color: var(--muted); }
+
+.faq { margin: 0; max-width: 68ch; }
+.faq dt { font-weight: 600; font-size: .88rem; margin-top: .9rem; }
+.faq dt:first-child { margin-top: 0; }
+.faq dd { margin: .25rem 0 0; font-size: .86rem; color: var(--muted); }
+
+/* columns rather than a grid: the families are wildly different lengths, and a
+   grid row is as tall as its tallest cell - Process alone would leave two
+   columns of white space beside it */
+.reference { columns: 300px 3; column-gap: 2rem; }
+.ref-group { break-inside: avoid; margin: 0 0 1.4rem; }
+.ref-group dl { margin: 0; }
+.ref-group dt { font-size: .82rem; font-weight: 500; margin-top: .55rem; display: flex; align-items: baseline; gap: .35rem; flex-wrap: wrap; }
+.ref-group dt:first-child { margin-top: 0; }
+.ref-group dd { margin: .1rem 0 0; font-size: .78rem; color: var(--muted); }
+
+.ref-trait {
+	font-size: .64rem;
+	font-weight: 600;
+	letter-spacing: .03em;
+	text-transform: uppercase;
+	padding: .1rem .35rem;
+	border-radius: 999px;
+	background: var(--accent-wash);
+	color: var(--accent);
+	white-space: nowrap;
+}
+
+.colophon { font-size: .84rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 1.25rem; margin: 0; }
+
 /* ---------- narrow ---------- */
 
 @media (max-width: 1100px) {
@@ -483,4 +543,9 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 	.rail-right { order: 2; }
 	.palette { max-height: 320px; }
 	.viewport { min-height: 40vh; }
+}
+
+@media (max-width: 720px) {
+	.byline { display: none; }
+	.about { padding: 2rem 1rem 2.5rem; }
 }
