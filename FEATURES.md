@@ -2,7 +2,7 @@
 
 Clarity is a canvas image-filter library from 2014 — 41 filters across eight categories, all pure-JS `ImageData` loops, concatenated by Gulp 3 into one `CLARITY` global. The filter-chain design still holds up; everything around it (build, GPU, examples, tests) had aged out.
 
-**All eight of the original features are done.** What follows is the record: what was built, and the decisions that were not obvious at the time. Items #9–#12 are still open, and are additive rather than gaps — the library works without them.
+**All eight of the original features are done**, plus #13, which was not on the list. What follows is the record: what was built, and the decisions that were not obvious at the time. Items #9–#12 are still open, and are additive rather than gaps — the library works without them.
 
 Each shipped entry keeps its original write-up in a collapsed block underneath, because the *reasoning* is the part worth keeping and it is often the part that turned out to be wrong.
 
@@ -13,7 +13,7 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
 | Filters clean | 31 of 41, 4 hard crashes | 41 of 41, each with a golden image and a GPU parity case |
 | GPU | none | every filter, 63/63 parity cases as shaders |
-| Tests | none | 434, plus golden images, GPU parity and a browser-driven playground test |
+| Tests | none | 454, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, tested on every run |
 | Licence | GPL dependency | MIT throughout |
 
@@ -497,6 +497,33 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 ---
 
+## ~~13. A `clarity` Action for `<img>`~~ ✓
+
+**Effort: Low** *(added after the original list; depends on #8's schemas)*
+
+> **Done.** `<img src="/sprite.png" use:clarity={'Desaturate/Noise,intensity=20'} />`. The element keeps its identity — same `<img>`, same CSS, same `alt` — and only its `src` changes; the original is kept on `data-clarity-source`.
+>
+> Three decisions worth recording, because the obvious version of each is wrong:
+>
+> - **An action, not a component.** Actions are exactly "attach behaviour to an existing element". And an action is only `(node, params) => { update, destroy }`, so this is a plain function with no Svelte import — it works in Svelte 4 and 5, in other frameworks, and standalone. A component would have had to own the element and would have taken its class list, sizing and `alt` with it.
+> - **A blob URL, not a data URL.** `toDataURL` puts base64 into the DOM as an attribute: a 2MB sprite becomes a ~2.7MB `src`, re-encoded on every change. A blob URL is a short reference to bytes the browser already holds, and it can be revoked.
+> - **This repo, as a subpath export.** A separate `svelte-clarity` would mean a second release process and a version skew discovered from a bug report — and this project is a long lesson in what happens to adjacent code nobody tests. `@calrk/clarity/svelte` costs one line in `exports` and keeps the main entry point DOM-free.
+>
+> **The format came out of the playground.** `Blur,radius=8/Invert` moved into the library as `parseChain` / `buildChain` / `formatChain`, so a URL and an HTML attribute are the same format with one implementation. That needed `FILTERS`, a name-to-constructor registry — the missing half of `CATALOGUE`, and something *any* deserialiser needs. Both now have the same completeness test.
+>
+> Reading is deliberately forgiving and writing is exact: an unknown filter is skipped rather than thrown, because the text comes from a URL or a template written against some other version of the library, and a page that renders the rest of the chain beats a page that renders nothing.
+>
+> Four things that are easy to get wrong and are the actual work:
+>
+> - **One shared WebGL context** for every element on the page. A browser hands out around sixteen and then starts dropping the oldest, so a context per sprite fails quietly as soon as a page has a few.
+> - **Re-run from the original, never from the last result.** Two `Invert`s applied in sequence to the *output* land back where they started, which looks exactly like the action having stopped working. Asserted.
+> - **A generation counter**, so a slow run finishing after a newer one started cannot overwrite it.
+> - **A real error for the cross-origin case.** Reading pixels from another origin taints the canvas, and it is the likeliest failure in a game whose assets are on a CDN. It needs `crossOrigin` *and* a server header, and the message says so.
+>
+> `test/action.test.js` drives it in headless Chrome — the lifecycle rather than the filtering, since the filtering is covered sixty times over already.
+
+---
+
 ## 9. Finish the Filter Wishlist
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
@@ -617,6 +644,7 @@ The **quality** argument may actually be the stronger one. Every ping-pong hop t
 | 4 | `Renderer` / `Pipeline` | Medium | Headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
 | 3 | GPU shader backend | High | Every filter has a shader; 63/63 parity cases on the GPU; 6 more bugs found |
 | 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
+| 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
 
 ### Open
 
