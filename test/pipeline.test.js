@@ -412,3 +412,69 @@ test('a GPU stage may change the frame size', () => {
 	assert.equal(out.width, declared.width);
 	assert.equal(out.height, declared.height);
 });
+
+// --- what history survives ----------------------------------------------
+//
+// The rule is that a stateful filter's history is discarded when the pipeline
+// is edited, when the filter leaves the chain, or when *that filter's own*
+// properties change. Not when anything upstream of it changes - which is the
+// case that matters, because animating a chain means dirtying a filter on
+// every single frame.
+//
+// The motivating stack is scrolling fog: Cloud into Translator, with the
+// translation advanced each frame, feeding something temporal. If an upstream
+// property change reset the trail, that whole class of effect would be
+// impossible and the failure would look like "Ghoster does nothing".
+
+test('a dirty upstream filter does not clear a downstream trail', () => {
+	const translator = new CLARITY.Translator({ horizontal: 10 });
+	const ghoster = new CLARITY.Ghoster({ length: 10 });
+	const pipeline = new CLARITY.Pipeline([new CLARITY.Cloud({}), translator, ghoster], { gpu: false });
+
+	for (let i = 0; i < 5; i++) pipeline.run(makeFrame());
+	assert.equal(ghoster.frames.length, 5, 'the trail should build up over five frames');
+
+	// scroll the fog, the way an animation loop would
+	for (let i = 0; i < 4; i++) {
+		translator.setProperty('horizontal', 10 + i);
+		assert.equal(translator.dirty, true, 'the premise: changing a property dirties that filter');
+		pipeline.run(makeFrame());
+	}
+
+	assert.equal(ghoster.frames.length, 9, 'the trail kept growing rather than restarting');
+});
+
+test('a dirty upstream filter does not drop a difference reference', () => {
+	const translator = new CLARITY.Translator({ horizontal: 10 });
+	const detector = new CLARITY.DifferenceDetector({});
+	const pipeline = new CLARITY.Pipeline([translator, detector], { gpu: false });
+
+	pipeline.run(makeFrame());
+	const reference = detector.original;
+	assert.ok(reference, 'the first frame is captured as the reference');
+
+	translator.setProperty('horizontal', 25);
+	pipeline.run(makeFrame());
+	assert.equal(detector.original, reference, 'the reference frame must be the same object, not recaptured');
+});
+
+test('but a filter still forgets when it, or the chain, changes', () => {
+	// the other half of the rule - without these the test above would pass on a
+	// pipeline that simply never cleared anything
+	const ghoster = new CLARITY.Ghoster({ length: 10 });
+	const pipeline = new CLARITY.Pipeline([new CLARITY.Translator({ horizontal: 5 }), ghoster], { gpu: false });
+
+	for (let i = 0; i < 5; i++) pipeline.run(makeFrame());
+	assert.equal(ghoster.frames.length, 5);
+
+	ghoster.setProperty('length', 12);
+	pipeline.run(makeFrame());
+	assert.equal(ghoster.frames.length, 1, 'changing the filter itself restarts its trail');
+
+	for (let i = 0; i < 4; i++) pipeline.run(makeFrame());
+	assert.equal(ghoster.frames.length, 5);
+
+	pipeline.add(new CLARITY.Invert({}));
+	pipeline.run(makeFrame());
+	assert.equal(ghoster.frames.length, 1, 'editing the chain restarts it too');
+});
