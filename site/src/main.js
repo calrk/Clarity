@@ -558,18 +558,16 @@ function updateShare() {
  * the event, so the page cannot loop on its own writes.
  */
 async function loadFromHash() {
-	const { source, stages } = readHash();
+	const { source, filters } = readHash();
 
 	renderer.clear();
 	seconds.clear();
 
-	for (const stage of stages) {
-		const filter = addFilterSilently(stage.name, stage.enabled);
-		for (const [key, value] of Object.entries(stage.options)) {
-			if (key in filter.schema) {
-				filter.setProperty(key, value);
-			}
+	for (const filter of filters) {
+		if (isDualInput(filter.constructor.name)) {
+			seconds.set(filter, 'source');
 		}
+		renderer.add(filter, stageOptions(filter));
 	}
 
 	const wanted = SOURCES.some((entry) => entry.id === source) ? source : SOURCES[0].id;
@@ -578,14 +576,6 @@ async function loadFromHash() {
 	}
 
 	sync();
-}
-
-function addFilterSilently(name, enabled) {
-	const filter = new CLARITY[name]({});
-	filter.enabled = enabled;
-	if (isDualInput(name)) seconds.set(filter, 'source');
-	renderer.add(filter, stageOptions(filter));
-	return filter;
 }
 
 // ---------------------------------------------------------------- glue

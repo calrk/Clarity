@@ -18,6 +18,11 @@
     "emitDeclarationOnly": true,
     "outDir": "dist",
 
+    "baseUrl": ".",
+    "paths": {
+      "@calrk/clarity": ["./src/index.ts"]
+    },
+
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,

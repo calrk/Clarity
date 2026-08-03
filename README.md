@@ -181,6 +181,69 @@ new Pipeline()
 which is fed the outer run's *source*, so it branches off the input rather than
 continuing the chain.
 
+Filtering an `<img>`
+--------------------
+
+```svelte
+<script>
+	import { clarity } from '@calrk/clarity/svelte';
+</script>
+
+<img src="/sprite.png" use:clarity={'Desaturate/Noise,intensity=20'} alt="" />
+```
+
+The element keeps its identity - same `<img>`, same CSS, same `alt` - and only
+its `src` changes. The original path is kept on `data-clarity-source`, so the
+effect reverts cleanly, re-runs against the untouched original whenever the
+chain changes, and can be read back by anything else on the page.
+
+It's a Svelte *action*, but it's a plain function with no Svelte import, so it
+works in Svelte 4 and 5, in other frameworks, and on its own:
+
+```js
+const handle = clarity(document.querySelector('img'), 'Blur,radius=8');
+handle.update('Invert');   // re-runs from the original
+handle.destroy();          // puts the src back
+```
+
+Options instead of a bare string:
+
+```js
+clarity(img, {
+	chain: 'Glow,radius=12',
+	enabled: !reducedMotion,     // false reverts without unmounting
+	hide: true,                  // hide until the result is ready
+	crossOrigin: 'anonymous',    // see below
+	onError: (error) => ...      // otherwise it warns and reverts
+});
+```
+
+Two things worth knowing. Every element shares **one** WebGL context - a browser
+hands out about sixteen before it starts dropping the oldest, so a context per
+sprite breaks quietly. And reading pixels from a **cross-origin** image taints
+the canvas, which is the likeliest way this fails in a real app since game
+assets tend to live on a CDN: it needs `crossOrigin` here *and* an
+`Access-Control-Allow-Origin` header from the server.
+
+### Chains as text
+
+The `'Blur,radius=8/Invert'` format is the library's, not the adapter's:
+
+```js
+import { buildChain, formatChain, FILTERS } from '@calrk/clarity';
+
+buildChain('Desaturate/Blur,radius=8/Invert!off');   // => Filter[]
+formatChain(pipeline.filters);                       // => string
+FILTERS.Blur;                                        // name -> constructor
+```
+
+Filters are separated by `/`, properties by `,`, and `!off` bypasses one.
+Reading is deliberately forgiving - an unknown filter or property is skipped
+rather than thrown, because the text usually comes from a URL or an attribute
+written against some other version - and only properties that differ from their
+default are written, so the string stays short and stays valid when a default
+changes. It's what the playground puts in its address bar.
+
 Property schemas
 ----------------
 
@@ -282,10 +345,16 @@ new Noise({ intensity: 40, random: seededRandom(1) });   // same result every ru
 
 ```sh
 npm run test:golden           # goldens only
+npm run test:gpu              # every case through both backends, compared
+npm run test:action           # the <img> action, in a real browser
 npm run test:update-golden    # regenerate them, then review the diff before committing
 npm run test:fixtures         # regenerate the input images in test/fixtures/
 npm run test:sheet            # build the contact sheet (below)
 ```
+
+The browser-driven suites - GPU parity, the playground and the `<img>` action -
+need Chrome, and skip cleanly when there isn't one. They run it headless with
+SwiftShader, so they need no GPU and work in CI.
 
 When a golden fails, the actual output and a visual diff are written to
 `test/output/`. Never regenerate a golden to make a test pass without looking at

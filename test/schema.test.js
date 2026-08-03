@@ -281,3 +281,57 @@ test('every filter is in the catalogue, and nothing else is', () => {
 		assert.ok(entry.summary.endsWith('.'), `${name}: summary should be a sentence`);
 	}
 });
+
+test('the registry holds exactly the exported filters', () => {
+	// `FILTERS` is what turns a name back into a constructor, for anything
+	// rebuilding a chain from text - a URL, a preset, a `clarity=""` attribute.
+	// It is a third hand-maintained list of the same 41 things, so it gets the
+	// same completeness check as the catalogue.
+	assert.deepEqual(Object.keys(CLARITY.FILTERS).sort(), [...filterNames].sort());
+
+	for (const [name, Ctor] of Object.entries(CLARITY.FILTERS)) {
+		assert.equal(Ctor, CLARITY[name], `${name} in the registry is not the exported class`);
+	}
+});
+
+test('a chain survives a round trip through text', () => {
+	const before = [
+		new CLARITY.Blur({ radius: 8 }),
+		new CLARITY.Desaturate({ amount: 0.4 }),
+		new CLARITY.Invert({})
+	];
+	before[2].enabled = false;
+
+	const text = CLARITY.formatChain(before);
+	assert.equal(text, 'Blur,radius=8/Desaturate,amount=0.4/Invert!off');
+
+	const after = CLARITY.buildChain(text);
+	assert.equal(after.length, 3);
+	assert.equal(after[0].properties.radius, 8);
+	assert.equal(after[1].properties.amount, 0.4, 'a decimal point must survive the format');
+	assert.equal(after[2].enabled, false);
+
+	// and the text is stable: formatting what was parsed gives the same string
+	assert.equal(CLARITY.formatChain(after), text);
+});
+
+test('only non-default properties are written', () => {
+	// keeps a link short, and keeps it working when a default changes underneath
+	assert.equal(CLARITY.formatChain([new CLARITY.Blur({})]), 'Blur');
+	assert.equal(CLARITY.formatChain([new CLARITY.Mirror({ Horizontal: true })]), 'Mirror');
+	assert.equal(CLARITY.formatChain([new CLARITY.Mirror({ Horizontal: false })]), 'Mirror,Horizontal=false');
+});
+
+test('reading a chain is forgiving, because the text comes from outside', () => {
+	// a URL or an attribute written against a different version of the library
+	assert.deepEqual(CLARITY.parseChain('Nonexistent,foo=1').length, 0);
+	assert.deepEqual(
+		CLARITY.buildChain('Invert/Nonexistent/Blur').map((f) => f.constructor.name),
+		['Invert', 'Blur']
+	);
+
+	// a mangled value is clamped by setProperty rather than throwing
+	assert.equal(CLARITY.buildChain('Blur,radius=99999')[0].properties.radius, CLARITY.Blur.schema.radius.max);
+	// and an unknown property is ignored rather than being an error
+	assert.equal(CLARITY.buildChain('Blur,nonsense=3').length, 1);
+});

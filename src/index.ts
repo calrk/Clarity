@@ -23,6 +23,10 @@ export { Pixel } from './helpers/Pixel.js';
 export type { PixelChannel } from './helpers/Pixel.js';
 export { CATALOGUE, CATEGORY_ORDER } from './catalogue.js';
 export type { CatalogueEntry, CategoryName } from './catalogue.js';
+export { FILTERS } from './registry.js';
+export type { FilterConstructor } from './registry.js';
+export { parseChain, buildChain, formatChain } from './chain.js';
+export type { ChainStage } from './chain.js';
 export { CHANNEL_FIELD, coerceValue, defaultsOf } from './core/schema.js';
 export type {
 	FilterSchema,

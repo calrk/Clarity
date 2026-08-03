@@ -26,6 +26,10 @@
       "import": "./dist/clarity.js",
       "require": "./dist/clarity.umd.cjs"
     },
+    "./svelte": {
+      "types": "./dist/svelte/index.d.ts",
+      "import": "./dist/svelte.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -38,7 +42,7 @@
     "site:build": "vite build --config site/vite.config.js",
     "site:preview": "vite preview --config site/vite.config.js",
     "deploy": "npm run site:build && wrangler deploy",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && vite build --config vite.svelte.config.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.js",
     "test:golden": "node --test test/golden.test.js",
@@ -46,7 +50,8 @@
     "test:fixtures": "node test/helpers/make-fixtures.js",
     "test:sheet": "node test/helpers/make-gpu-output.js && node test/helpers/make-contact-sheet.js",
     "test:gpu": "node --test test/gpu-parity.test.js",
-    "test:gpu-images": "node test/helpers/make-gpu-output.js"
+    "test:gpu-images": "node test/helpers/make-gpu-output.js",
+    "test:action": "node --test test/action.test.js"
   },
   "devDependencies": {
     "pixelmatch": "^7.2.0",

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clarity - action harness</title>
+</head>
+<body>
+<p>Loaded by <code>npm run test:action</code>.</p>
+
+<img id="subject" src="/test/fixtures/photo.png" alt="">
+
+<script type="module">
+// Drives the `clarity` action the way Svelte would - call it on an element,
+// call update, call destroy - without pulling Svelte in, because the action is
+// a plain function and that is the whole point of it being one.
+import { clarity, disposeSharedBackend } from '/dist/svelte.js';
+
+const subject = document.getElementById('subject');
+let handle = null;
+
+/** Waits until the element's src stops changing, then reads its pixels. */
+async function settled(previous) {
+	for (let i = 0; i < 200; i++) {
+		if (subject.src !== previous && subject.complete && subject.naturalWidth > 0) {
+			break;
+		}
+		await new Promise((resolve) => requestAnimationFrame(resolve));
+	}
+	//one more frame, so a decode that started this frame has finished
+	await subject.decode().catch(() => {});
+}
+
+function pixels() {
+	const canvas = document.createElement('canvas');
+	canvas.width = subject.naturalWidth;
+	canvas.height = subject.naturalHeight;
+	canvas.getContext('2d').drawImage(subject, 0, 0);
+	return [...canvas.getContext('2d').getImageData(0, 0, 4, 1).data];
+}
+
+window.harness = {
+	async apply(spec) {
+		const before = subject.src;
+		handle = clarity(subject, spec);
+		await settled(before);
+		return { src: subject.src, source: subject.dataset.claritySource, pixels: pixels() };
+	},
+
+	async update(spec) {
+		const before = subject.src;
+		handle.update(spec);
+		await settled(before);
+		return { src: subject.src, source: subject.dataset.claritySource, pixels: pixels() };
+	},
+
+	async destroy() {
+		const before = subject.src;
+		handle.destroy();
+		await settled(before);
+		return { src: subject.src, source: subject.dataset.claritySource, pixels: pixels() };
+	},
+
+	async original() {
+		subject.src = '/test/fixtures/photo.png';
+		await subject.decode();
+		return pixels();
+	},
+
+	/** Errors are reported rather than thrown, so they need collecting. */
+	async applyExpectingFailure(spec) {
+		let reported = null;
+		handle = clarity(subject, { chain: spec.chain, onError: (error) => (reported = error.message) });
+		for (let i = 0; i < 200 && reported === null; i++) {
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+		}
+		return { reported, src: subject.src };
+	},
+
+	dispose: () => disposeSharedBackend()
+};
+
+document.body.dataset.ready = 'true';
+</script>
+</body>
+</html>
