@@ -10,7 +10,7 @@ chaining. You never write a shader, manage a context, or touch a framebuffer.
 
 **[Open the playground →](https://clarity.clarklavery.com/)**
 
-[![The Clarity playground: a colour gradient pixelated on the GPU, with the source list, the searchable filter palette, the live pipeline and the generated code around it](https://raw.githubusercontent.com/calrk/Clarity/main/docs/playground.png)](https://clarity.clarklavery.com/)
+[![The Clarity playground: a colour gradient pixelated on the GPU, with the source list, the searchable filter palette, the live pipeline and the generated code around it](docs/playground.png)](https://clarity.clarklavery.com/)
 
 Stack filters, point it at an image or your webcam, and watch it run. The chain
 lives in the URL, so any stack you build is a link you can send:
