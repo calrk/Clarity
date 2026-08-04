@@ -1,7 +1,7 @@
 Clarity
 =======
 
-Forty-three composable image filters for canvas — blur, edge detection, chromatic
+Forty-nine composable image filters for canvas — blur, edge detection, chromatic
 aberration, posterising, normal maps, motion detection — running as fragment
 shaders by default, with a CPU implementation of every one of them behind it.
 
@@ -426,21 +426,21 @@ LICENSE and is baked into every built bundle.
 Filters
 =======
 
-46 of them, in eight families. The **[full reference](docs/FILTERS.md)**
+49 of them, in eight families. The **[full reference](docs/FILTERS.md)**
 gives each one a before/after image, an options table and a live playground link -
 generated from the library by `npm run docs`, and checked by the test suite, so it
 cannot describe a filter that no longer works that way.
 
 | Family | Filters |
 |---|---|
-| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `Glow`, `HanoverBars`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `Vignette`, `hsvShifter` |
+| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `DotCrawl`, `Glow`, `HanoverBars`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `Vignette`, `hsvShifter` |
 | Thresholders | `GradientThreshold`, `MedianThreshold`, `ValueThreshold` |
-| Salience | `EdgeDetector`, `MotionDetector`, `SkinDetector` |
+| Salience | `EdgeDetector`, `MotionDetector`, `ShotDetector`, `SkinDetector` |
 | Transform | `ChromaticAberration`, `FishEye`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
 | Height Map | `Contourer`, `NormalFlip`, `NormalGenerator`, `NormalIntensity` |
 | Starters | `Cloud`, `FillHSV`, `FillRGB`, `Gradient`, `Voronoi` |
 | Dual Input | `Add`, `Subtract`, `Difference`, `Blend`, `Mask`, `Multiply` |
-| Misc | `Brickulate`, `DifferenceDetector`, `Ghoster`, `Puzzler` |
+| Misc | `Brickulate`, `DifferenceDetector`, `Ghoster`, `ScreenBurn`, `Puzzler` |
 
 Filters to be made
 ==================

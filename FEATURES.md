@@ -11,9 +11,9 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 46 of 46, each with a golden image, a GPU parity case and a generated docs entry |
+| Filters clean | 31 of 41, 4 hard crashes | 49 of 49, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 63/63 parity cases as shaders |
-| Tests | none | 539, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Tests | none | 562, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run |
 | Licence | GPL dependency | MIT throughout |
 
@@ -594,9 +594,9 @@ Removing it also orphaned the `binary-in` trait, which nothing else carried, so 
 | ~~**FishEye**~~ ✓ | Bows the image outward like a lens, or pinches it inward. | Done |
 | ~~**Vignette**~~ ✓ | Darkens towards the corners. | Done |
 | ~~**CRT**~~ ✓ | *Not a filter.* `FishEye` + `HanoverBars,mode=scanlines` + `Vignette`. | Done — a chain |
-| **DotCrawl** | The crawling dot pattern composite video leaves along chroma edges. | Low |
-| **ScreenBurn** | Burns a persistent ghost of bright areas into the frame over time. | Low |
-| **ShotDetector** | Flags a cut by how far the frame moved from the one before it. | Low |
+| ~~**DotCrawl**~~ ✓ | The crawling dot pattern composite video leaves along colour edges. | Done |
+| ~~**ScreenBurn**~~ ✓ | Burns a fading ghost of the brightest thing that has been on screen. | Done |
+| ~~**ShotDetector**~~ ✓ | Marks the frame where a cut happened, by how much of the picture changed at once. | Done |
 
 **CRT shipped as two filters and a chain rather than one filter**, which is the better shape: a CRT look is a lens curve, a scanline pattern and a corner falloff, and `HanoverBars` already had the scanlines. Written as one filter those three would have been six properties nobody could reuse; written separately, `FishEye` is a lens effect and `Vignette` is a photographic one, and the CRT is a link:
 
@@ -606,7 +606,17 @@ Both normalise distance by **half the diagonal**, so the effect is circular in p
 
 `FishEye` is compared with the population metric rather than a tolerance: a radial term inside a `floor` means a pixel near a rounding boundary can take its colour from the neighbouring source pixel on one backend and not the other, which is a large delta on a few pixels rather than a small one everywhere.
 
-`DotCrawl` would complete the composite-video set alongside `Bleed`, `HanoverBars` and `ChromaticAberration`. `ScreenBurn` and `ShotDetector` are `temporal` and need `retains`, which exists.
+**Done, and one of them widened the GPU gate.**
+
+`DotCrawl` shades chroma edges, not luma edges, which is the whole character of it — a black-and-white frame shows none of this however much detail it has. The pattern is a checkerboard that *steps* one place per frame rather than sliding, which is what makes the dots crawl instead of shimmer in place.
+
+`ScreenBurn` differs from `Ghoster` by one operator, and it is the whole difference in look: `Ghoster` averages the retained frames so everything leaves an equal translucent trail, while this takes the age-weighted **maximum**, so only bright things leave a mark. A white shape crossing a dark frame gives Ghoster a smear and this a scar.
+
+`ShotDetector` answers a question about the *whole frame* rather than about any pixel, which is what separates it from `MotionDetector` and `DifferenceDetector`: those say "what moved here", a cut is "how much of everything moved at once". It is the first filter to use `samples` + `prepare` for **state** rather than for a statistic — it keeps the previous thumbnail and compares against it, and hands the answer to the shader through `data`, since a uniform cannot be derived per instance.
+
+That last one exposed a real limitation. `gpuBlocker` sent any `stateful` filter with no `retains` to the CPU, on the reasoning that a history cannot live in the ping-pong pair. True for pixels — but `ShotDetector`'s state is a thumbnail on the filter, maintained by `prepare`, which runs on **both** backends from identical sampled pixels. The gate now also accepts `samples > 0`. Worth noting how it was caught: the parity test *passed* while the filter ran on the CPU on both sides, and only the harness's `CPU only:` line gave it away — a green parity result does not by itself prove the shader ran.
+
+It also moved the `temporal` trait's derivation from `retains(filter) !== null` to `stateful`. `stateful` is the property that actually means "output depends on frames already seen"; `retains` is only its commonest implementation, and `ShotDetector` was temporal in every sense but the test's.
 
 ### The rest
 

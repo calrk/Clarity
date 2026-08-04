@@ -96,6 +96,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Blur: { category: 'Process', summary: "Stack blur - a fast Gaussian approximation." },
 	Convolver: { category: 'Process', summary: "Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace." },
 	Desaturate: { category: 'Process', summary: "Pulls colour towards grey, by an amount, keeping luminance." },
+	DotCrawl: { category: 'Process', summary: "The crawling dot pattern composite video leaves along colour edges." },
 	Glow: { category: 'Process', summary: "Blurs the image and blends the blur back over the original." },
 	HanoverBars: { category: 'Process', summary: "Rotates the chroma of every other bar of lines, or darkens them." },
 	Invert: { category: 'Process', summary: "Inverts colour. In dynamic mode it reflects within the image's own range." },
@@ -115,6 +116,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	// --- Salience ---
 	EdgeDetector: { category: 'Salience', summary: "Highlights edges with a 3x3 kernel, or a fast two-sample difference." },
 	MotionDetector: { category: 'Salience', summary: "Absolute difference between the current frame and one N frames back.", traits: ['temporal'] },
+	ShotDetector: { category: 'Salience', summary: "Marks the frame where a cut happened, by how much of the picture changed at once.", traits: ['temporal'] },
 	SkinDetector: { category: 'Salience', summary: "Thresholds YCbCr into a binary skin/not-skin mask.", traits: ['binary-out'] },
 
 	// --- Transform ---
@@ -151,5 +153,6 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Brickulate: { category: 'Misc', summary: "Overlays a brick/tile grid with bevelled grooves." },
 	DifferenceDetector: { category: 'Misc', summary: "Compares each frame against the first one it saw.", traits: ['temporal'] },
 	Ghoster: { category: 'Misc', summary: "Onion-skins the last N frames together, weighted towards the newest.", traits: ['temporal'] },
+	ScreenBurn: { category: 'Misc', summary: "Burns a fading ghost of the brightest thing that has been on screen.", traits: ['temporal'] },
 	Puzzler: { category: 'Misc', summary: "Scrambles the image into shuffled tiles." },
 };

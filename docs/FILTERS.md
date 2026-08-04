@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-46 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+49 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,11 +14,11 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [DotCrawl](#dotcrawl) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
-**Salience** — [EdgeDetector](#edgedetector) · [MotionDetector](#motiondetector) · [SkinDetector](#skindetector)
+**Salience** — [EdgeDetector](#edgedetector) · [MotionDetector](#motiondetector) · [ShotDetector](#shotdetector) · [SkinDetector](#skindetector)
 
 **Transform** — [ChromaticAberration](#chromaticaberration) · [FishEye](#fisheye) · [Mirror](#mirror) · [Rotator](#rotator) · [Tiler](#tiler) · [Translator](#translator) · [Wave](#wave)
 
@@ -28,7 +28,7 @@ playground link to see one at a sensible size.
 
 **Dual Input** — [Add](#add) · [Subtract](#subtract) · [Difference](#difference) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply)
 
-**Misc** — [Brickulate](#brickulate) · [DifferenceDetector](#differencedetector) · [Ghoster](#ghoster) · [Puzzler](#puzzler)
+**Misc** — [Brickulate](#brickulate) · [DifferenceDetector](#differencedetector) · [Ghoster](#ghoster) · [ScreenBurn](#screenburn) · [Puzzler](#puzzler)
 
 ## What the badges mean
 
@@ -116,6 +116,25 @@ new Desaturate();
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
 | `amount` | float | 0–1 | `1` | How far towards grey. 1 removes colour entirely. |
+
+### DotCrawl
+
+The crawling dot pattern composite video leaves along colour edges.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/DotCrawl.png" width="192" alt="DotCrawl applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#colours/DotCrawl)
+
+```js
+import { DotCrawl } from '@calrk/clarity';
+
+new DotCrawl();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `intensity` | float | 0–2 | `0.5` | How strong the dots are, as a multiple of the colour difference they sit on. |
+| `speed` | float | 0–30 | `8` | How many times a second the pattern steps. 0 freezes it. |
 
 ### Glow
 
@@ -411,6 +430,26 @@ new MotionDetector({ frameCount: 1 });
 |---|---|---|---|---|
 | `frameCount` | int | 1–24 | `1` | How many frames back to compare against. |
 | `channel` | select | `grey` · `red` · `green` · `blue` | `grey` | Which channel to read. Grey is Rec. 601 luma of all three. |
+
+### ShotDetector
+
+Marks the frame where a cut happened, by how much of the picture changed at once.
+
+**Needs motion**
+
+<img src="../test/fixtures/clean,photo.png" width="192" alt="The clean,photo fixture"> <img src="../test/golden/ShotDetector.png" width="192" alt="ShotDetector applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#camera/ShotDetector)
+
+```js
+import { ShotDetector } from '@calrk/clarity';
+
+new ShotDetector();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `threshold` | float | 1–128 | `24` | Mean channel change across the frame that counts as a cut. Lower catches dissolves and camera shake too. |
 
 ### SkinDetector
 
@@ -944,6 +983,27 @@ new Ghoster({ length: 3 });
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
 | `length` | int | 1–30 | `10` | How many frames are onion-skinned together. |
+
+### ScreenBurn
+
+Burns a fading ghost of the brightest thing that has been on screen.
+
+**Needs motion**
+
+<img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/ScreenBurn.png" width="192" alt="ScreenBurn applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#camera/ScreenBurn,length=3)
+
+```js
+import { ScreenBurn } from '@calrk/clarity';
+
+new ScreenBurn({ length: 3 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `length` | int | 1–32 | `12` | How many frames the burn remembers. |
+| `decay` | float | 0.5–1 | `0.92` | How much dimmer the ghost gets each frame. 1 never fades. |
 
 ### Puzzler
 

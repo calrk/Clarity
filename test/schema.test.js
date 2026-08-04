@@ -405,7 +405,12 @@ test('declared traits agree with what the filters actually are', () => {
 		const derived = {
 			starter: entry.category === 'Starters',
 			dual: entry.category === 'Dual Input',
-			temporal: Ctor.retains(new Ctor()) !== null
+			// `stateful` is the property that means "output depends on frames
+			// already seen", which is what the chip is warning about. This used
+			// to derive from `retains` instead, which is only the commonest
+			// *implementation* of that - ShotDetector keeps a thumbnail rather
+			// than frame history, and was temporal in every sense but the test's.
+			temporal: Ctor.stateful
 		};
 		for (const [trait, expected] of Object.entries(derived)) {
 			if (has(name, trait) !== expected) {

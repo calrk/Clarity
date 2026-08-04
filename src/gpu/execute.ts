@@ -352,10 +352,16 @@ export function gpuBlocker(
 	if (!passes) {
 		return 'no shader';
 	}
-	if (type.stateful && !type.retains(filter)) {
+	if (type.stateful && !type.retains(filter) && type.samples === 0) {
 		//A history cannot live in the ping-pong pair, which holds the frame coming
 		//in and the frame going out and nothing else. A stateful filter has to say
 		//how far back it reaches so the backend can keep a texture array for it.
+		//
+		//Unless its state is not pixels. `samples` and `prepare` carry state on the
+		//filter itself, and `prepare` runs on both backends from the same sampled
+		//pixels - ShotDetector keeps the previous thumbnail that way and compares
+		//against it. Blocking that would send a filter to the CPU for needing a
+		//kind of memory the GPU never had to hold.
 		return 'stateful - declares no retained frames';
 	}
 	if (!type.supportsGPU(filter)) {

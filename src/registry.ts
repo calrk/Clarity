@@ -13,6 +13,7 @@ import { NormalIntensity } from './filters/HeightMap/NormalIntensity.js';
 import { Bleed } from './filters/Process/Bleed.js';
 import { Blur } from './filters/Process/Blur.js';
 import { Desaturate } from './filters/Process/Desaturate.js';
+import { DotCrawl } from './filters/Process/DotCrawl.js';
 import { Morphology } from './filters/Process/Morphology.js';
 import { Vignette } from './filters/Process/Vignette.js';
 import { Glow } from './filters/Process/Glow.js';
@@ -26,6 +27,7 @@ import { Convolver } from './filters/Process/Convolver.js';
 import { hsvShifter } from './filters/Process/hsvShifter.js';
 import { EdgeDetector } from './filters/Salience/EdgeDetector.js';
 import { MotionDetector } from './filters/Salience/MotionDetector.js';
+import { ShotDetector } from './filters/Salience/ShotDetector.js';
 import { SkinDetector } from './filters/Salience/SkinDetector.js';
 import { Cloud } from './filters/Starters/Cloud.js';
 import { FillHSV } from './filters/Starters/FillHSV.js';
@@ -45,6 +47,7 @@ import { Wave } from './filters/Transform/Wave.js';
 import { Brickulate } from './filters/misc/Brickulate.js';
 import { DifferenceDetector } from './filters/misc/DifferenceDetector.js';
 import { Ghoster } from './filters/misc/Ghoster.js';
+import { ScreenBurn } from './filters/misc/ScreenBurn.js';
 import { Puzzler } from './filters/misc/Puzzler.js';
 
 /** Anything you can `new` into a filter. */
@@ -73,6 +76,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Bleed,
 	Blur,
 	Desaturate,
+	DotCrawl,
 	Morphology,
 	Vignette,
 	Glow,
@@ -86,6 +90,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	hsvShifter,
 	EdgeDetector,
 	MotionDetector,
+	ShotDetector,
 	SkinDetector,
 	Cloud,
 	FillHSV,
@@ -105,5 +110,6 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Brickulate,
 	DifferenceDetector,
 	Ghoster,
+	ScreenBurn,
 	Puzzler,
 };

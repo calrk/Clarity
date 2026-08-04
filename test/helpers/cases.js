@@ -63,6 +63,7 @@ export const cases = [
 	// --- Process: neighbourhood -----------------------------------------
 	{ filter: 'Blur', input: 'photo', options: { radius: 6 }, gpu: ACCUMULATING },
 	{ filter: 'Bleed', input: 'photo', options: { radius: 6 }, gpu: ACCUMULATING },
+	{ filter: 'DotCrawl', input: 'photo', options: {}, now: 1234, gpu: ACCUMULATING },
 	{ filter: 'Glow', input: 'photo', options: { radius: 6 }, gpu: ACCUMULATING },
 	{ filter: 'Convolver', input: 'photo', options: {}, gpu: KERNEL },
 	{ filter: 'Convolver', name: 'smooth', input: 'photo', options: { preset: 'smooth', iterations: 2 }, gpu: KERNEL },
@@ -175,6 +176,11 @@ export const cases = [
 	// stateful pair: first frame is the reference, second is the comparison
 	{ filter: 'DifferenceDetector', input: ['clean', 'moved'], sequence: true, options: {}, gpu: BOUNDARY },
 	{ filter: 'Ghoster', input: ['clean', 'moved'], sequence: true, options: { length: 3 }, gpu: ACCUMULATING },
+	{ filter: 'ScreenBurn', input: ['clean', 'moved'], sequence: true, options: { length: 3 }, gpu: ACCUMULATING },
+	// two unrelated frames is a cut; the same frame twice is not, and both paths
+	// matter because the whole filter is that one decision
+	{ filter: 'ShotDetector', input: ['clean', 'photo'], sequence: true, options: {}, gpu: POINTWISE },
+	{ filter: 'ShotDetector', name: 'nocut', input: ['clean', 'clean'], sequence: true, options: {}, gpu: POINTWISE },
 
 	// --- Alpha handling ---------------------------------------------------
 	// most filters rewrite alpha to 255; these pin that behaviour down so a
