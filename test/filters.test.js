@@ -148,14 +148,18 @@ test('Mirror honours horizontal: false', () => {
 });
 
 test('Wave gathers, leaving no unwritten holes', () => {
-	const out = new CLARITY.Wave({ vertical: true, amplitude: 3 }).process(makeFrame());
+	const out = new CLARITY.Wave({ axis: 'vertical', amplitude: 3 }).process(makeFrame());
 	assert.ok(sameHistogram(out.data, makeFrame().data));
 });
 
-test('Wave with no axis enabled passes the frame through', () => {
+test('Wave has no do-nothing state left to fall into', () => {
+	// It used to be two booleans, both defaulting to false, so adding it did
+	// nothing until you found the toggles. A select has no fourth state.
 	const original = makeFrame();
-	const out = new CLARITY.Wave({}).process(makeFrame());
-	assert.deepEqual([...out.data], [...original.data]);
+	for (const axis of CLARITY.Wave.schema.axis.options.map((o) => o.value)) {
+		const out = new CLARITY.Wave({ axis, amplitude: 3 }).process(makeFrame());
+		assert.notDeepEqual([...out.data], [...original.data], axis + ' did nothing');
+	}
 });
 
 test('zero-valued options survive the defaults', () => {
@@ -345,4 +349,63 @@ test('ridged is the squared complement of billow, from one noise field', () => {
 
 	// and the unfolded field is neither of them
 	assert.notDeepEqual([...make('none').data], [...ridged.data]);
+});
+
+/**
+ * Filters whose defaults are meant to be neutral.
+ *
+ * An *adjustment* opens doing nothing on purpose - every image editor shows
+ * Levels neutral, and you would be annoyed if adding it moved your picture.
+ * An *effect* is the opposite: you added it to see something, and a default
+ * that shows nothing reads as a broken filter rather than a starting point.
+ *
+ * `Wave` was in the wrong group. It had two booleans both defaulting to false,
+ * so it sat there doing nothing until you found the toggles - and so did
+ * `Rotator` at 0 turns and `ChromaticAberration` at 0 displacement.
+ */
+const NEUTRAL_BY_DESIGN = new Set(['Levels', 'hsvShifter', 'NormalFlip']);
+
+test('every effect filter does something with its default options', () => {
+	const inert = [];
+
+	for (const name of filterNames) {
+		if (NEUTRAL_BY_DESIGN.has(name)) continue;
+
+		const filter = new CLARITY[name]({ random: CLARITY.seededRandom(1), now: () => 500 });
+		const input = makeFrame();
+		let out;
+
+		if (isDualInput(name)) {
+			out = filter.process([input, makeFrame(90)]);
+		} else if ((CLARITY.CATALOGUE[name].traits ?? []).includes('temporal')) {
+			//nothing to compare against on the first frame, by design
+			filter.process(makeFrame(90));
+			out = filter.process(input);
+		} else {
+			out = filter.process(input);
+		}
+
+		if (out.width !== input.width || out.height !== input.height) continue;
+		if (![...out.data].some((v, i) => v !== input.data[i])) inert.push(name);
+	}
+
+	assert.deepEqual(inert, [], 'these do nothing until an option is changed');
+});
+
+test('the neutral filters really are neutral, and really do work', () => {
+	// the other half: if one of these stopped being an identity at its
+	// defaults, it would have been quietly moved out of the exempt group
+	const original = makeFrame();
+	for (const name of NEUTRAL_BY_DESIGN) {
+		assert.deepEqual(
+			[...new CLARITY[name]({}).process(makeFrame()).data],
+			[...original.data],
+			`${name} is exempt from the test above, so it must be an identity`
+		);
+	}
+
+	// and each is exempt for being an adjustment, not for being broken
+	assert.notDeepEqual([...new CLARITY.Levels({ black: 40 }).process(makeFrame()).data], [...original.data]);
+	assert.notDeepEqual([...new CLARITY.hsvShifter({ hue: 90 }).process(makeFrame()).data], [...original.data]);
+	assert.notDeepEqual([...new CLARITY.NormalFlip({ green: true }).process(makeFrame()).data], [...original.data]);
 });

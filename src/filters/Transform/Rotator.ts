@@ -64,7 +64,7 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		turns: { type: 'int', label: 'Turns', min: 0, max: 3, step: 1, default: 0, description: 'Quarter turns clockwise.' },
+		turns: { type: 'int', label: 'Turns', min: 0, max: 3, step: 1, default: 1, description: 'Quarter turns clockwise.' },
 		fit: {
 			type: 'select',
 			label: 'Fit',
@@ -97,7 +97,7 @@ void main(){
 	constructor(options: RotatorOptions = {}) {
 		super(options);
 		this.properties = {
-			turns: options.turns || 0,
+			turns: options.turns === undefined ? 1 : options.turns,
 			fit: options.fit ?? 'resize'
 		};
 

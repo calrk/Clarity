@@ -134,8 +134,8 @@ export const cases = [
 	// an integer lands on a different source pixel. The pixel is then wrong by
 	// however different its neighbour happens to be, which a per-channel
 	// tolerance cannot express.
-	{ filter: 'Wave', input: 'photo', options: { vertical: true, amplitude: 5, frequency: 12 }, now: 0, gpu: { mode: 'population', maxDifferentRatio: 0.05 } },
-	{ filter: 'Wave', name: 'both', input: 'photo', options: { horizontal: true, vertical: true, amplitude: 4 }, now: 250, gpu: { mode: 'population', maxDifferentRatio: 0.05 } },
+	{ filter: 'Wave', input: 'photo', options: { axis: 'vertical', amplitude: 5, frequency: 12 }, now: 0, gpu: { mode: 'population', maxDifferentRatio: 0.05 } },
+	{ filter: 'Wave', name: 'both', input: 'photo', options: { axis: 'both', amplitude: 4 }, now: 250, gpu: { mode: 'population', maxDifferentRatio: 0.05 } },
 
 	// --- Starters --------------------------------------------------------
 	{ filter: 'FillRGB', input: 'photo', options: { red: 200, green: 80, blue: 40 }, gpu: POINTWISE },

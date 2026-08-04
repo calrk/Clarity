@@ -487,7 +487,7 @@ new ChromaticAberration({ xdistance: 4, ydistance: 2, fixed: true });
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `xdistance` | int | -100–100 | `0` | How far red and blue pull apart horizontally, in pixels at the frame edge. |
+| `xdistance` | int | -100–100 | `8` | How far red and blue pull apart horizontally, in pixels at the frame edge. |
 | `ydistance` | int | -100–100 | `0` | The same displacement vertically. Green never moves. |
 | `fixed` | bool | true / false | `false` | Displace uniformly rather than growing toward the edges. |
 
@@ -535,7 +535,7 @@ Rotates in 90 degree steps.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Rotator.png" width="192" alt="Rotator applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Rotator,turns=1)
+[Open in the playground →](https://clarity.clarklavery.com/#colours/Rotator)
 
 ```js
 import { Rotator } from '@calrk/clarity';
@@ -545,7 +545,7 @@ new Rotator({ turns: 1 });
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `turns` | int | 0–3 | `0` | Quarter turns clockwise. |
+| `turns` | int | 0–3 | `1` | Quarter turns clockwise. |
 | `fit` | select | `resize` · `crop` | `resize` | What a quarter turn does to a non-square frame. |
 
 ### Tiler
@@ -589,18 +589,17 @@ Displaces pixels along a sine function.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Wave.png" width="192" alt="Wave applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Wave,vertical=true,frequency=12,amplitude=5)
+[Open in the playground →](https://clarity.clarklavery.com/#colours/Wave,axis=vertical,frequency=12,amplitude=5)
 
 ```js
 import { Wave } from '@calrk/clarity';
 
-new Wave({ vertical: true, amplitude: 5, frequency: 12 });
+new Wave({ axis: "vertical", amplitude: 5, frequency: 12 });
 ```
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `horizontal` | bool | true / false | `false` | Displace rows sideways. |
-| `vertical` | bool | true / false | `false` | Displace columns up and down. Both together give a swimming effect. |
+| `axis` | select | `horizontal` · `vertical` · `both` | `horizontal` | Which way the pixels travel. Both together give a swimming effect. |
 | `speed` | int | -10–10 | `1` | Cycles per second. Negative runs the wave backwards, 0 freezes it. |
 | `frequency` | float | 1–100 | `10` | Divides the coordinate, so a higher number means longer, gentler waves. |
 | `amplitude` | float | 1–100 | `10` | How far a pixel travels at the crest, in pixels. |

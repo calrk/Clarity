@@ -63,7 +63,7 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		xdistance: { type: 'int', label: 'X distance', min: -100, max: 100, step: 1, default: 0, description: 'How far red and blue pull apart horizontally, in pixels at the frame edge.' },
+		xdistance: { type: 'int', label: 'X distance', min: -100, max: 100, step: 1, default: 8, description: 'How far red and blue pull apart horizontally, in pixels at the frame edge.' },
 		ydistance: { type: 'int', label: 'Y distance', min: -100, max: 100, step: 1, default: 0, description: 'The same displacement vertically. Green never moves.' },
 		fixed: { type: 'bool', label: 'Fixed', default: false, description: 'Displace uniformly rather than growing toward the edges.' }
 	};
@@ -77,7 +77,7 @@ void main(){
 	constructor(options: ChromaticAberrationOptions = {}) {
 		super(options);
 		this.properties = {
-			xdistance: options.xdistance || 0,
+			xdistance: options.xdistance === undefined ? 8 : options.xdistance,
 			ydistance: options.ydistance || 0,
 			fixed: options.fixed || false,
 		};

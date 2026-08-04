@@ -408,18 +408,26 @@ if (!existsSync(join(dist, 'index.html'))) {
 		// The risk is not the wiring but the browser: autoplay policy and codec
 		// support, neither of which a unit test can see. The video element never
 		// enters the DOM either, so the only honest observable is the canvas.
-		const moves = async (id) => {
+		// Polled rather than a single wait: the whole suite runs its browsers at
+		// once, so a fixed sleep is a flake waiting to happen on a loaded machine.
+		// The moving case returns the moment it moves; the still case has to sit
+		// out the full window to prove it never does.
+		const movesWithin = async (id, ms) => {
 			await open('#' + id);
 			const before = await canvasDigest();
-			await new Promise((resolve) => setTimeout(resolve, 900));
-			return before !== (await canvasDigest());
+			const deadline = Date.now() + ms;
+			while (Date.now() < deadline) {
+				await new Promise((resolve) => setTimeout(resolve, 120));
+				if ((await canvasDigest()) !== before) return true;
+			}
+			return false;
 		};
 
-		assert.equal(await moves('crystal'), true, 'the crystal video should be playing');
-		assert.equal(await moves('facevideo'), true, 'the face video should be playing');
+		assert.equal(await movesWithin('crystal', 6000), true, 'the crystal video should be playing');
+		assert.equal(await movesWithin('facevideo', 6000), true, 'the face video should be playing');
 		// and the control: a still source must not be spuriously 'moving', or the
 		// two assertions above would pass on a source that never decoded
-		assert.equal(await moves('face'), false, 'a still image should not change');
+		assert.equal(await movesWithin('face', 1800), false, 'a still image should not change');
 	});
 	test('nothing threw along the way', async () => {
 		assert.deepEqual(errors, []);

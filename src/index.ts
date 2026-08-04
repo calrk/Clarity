@@ -140,7 +140,7 @@ export type { FishEyeOptions } from './filters/Transform/FishEye.js';
 export { Translator } from './filters/Transform/Translator.js';
 export type { TranslatorOptions } from './filters/Transform/Translator.js';
 export { Wave } from './filters/Transform/Wave.js';
-export type { WaveOptions } from './filters/Transform/Wave.js';
+export type { WaveOptions, WaveAxis } from './filters/Transform/Wave.js';
 
 // misc
 export { Brickulate } from './filters/misc/Brickulate.js';

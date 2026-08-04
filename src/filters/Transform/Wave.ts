@@ -6,9 +6,10 @@ import { createImageData } from '../../core/imagedata.js';
 import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
 
+export type WaveAxis = 'horizontal' | 'vertical' | 'both';
+
 export interface WaveOptions extends FilterOptions {
-	horizontal?: boolean;
-	vertical?: boolean;
+	axis?: WaveAxis;
 	speed?: number;
 	frequency?: number;
 	amplitude?: number;
@@ -16,8 +17,7 @@ export interface WaveOptions extends FilterOptions {
 
 export class Wave extends Filter {
 	static override shader = /* glsl */ `
-uniform float u_horizontal;
-uniform float u_vertical;
+uniform float u_axis;
 uniform float u_speed;
 uniform float u_frequency;
 uniform float u_amplitude;
@@ -27,16 +27,13 @@ float waveFunction(float v){
 }
 
 void main(){
-	bool horizontal = u_horizontal > 0.5;
-	bool vertical = u_vertical > 0.5;
+	//0 horizontal, 1 vertical, 2 both - the schema order
+	int axis = int(u_axis + 0.5);
+	bool horizontal = axis != 1;
+	bool vertical = axis != 0;
 
 	ivec2 size = ivec2(uSize);
 	ivec2 p = outPixel();
-
-	if(!horizontal && !vertical){
-		writeRGB(srcTexel(p).rgb);
-		return;
-	}
 
 	float phase = ((uTime / 1000.0) * 6.28318530717959) * u_speed;
 
@@ -62,16 +59,27 @@ void main(){
 	static override varying = true;
 
 	static override schema: FilterSchema = {
-		horizontal: { type: 'bool', label: 'Horizontal', default: false, description: 'Displace rows sideways.' },
-		vertical: { type: 'bool', label: 'Vertical', default: false, description: 'Displace columns up and down. Both together give a swimming effect.' },
+		//A select rather than two booleans, because two booleans have a fourth
+		//state - neither - which is a filter that does nothing, and that was the
+		//default. HanoverBars had the same fault and the same fix.
+		axis: {
+			type: 'select',
+			label: 'Axis',
+			default: 'horizontal',
+			description: 'Which way the pixels travel. Both together give a swimming effect.',
+			options: [
+				{ value: 'horizontal', label: 'Horizontal - rows slide sideways' },
+				{ value: 'vertical', label: 'Vertical - columns slide up and down' },
+				{ value: 'both', label: 'Both' }
+			]
+		},
 		speed: { type: 'int', label: 'Speed', min: -10, max: 10, step: 1, default: 1, description: 'Cycles per second. Negative runs the wave backwards, 0 freezes it.' },
 		frequency: { type: 'float', label: 'Frequency', min: 1, max: 100, step: 1, default: 10, description: 'Divides the coordinate, so a higher number means longer, gentler waves.' },
 		amplitude: { type: 'float', label: 'Amplitude', min: 1, max: 100, step: 1, default: 10, description: 'How far a pixel travels at the crest, in pixels.' }
 	};
 
 	override properties: {
-		horizontal: boolean;
-		vertical: boolean;
+		axis: WaveAxis;
 		speed: number;
 		frequency: number;
 		amplitude: number;
@@ -80,8 +88,7 @@ void main(){
 	constructor(options: WaveOptions = {}) {
 		super(options);
 		this.properties = {
-			horizontal: options.horizontal || false,
-			vertical: options.vertical || false,
+			axis: options.axis ?? 'horizontal',
 			speed: options.speed === undefined ? 1 : Math.round(options.speed),
 			frequency: options.frequency || 10,
 			amplitude: options.amplitude || 10
@@ -89,12 +96,8 @@ void main(){
 	}
 
 	override doProcess(frame: ImageData): ImageData {
-		let horizontal = this.properties.horizontal;
-		let vertical = this.properties.vertical;
-
-		if(!horizontal && !vertical){
-			return frame;
-		}
+		let horizontal = this.properties.axis !== 'vertical';
+		let vertical = this.properties.axis !== 'horizontal';
 
 		let output = createImageData(frame.width, frame.height);
 
