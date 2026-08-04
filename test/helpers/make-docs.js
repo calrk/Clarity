@@ -34,10 +34,14 @@ const THUMB = 192;
  * rule that follows from them cannot fall out of date the way a second list
  * would. See FEATURES.md #11.
  */
-function playgroundSource(traits) {
+function playgroundSource(name, traits) {
 	if (traits.includes('starter')) return 'blank';
 	if (traits.includes('heightmap-in') || traits.includes('normalmap-in')) return 'heightmap';
-	if (traits.includes('temporal')) return 'camera';
+	//A temporal filter has nothing to compare on a still. This used to be
+	//`camera`, so every one of these links opened with a permission prompt -
+	//a poor first thing to ask of someone reading the documentation.
+	if (traits.includes('temporal')) return 'crystal';
+	if (name === 'SkinDetector') return 'face';
 	return 'colours';
 }
 
@@ -168,7 +172,7 @@ export function buildDocs() {
 			if (images) out.push(images);
 
 			const chain = chainFor(name, example);
-			const source = playgroundSource(traits);
+			const source = playgroundSource(name, traits);
 			out.push(`[Open in the playground →](${PLAYGROUND}#${source}/${chain})\n`);
 			out.push('```js');
 			out.push(`import { ${name} } from '@calrk/clarity';\n`);

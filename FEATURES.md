@@ -13,8 +13,8 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
 | Filters clean | 31 of 41, 4 hard crashes | 49 of 49, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 63/63 parity cases as shaders |
-| Tests | none | 562, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
-| Demo | 8 pages, broken for years | one playground, live and tested on every run |
+| Tests | none | 563, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video and a webcam |
 | Licence | GPL dependency | MIT throughout |
 
 Bugs found along the way: **four crashing filters**, plus roughly two dozen quieter ones — an inverted mask, a filter that blurred the wrong channel, a colour-space round trip that was not the identity, an "average" that averaged nothing, and a filter whose default mode did nothing at all. Most were found by *looking at pictures* rather than by reading code, which is the strongest argument in here for the contact sheet.
@@ -695,7 +695,7 @@ Three things worth recording:
 
 Deliberately not done:
 
-- **The playground links are derived from traits**, not curated — a starter gets the blank source, a height-map filter gets the height map, everything else gets `colours`. Curated demos would show each filter off better, but the golden cases run against 64×48 fixtures the playground does not have, so they cannot simply be reused. A `demo` field per case is the fix, and it wants the source-list URL format from #5's follow-ups.
+- **The playground links are derived from traits**, not curated — a starter gets the blank source, a height-map filter gets the height map, a temporal one gets a video, `SkinDetector` gets the face, and everything else gets `colours`. Curated demos would show each filter off better, but the golden cases run against 64×48 fixtures the playground does not have, so they cannot simply be reused. A `demo` field per case is the fix, and it wants the source-list URL format from #5's follow-ups.
 - **Typedoc** — the `.d.ts` files and source comments are enough. Closing this rather than leaving it open.
 
 ---

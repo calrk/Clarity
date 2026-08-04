@@ -400,6 +400,27 @@ if (!existsSync(join(dist, 'index.html'))) {
 		);
 	});
 
+	test('the bundled videos play, and the still sources do not', async () => {
+		// Until these were added the only moving source was the webcam, so every
+		// temporal filter - MotionDetector, Ghoster, ScreenBurn, ShotDetector -
+		// demanded a permission prompt before it would show anything at all.
+		//
+		// The risk is not the wiring but the browser: autoplay policy and codec
+		// support, neither of which a unit test can see. The video element never
+		// enters the DOM either, so the only honest observable is the canvas.
+		const moves = async (id) => {
+			await open('#' + id);
+			const before = await canvasDigest();
+			await new Promise((resolve) => setTimeout(resolve, 900));
+			return before !== (await canvasDigest());
+		};
+
+		assert.equal(await moves('crystal'), true, 'the crystal video should be playing');
+		assert.equal(await moves('facevideo'), true, 'the face video should be playing');
+		// and the control: a still source must not be spuriously 'moving', or the
+		// two assertions above would pass on a source that never decoded
+		assert.equal(await moves('face'), false, 'a still image should not change');
+	});
 	test('nothing threw along the way', async () => {
 		assert.deepEqual(errors, []);
 		await browser.close();

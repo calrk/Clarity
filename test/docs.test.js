@@ -35,7 +35,9 @@ test('every playground link parses back to the chain it claims', () => {
 	// A link that 404s is obvious; one that silently drops a property is not.
 	// Round-tripping through the library catches a renamed filter, a renamed
 	// property, and a value the schema would clamp away.
-	const sources = new Set(['colours', 'heightmap', 'blank', 'camera']);
+	// mirrors SOURCES in site/src/sources.js; a link naming a source the
+	// playground does not have loads to the wrong picture rather than failing
+	const sources = new Set(['colours', 'face', 'heightmap', 'facevideo', 'crystal', 'blank', 'camera']);
 	const page = readFileSync(DOCS_PATH, 'utf8');
 	const links = [...page.matchAll(/playground →\]\(https:\/\/[^/]+\/#([^)]+)\)/g)].map((m) => m[1]);
 

@@ -418,7 +418,7 @@ Absolute difference between the current frame and one N frames back.
 
 <img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/MotionDetector.png" width="192" alt="MotionDetector applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#camera/MotionDetector)
+[Open in the playground →](https://clarity.clarklavery.com/#crystal/MotionDetector)
 
 ```js
 import { MotionDetector } from '@calrk/clarity';
@@ -439,7 +439,7 @@ Marks the frame where a cut happened, by how much of the picture changed at once
 
 <img src="../test/fixtures/clean,photo.png" width="192" alt="The clean,photo fixture"> <img src="../test/golden/ShotDetector.png" width="192" alt="ShotDetector applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#camera/ShotDetector)
+[Open in the playground →](https://clarity.clarklavery.com/#crystal/ShotDetector)
 
 ```js
 import { ShotDetector } from '@calrk/clarity';
@@ -459,7 +459,7 @@ Thresholds YCbCr into a binary skin/not-skin mask.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/SkinDetector.png" width="192" alt="SkinDetector applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/SkinDetector)
+[Open in the playground →](https://clarity.clarklavery.com/#face/SkinDetector)
 
 ```js
 import { SkinDetector } from '@calrk/clarity';
@@ -954,7 +954,7 @@ Compares each frame against the first one it saw.
 
 <img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/DifferenceDetector.png" width="192" alt="DifferenceDetector applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#camera/DifferenceDetector)
+[Open in the playground →](https://clarity.clarklavery.com/#crystal/DifferenceDetector)
 
 ```js
 import { DifferenceDetector } from '@calrk/clarity';
@@ -972,7 +972,7 @@ Onion-skins the last N frames together, weighted towards the newest.
 
 <img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/Ghoster.png" width="192" alt="Ghoster applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#camera/Ghoster,length=3)
+[Open in the playground →](https://clarity.clarklavery.com/#crystal/Ghoster,length=3)
 
 ```js
 import { Ghoster } from '@calrk/clarity';
@@ -992,7 +992,7 @@ Burns a fading ghost of the brightest thing that has been on screen.
 
 <img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/ScreenBurn.png" width="192" alt="ScreenBurn applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#camera/ScreenBurn,length=3)
+[Open in the playground →](https://clarity.clarklavery.com/#crystal/ScreenBurn,length=3)
 
 ```js
 import { ScreenBurn } from '@calrk/clarity';

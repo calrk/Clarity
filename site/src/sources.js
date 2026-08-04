@@ -7,6 +7,9 @@
 
 import colours from './samples/colours.jpg';
 import heightmap from './samples/heightmap.png';
+import face from './samples/face.jpg';
+import faceVideo from './samples/face.mp4';
+import crystal from './samples/crystal.mp4';
 
 /** @typedef {{ id: string, label: string, kind: 'image'|'video'|'camera'|'blank', thumb?: string, glyph?: string }} SourceSpec */
 
@@ -19,7 +22,14 @@ import heightmap from './samples/heightmap.png';
  */
 export const SOURCES = [
 	{ id: 'colours', label: 'Colours', kind: 'image', url: colours, thumb: colours },
+	{ id: 'face', label: 'Face', kind: 'image', url: face, thumb: face },
 	{ id: 'heightmap', label: 'Height map', kind: 'image', url: heightmap, thumb: heightmap },
+	// The temporal filters - MotionDetector, Ghoster, DifferenceDetector,
+	// ScreenBurn, ShotDetector - have nothing to compare on a still frame. Before
+	// these, the only moving source was the webcam, so every one of them opened
+	// with a permission prompt.
+	{ id: 'facevideo', label: 'Face (video)', kind: 'video', url: faceVideo, glyph: '▶' },
+	{ id: 'crystal', label: 'Crystal', kind: 'video', url: crystal, glyph: '▶' },
 	// The starters - Cloud, FillRGB, FillHSV - ignore their input and generate a
 	// frame from nothing, so they need something to be handed. This is that
 	// something: an empty frame of a sensible size.
