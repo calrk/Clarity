@@ -26,23 +26,46 @@ const PLAYGROUND = 'https://clarity.clarklavery.com/';
 const THUMB = 192;
 
 /**
+ * The handful of filters whose best demonstration no trait can predict.
+ *
+ * The traits say what a filter *requires*, which is a different question from
+ * what shows it off. Nothing marks Morphology as wanting a near-binary shape
+ * with speckle on it, or Pixelate as wanting something whose detail you would
+ * miss. Kept short and explicit on purpose: the rule below is what scales, and
+ * this is the exception list it cannot cover. See FEATURES.md #11.
+ */
+const DEMO_SOURCE = {
+	Morphology: 'rorschach',
+	Convolver: 'books',
+	EdgeDetector: 'books',
+	GradientThreshold: 'books',
+	Pixelate: 'books',
+	Posteriser: 'books',
+	SkinDetector: 'face'
+};
+
+/**
  * Which playground source shows a filter off, derived from its traits.
  *
  * A curated demo per filter would be better - the golden cases run against
  * 64x48 fixtures that the playground does not have, so these cannot simply be
  * reused - but the traits already say what kind of input a filter needs, and a
  * rule that follows from them cannot fall out of date the way a second list
- * would. See FEATURES.md #11.
+ * would.
  */
 function playgroundSource(name, traits) {
+	if (DEMO_SOURCE[name]) return DEMO_SOURCE[name];
 	if (traits.includes('starter')) return 'blank';
 	if (traits.includes('heightmap-in') || traits.includes('normalmap-in')) return 'heightmap';
 	//A temporal filter has nothing to compare on a still. This used to be
 	//`camera`, so every one of these links opened with a permission prompt -
 	//a poor first thing to ask of someone reading the documentation.
 	if (traits.includes('temporal')) return 'crystal';
-	if (name === 'SkinDetector') return 'face';
-	return 'colours';
+	//The fallback carries most of the catalogue, so it has to be a picture with
+	//both colour and fine detail. It used to be `colours`, a smooth rainbow ramp
+	//- which meant every filter that works on detail demonstrated itself on an
+	//image that has none.
+	return 'landscape';
 }
 
 /** The golden case that best represents a filter: its plainest one. */

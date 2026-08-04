@@ -49,7 +49,7 @@ Blurs a single channel, so colour bleeds out of its edges.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Bleed.png" width="192" alt="Bleed applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Bleed,radius=6)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Bleed,radius=6)
 
 ```js
 import { Bleed } from '@calrk/clarity';
@@ -67,7 +67,7 @@ Stack blur - a fast Gaussian approximation.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Blur.png" width="192" alt="Blur applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Blur,radius=6)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Blur,radius=6)
 
 ```js
 import { Blur } from '@calrk/clarity';
@@ -85,7 +85,7 @@ Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sob
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Convolver.png" width="192" alt="Convolver applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Convolver)
+[Open in the playground →](https://clarity.clarklavery.com/#books/Convolver)
 
 ```js
 import { Convolver } from '@calrk/clarity';
@@ -105,7 +105,7 @@ Pulls colour towards grey, by an amount, keeping luminance.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Desaturate.png" width="192" alt="Desaturate applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Desaturate)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Desaturate)
 
 ```js
 import { Desaturate } from '@calrk/clarity';
@@ -123,7 +123,7 @@ The crawling dot pattern composite video leaves along colour edges.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/DotCrawl.png" width="192" alt="DotCrawl applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/DotCrawl)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/DotCrawl)
 
 ```js
 import { DotCrawl } from '@calrk/clarity';
@@ -142,7 +142,7 @@ Blurs the image and blends the blur back over the original.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Glow.png" width="192" alt="Glow applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Glow,radius=6)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Glow,radius=6)
 
 ```js
 import { Glow } from '@calrk/clarity';
@@ -160,7 +160,7 @@ Rotates the chroma of every other bar of lines, or darkens them.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/HanoverBars.png" width="192" alt="HanoverBars applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/HanoverBars)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/HanoverBars)
 
 ```js
 import { HanoverBars } from '@calrk/clarity';
@@ -180,7 +180,7 @@ Inverts colour. In dynamic mode it reflects within the image's own range.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Invert.png" width="192" alt="Invert applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Invert)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Invert)
 
 ```js
 import { Invert } from '@calrk/clarity';
@@ -199,7 +199,7 @@ Remaps the black point, white point and gamma - the everyday contrast control.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Levels.png" width="192" alt="Levels applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Levels,black=40,white=210)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Levels,black=40,white=210)
 
 ```js
 import { Levels } from '@calrk/clarity';
@@ -219,7 +219,7 @@ Grows or shrinks light regions; open and close remove speckle without moving the
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Morphology.png" width="192" alt="Morphology applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Morphology,radius=2)
+[Open in the playground →](https://clarity.clarklavery.com/#rorschach/Morphology,radius=2)
 
 ```js
 import { Morphology } from '@calrk/clarity';
@@ -238,7 +238,7 @@ Adds random noise, optionally monochromatic.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Noise.png" width="192" alt="Noise applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Noise,intensity=40)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Noise,intensity=40)
 
 ```js
 import { Noise } from '@calrk/clarity';
@@ -257,7 +257,7 @@ Snaps the image to fixed-size blocks.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Pixelate.png" width="192" alt="Pixelate applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Pixelate,size=8)
+[Open in the playground →](https://clarity.clarklavery.com/#books/Pixelate,size=8)
 
 ```js
 import { Pixelate } from '@calrk/clarity';
@@ -275,7 +275,7 @@ Quantises to a fixed number of colours via median cut.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Posteriser.png" width="192" alt="Posteriser applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Posteriser,colours=6)
+[Open in the playground →](https://clarity.clarklavery.com/#books/Posteriser,colours=6)
 
 ```js
 import { Posteriser } from '@calrk/clarity';
@@ -294,7 +294,7 @@ Darkens towards the corners.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Vignette.png" width="192" alt="Vignette applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Vignette)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Vignette)
 
 ```js
 import { Vignette } from '@calrk/clarity';
@@ -314,7 +314,7 @@ Rotates hue and scales saturation/value.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/hsvShifter.png" width="192" alt="hsvShifter applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/hsvShifter,hue=120,saturation=1.4,value=0.9)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/hsvShifter,hue=120,saturation=1.4,value=0.9)
 
 ```js
 import { hsvShifter } from '@calrk/clarity';
@@ -338,7 +338,7 @@ Marks pixels whose neighbours differ by more than a threshold - edge detection b
 
 <img src="../test/fixtures/edges.png" width="192" alt="The edges fixture"> <img src="../test/golden/GradientThreshold.png" width="192" alt="GradientThreshold applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/GradientThreshold,threshold=30)
+[Open in the playground →](https://clarity.clarklavery.com/#books/GradientThreshold,threshold=30)
 
 ```js
 import { GradientThreshold } from '@calrk/clarity';
@@ -357,7 +357,7 @@ Quantises using median and quartile pixel values.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/MedianThreshold.png" width="192" alt="MedianThreshold applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/MedianThreshold)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/MedianThreshold)
 
 ```js
 import { MedianThreshold } from '@calrk/clarity';
@@ -375,7 +375,7 @@ Two-tone threshold at a given value, or one derived from the image.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/ValueThreshold.png" width="192" alt="ValueThreshold applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/ValueThreshold,threshold=120)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/ValueThreshold,threshold=120)
 
 ```js
 import { ValueThreshold } from '@calrk/clarity';
@@ -397,7 +397,7 @@ Highlights edges with a 3x3 kernel, or a fast two-sample difference.
 
 <img src="../test/fixtures/edges.png" width="192" alt="The edges fixture"> <img src="../test/golden/EdgeDetector.png" width="192" alt="EdgeDetector applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/EdgeDetector)
+[Open in the playground →](https://clarity.clarklavery.com/#books/EdgeDetector)
 
 ```js
 import { EdgeDetector } from '@calrk/clarity';
@@ -477,7 +477,7 @@ Displaces the R and G channels in opposite directions.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/ChromaticAberration.png" width="192" alt="ChromaticAberration applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/ChromaticAberration,xdistance=4,ydistance=2,fixed=true)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/ChromaticAberration,xdistance=4,ydistance=2,fixed=true)
 
 ```js
 import { ChromaticAberration } from '@calrk/clarity';
@@ -497,7 +497,7 @@ Bows the image outward like a lens, or pinches it inward.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/FishEye.png" width="192" alt="FishEye applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/FishEye)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/FishEye)
 
 ```js
 import { FishEye } from '@calrk/clarity';
@@ -516,7 +516,7 @@ Flips the image horizontally, vertically, or both.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Mirror.png" width="192" alt="Mirror applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Mirror)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Mirror)
 
 ```js
 import { Mirror } from '@calrk/clarity';
@@ -535,7 +535,7 @@ Rotates in 90 degree steps.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Rotator.png" width="192" alt="Rotator applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Rotator)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Rotator)
 
 ```js
 import { Rotator } from '@calrk/clarity';
@@ -554,7 +554,7 @@ Mirrors the image into four quadrants, so opposite edges match and the result ti
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Tiler.png" width="192" alt="Tiler applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Tiler)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Tiler)
 
 ```js
 import { Tiler } from '@calrk/clarity';
@@ -570,7 +570,7 @@ Shifts the image by a percentage, wrapping at the edges.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Translator.png" width="192" alt="Translator applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Translator,horizontal=0.25,vertical=0.1)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Translator,horizontal=0.25,vertical=0.1)
 
 ```js
 import { Translator } from '@calrk/clarity';
@@ -589,7 +589,7 @@ Displaces pixels along a sine function.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Wave.png" width="192" alt="Wave applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Wave,axis=vertical,frequency=12,amplitude=5)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Wave,axis=vertical,frequency=12,amplitude=5)
 
 ```js
 import { Wave } from '@calrk/clarity';
@@ -816,7 +816,7 @@ Adds the second image to the first, clamping at white.
 
 <img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Add.png" width="192" alt="Add applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Add)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Add)
 
 ```js
 import { Add } from '@calrk/clarity';
@@ -834,7 +834,7 @@ Subtracts the second image from the first, clamping at black.
 
 <img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Subtract.png" width="192" alt="Subtract applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Subtract)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Subtract)
 
 ```js
 import { Subtract } from '@calrk/clarity';
@@ -852,7 +852,7 @@ Absolute difference between two images - symmetric, and it keeps the range Subtr
 
 <img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Difference.png" width="192" alt="Difference applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Difference)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Difference)
 
 ```js
 import { Difference } from '@calrk/clarity';
@@ -870,7 +870,7 @@ Weighted mix of two images.
 
 <img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Blend.png" width="192" alt="Blend applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Blend,ratio=0.35)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Blend,ratio=0.35)
 
 ```js
 import { Blend } from '@calrk/clarity';
@@ -890,7 +890,7 @@ Binary stencil - keeps the first image where the mask is light, blacks it out wh
 
 <img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Mask.png" width="192" alt="Mask applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Mask)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Mask)
 
 ```js
 import { Mask } from '@calrk/clarity';
@@ -912,7 +912,7 @@ Multiplies the two images together, channel by channel.
 
 <img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Multiply.png" width="192" alt="Multiply applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Multiply)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Multiply)
 
 ```js
 import { Multiply } from '@calrk/clarity';
@@ -930,7 +930,7 @@ Overlays a brick/tile grid with bevelled grooves.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Brickulate.png" width="192" alt="Brickulate applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Brickulate,verticalSegs=3,grooveSize=3)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Brickulate,verticalSegs=3,grooveSize=3)
 
 ```js
 import { Brickulate } from '@calrk/clarity';
@@ -1010,7 +1010,7 @@ Scrambles the image into shuffled tiles.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Puzzler.png" width="192" alt="Puzzler applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#colours/Puzzler,verticalSegs=3)
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Puzzler,verticalSegs=3)
 
 ```js
 import { Puzzler } from '@calrk/clarity';

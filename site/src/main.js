@@ -202,6 +202,10 @@ function buildSourceList() {
 		button.type = 'button';
 		button.className = 'source';
 		button.dataset.id = source.id;
+		//so the page can be asked which sources are meant to move - the test that
+		//checks the videos actually play enumerates these rather than naming them,
+		//which is what stops a newly added video from going unchecked
+		button.dataset.kind = source.kind;
 		button.title = source.label;
 		button.setAttribute('aria-pressed', String(source.id === currentSourceId));
 
@@ -210,9 +214,15 @@ function buildSourceList() {
 			img.src = source.thumb;
 			img.alt = '';
 			button.appendChild(img);
-		} else {
+		}
+
+		//The glyph is the only thing distinguishing a video from a still, so it
+		//survives the arrival of a poster thumbnail rather than being replaced by
+		//it - a badge over the picture when there is one, the whole tile when
+		//there is not.
+		if (source.glyph || !source.thumb) {
 			const glyph = document.createElement('span');
-			glyph.className = 'glyph';
+			glyph.className = source.thumb ? 'glyph badge' : 'glyph';
 			glyph.textContent = source.glyph ?? '▦';
 			button.appendChild(glyph);
 		}

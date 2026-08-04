@@ -695,7 +695,15 @@ Three things worth recording:
 
 Deliberately not done:
 
-- **The playground links are derived from traits**, not curated — a starter gets the blank source, a height-map filter gets the height map, a temporal one gets a video, `SkinDetector` gets the face, and everything else gets `colours`. Curated demos would show each filter off better, but the golden cases run against 64×48 fixtures the playground does not have, so they cannot simply be reused. A `demo` field per case is the fix, and it wants the source-list URL format from #5's follow-ups.
+- **The playground links are derived from traits**, not curated — a starter gets the blank source, a height-map filter gets the height map, a temporal one gets a video, `SkinDetector` gets the face. Curated demos would show each filter off better, but the golden cases run against 64×48 fixtures the playground does not have, so they cannot simply be reused. A `demo` field per case is the fix, and it wants the source-list URL format from #5's follow-ups.
+
+**Since, on the sample set.** The rule was sound but the pictures under it were not. The fallback source was `colours`, a smooth rainbow ramp with no high-frequency content, and it carried most of the catalogue — so every filter that works on *detail* demonstrated itself on an image that has none. A blur of a smooth ramp is a smooth ramp. Four samples in (`landscape`, `books`, `rorschach`, `box`), the fallback is now `landscape`, which has both saturated colour and fine texture, and a short `DEMO_SOURCE` table in `make-docs.js` covers the handful the traits cannot predict: Morphology wants the near-binary inkblot, the detail filters want small text. `box.mp4` — a bright cube on a dark ground, camera locked off — is what `DifferenceDetector` had been missing entirely: it compares every frame against the *first* one it saw, which means nothing on a handheld shot.
+
+Three things this turned up:
+
+- **`npm test` was validating a stale build.** Every test imports `dist/clarity.js`, and the playground tests serve `site/dist`, but neither was built by `npm test`. A `pretest` now builds both, costing ~7s. It immediately failed a site test that had been green against an old bundle since Rotator's default changed from 0 turns to 1 — a false green that had already survived a full run.
+- **The docs test kept its own copy of the source-id list**, so a link naming a source the playground does not have would pass. It scrapes `sources.js` now.
+- **The README's hand-written example chains were never checked**, unlike the generated ones, though they are the first thing anyone clicks. They are round-tripped now, which caught `ChromaticAberration,xdistance=8` on the first run — `8` had become the default, so it no longer survives `formatChain`.
 - **Typedoc** — the `.d.ts` files and source comments are enough. Closing this rather than leaving it open.
 
 ---

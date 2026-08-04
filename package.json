@@ -44,6 +44,7 @@
     "deploy": "npm run site:build && wrangler deploy",
     "build": "tsc --noEmit && vite build && vite build --config vite.svelte.config.ts",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run build && npm run site:build",
     "test": "node --test test/*.test.js",
     "test:golden": "node --test test/golden.test.js",
     "test:update-golden": "node test/helpers/update-golden.js",

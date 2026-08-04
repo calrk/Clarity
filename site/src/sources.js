@@ -5,11 +5,21 @@
 // canvas and works out the rest, so they collapse into one list of things to
 // point it at.
 
+import landscape from './samples/landscape.jpg';
 import colours from './samples/colours.jpg';
 import heightmap from './samples/heightmap.png';
 import face from './samples/face.jpg';
+import books from './samples/books.jpg';
+import rorschach from './samples/rorschach.jpg';
 import faceVideo from './samples/face.mp4';
 import crystal from './samples/crystal.mp4';
+import box from './samples/box.mp4';
+//A video cannot be its own thumbnail without decoding it first, so each has a
+//poster still. `videoThumbnail` covers the dropped-file case, where there is no
+//poster to ship.
+import faceVideoThumb from './samples/face-thumbnail.jpg';
+import crystalThumb from './samples/crystal-thumbnail.jpg';
+import boxThumb from './samples/box-thumbnail.jpg';
 
 /** @typedef {{ id: string, label: string, kind: 'image'|'video'|'camera'|'blank', thumb?: string, glyph?: string }} SourceSpec */
 
@@ -21,15 +31,35 @@ import crystal from './samples/crystal.mp4';
  * lives and dies with the tab.
  */
 export const SOURCES = [
+	// First in the list is what loads when the address bar names no source, so it
+	// is the picture most people will judge the library by. It wants both halves:
+	// saturated colour for the chroma filters, and fine texture - grass, rock,
+	// branches - for everything that sharpens, blurs, finds edges or destroys
+	// detail. `colours` has only the first half, and a blur of a smooth ramp is a
+	// smooth ramp, so for most of the Process family it showed nothing at all.
+	{ id: 'landscape', label: 'Landscape', kind: 'image', url: landscape, thumb: landscape },
 	{ id: 'colours', label: 'Colours', kind: 'image', url: colours, thumb: colours },
 	{ id: 'face', label: 'Face', kind: 'image', url: face, thumb: face },
+	// Small text is the hardest thing to put through a filter and the easiest to
+	// judge the result of - sharpening bites, blur and pixelation visibly cost
+	// you something.
+	{ id: 'books', label: 'Books', kind: 'image', url: books, thumb: books },
+	// Near-binary, with speckle and hairline tendrils: what dilate, erode, open
+	// and close were built for, and a stencil for the dual-input filters, whose
+	// second frame can only come from a still image.
+	{ id: 'rorschach', label: 'Inkblot', kind: 'image', url: rorschach, thumb: rorschach },
 	{ id: 'heightmap', label: 'Height map', kind: 'image', url: heightmap, thumb: heightmap },
 	// The temporal filters - MotionDetector, Ghoster, DifferenceDetector,
 	// ScreenBurn, ShotDetector - have nothing to compare on a still frame. Before
 	// these, the only moving source was the webcam, so every one of them opened
 	// with a permission prompt.
-	{ id: 'facevideo', label: 'Face (video)', kind: 'video', url: faceVideo, glyph: '▶' },
-	{ id: 'crystal', label: 'Crystal', kind: 'video', url: crystal, glyph: '▶' },
+	{ id: 'facevideo', label: 'Face (video)', kind: 'video', url: faceVideo, thumb: faceVideoThumb, glyph: '▶' },
+	{ id: 'crystal', label: 'Crystal', kind: 'video', url: crystal, thumb: crystalThumb, glyph: '▶' },
+	// Bright object, dark ground, camera held still. ScreenBurn takes the
+	// age-weighted maximum, so it needs something bright to leave a scar, and
+	// DifferenceDetector compares every frame against the first one it saw, which
+	// only means anything if the background stays put.
+	{ id: 'box', label: 'Box', kind: 'video', url: box, thumb: boxThumb, glyph: '▶' },
 	// The starters - Cloud, FillRGB, FillHSV - ignore their input and generate a
 	// frame from nothing, so they need something to be handed. This is that
 	// something: an empty frame of a sensible size.
@@ -124,7 +154,7 @@ export async function loadFile(file) {
 		video.playsInline = true;
 		await video.play();
 
-		return { element: video, live: true, spec: { label, kind: 'video', url, thumb: videoThumbnail(video) } };
+		return { element: video, live: true, spec: { label, kind: 'video', url, thumb: videoThumbnail(video), glyph: '▶' } };
 	}
 
 	const image = await loadImage(url);

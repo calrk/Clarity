@@ -15,12 +15,13 @@ chaining. You never write a shader, manage a context, or touch a framebuffer.
 Stack filters, point it at an image or your webcam, and watch it run. The chain
 lives in the URL, so any stack you build is a link you can send:
 
-- [Colour bleed and chromatic aberration](https://clarity.clarklavery.com/#colours/Bleed,radius=24/ChromaticAberration,xdistance=8) — the composite-video look
-- [Posterised to six colours](https://clarity.clarklavery.com/#colours/Posteriser,colours=6) — median-cut palette, per frame
+- [Colour bleed and chromatic aberration](https://clarity.clarklavery.com/#books/Bleed,radius=24/ChromaticAberration,xdistance=16) — the composite-video look
+- [Posterised to six colours](https://clarity.clarklavery.com/#landscape/Posteriser,colours=6) — median-cut palette, per frame
 - [A cloud texture from nothing](https://clarity.clarklavery.com/#blank/Cloud,iterations=6) — the starters need no input at all
 - [Height map to normal map](https://clarity.clarklavery.com/#heightmap/NormalGenerator) — then [flipped and re-lit](https://clarity.clarklavery.com/#heightmap/NormalGenerator/NormalIntensity)
-- [Scrambled like a puzzle](https://clarity.clarklavery.com/#colours/Puzzler,horizontalSegs=8,verticalSegs=6)
-- [A CRT](https://clarity.clarklavery.com/#colours/FishEye,amount=0.35/HanoverBars,mode=scanlines/Vignette,amount=0.7,radius=0.4,softness=0.7) — which is not a filter but three of them: a lens curve, scanlines, and a corner falloff
+- [Speckle eaten without moving the edges that remain](https://clarity.clarklavery.com/#rorschach/Morphology,mode=open,radius=3) — open, then [close](https://clarity.clarklavery.com/#rorschach/Morphology,mode=close,radius=3) to fill the gaps instead
+- [Scrambled like a puzzle](https://clarity.clarklavery.com/#books/Puzzler,horizontalSegs=8,verticalSegs=6)
+- [A CRT](https://clarity.clarklavery.com/#landscape/FishEye,amount=0.35/HanoverBars,mode=scanlines/Vignette,amount=0.7,radius=0.4,softness=0.7) — which is not a filter but three of them: a lens curve, scanlines, and a corner falloff
 
 Why you might want it
 ---------------------

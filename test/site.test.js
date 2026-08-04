@@ -25,7 +25,8 @@ const TYPES = {
 	'.css': 'text/css',
 	'.png': 'image/png',
 	'.jpg': 'image/jpeg',
-	'.svg': 'image/svg+xml'
+	'.svg': 'image/svg+xml',
+	'.mp4': 'video/mp4'
 };
 
 function findChrome() {
@@ -211,30 +212,36 @@ if (!existsSync(join(dist, 'index.html'))) {
 	});
 
 	test('a size-changing filter resizes the canvas', async () => {
+		//`colours` is 1280x1024, so a quarter turn has to change the canvas shape.
+		//Deliberately not the default source, which is square.
 		await open('#colours');
 		const before = await page.evaluate(() => document.getElementById('canvas').width);
 
+		//Rotator turns once by default - it used to default to no turns at all,
+		//which made adding it do nothing
 		await addFilter('Rotator');
-		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
-		//turns defaults to 0, so nothing should have moved yet
-		assert.equal(await page.evaluate(() => document.getElementById('canvas').width), before);
-
-		await page.evaluate(() => {
-			const slider = document.querySelector('#chain li input[type="range"]');
-			slider.value = 1;
-			slider.dispatchEvent(new Event('input', { bubbles: true }));
-		});
 		await page.waitForFunction(
 			(was) => document.getElementById('canvas').width !== was,
 			{},
 			before
 		);
 
-		const { width, height } = await page.evaluate(() => {
+		const turned = await page.evaluate(() => {
 			const canvas = document.getElementById('canvas');
 			return { width: canvas.width, height: canvas.height };
 		});
-		assert.ok(height > width, `a quarter turn of a landscape frame should be portrait, got ${width}x${height}`);
+		assert.ok(
+			turned.height > turned.width,
+			`a quarter turn of a landscape frame should be portrait, got ${turned.width}x${turned.height}`
+		);
+
+		//and back: two turns is 180 degrees, so the shape returns to the original
+		await page.evaluate(() => {
+			const slider = document.querySelector('#chain li input[type="range"]');
+			slider.value = 2;
+			slider.dispatchEvent(new Event('input', { bubbles: true }));
+		});
+		await page.waitForFunction((was) => document.getElementById('canvas').width === was, {}, before);
 	});
 
 	test('a card is only draggable while its header is held', async () => {
@@ -423,10 +430,19 @@ if (!existsSync(join(dist, 'index.html'))) {
 			return false;
 		};
 
-		assert.equal(await movesWithin('crystal', 6000), true, 'the crystal video should be playing');
-		assert.equal(await movesWithin('facevideo', 6000), true, 'the face video should be playing');
+		// Enumerated from the page rather than named here, so a video added to
+		// SOURCES later cannot quietly skip this check.
+		const videos = await page.$$eval('#sources button[data-kind="video"]', (buttons) =>
+			buttons.map((button) => button.dataset.id)
+		);
+		assert.ok(videos.length >= 3, 'the bundled videos should be in the source list');
+
+		for (const id of videos) {
+			assert.equal(await movesWithin(id, 6000), true, `the ${id} video should be playing`);
+		}
+
 		// and the control: a still source must not be spuriously 'moving', or the
-		// two assertions above would pass on a source that never decoded
+		// assertions above would pass on a source that never decoded
 		assert.equal(await movesWithin('face', 1800), false, 'a still image should not change');
 	});
 	test('nothing threw along the way', async () => {
