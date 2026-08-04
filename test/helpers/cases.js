@@ -51,6 +51,8 @@ export const cases = [
 	{ filter: "Invert", name: "dynamic", input: "photo", options: { dynamic: true }, gpu: POINTWISE },
 	{ filter: 'Desaturate', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Desaturate', name: 'partial', input: 'photo', options: { amount: 0.4 }, gpu: POINTWISE },
+	{ filter: 'Vignette', input: 'photo', options: {}, gpu: POINTWISE },
+	{ filter: 'Vignette', name: 'hard', input: 'photo', options: { amount: 1, radius: 0.7, softness: 0 }, gpu: POINTWISE },
 	{ filter: 'hsvShifter', input: 'photo', options: { hue: 120, saturation: 1.4, value: 0.9 }, gpu: POINTWISE },
 	{ filter: 'HanoverBars', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'HanoverBars', name: 'scanlines', input: 'photo', options: { mode: 'scanlines' }, gpu: POINTWISE },
@@ -115,6 +117,10 @@ export const cases = [
 	//the two fits only differ on a non-square frame, and the fixture is 4:3
 	{ filter: 'Rotator', name: 'crop', input: 'photo', options: { turns: 1, fit: 'crop' }, gpu: POINTWISE },
 	{ filter: 'Rotator', name: 'anticlockwise', input: 'photo', options: { turns: 3 }, gpu: POINTWISE },
+	// gather with a radial term, so a pixel can land on the other side of a
+	// rounding boundary between the backends
+	{ filter: 'FishEye', input: 'photo', options: {}, gpu: BOUNDARY },
+	{ filter: 'FishEye', name: 'pinch', input: 'photo', options: { amount: -0.4, zoom: 1.2 }, gpu: BOUNDARY },
 	{ filter: 'Translator', input: 'photo', options: { horizontal: 0.25, vertical: 0.1 }, gpu: POINTWISE },
 	{ filter: 'Tiler', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Tiler', name: 'odd', input: 'odd', options: {}, gpu: POINTWISE },

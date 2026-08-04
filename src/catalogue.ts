@@ -104,6 +104,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Noise: { category: 'Process', summary: "Adds random noise, optionally monochromatic." },
 	Pixelate: { category: 'Process', summary: "Snaps the image to fixed-size blocks." },
 	Posteriser: { category: 'Process', summary: "Quantises to a fixed number of colours via median cut." },
+	Vignette: { category: 'Process', summary: "Darkens towards the corners." },
 	hsvShifter: { category: 'Process', summary: "Rotates hue and scales saturation/value." },
 
 	// --- Thresholders ---
@@ -118,6 +119,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 
 	// --- Transform ---
 	ChromaticAberration: { category: 'Transform', summary: "Displaces the R and G channels in opposite directions." },
+	FishEye: { category: 'Transform', summary: "Bows the image outward like a lens, or pinches it inward." },
 	Mirror: { category: 'Transform', summary: "Flips the image horizontally, vertically, or both." },
 	Rotator: { category: 'Transform', summary: "Rotates in 90 degree steps." },
 	Tiler: { category: 'Transform', summary: "Mirrors the image into four quadrants, so opposite edges match and the result tiles seamlessly." },

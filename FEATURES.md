@@ -11,9 +11,9 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 44 of 44, each with a golden image, a GPU parity case and a generated docs entry |
+| Filters clean | 31 of 41, 4 hard crashes | 46 of 46, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 63/63 parity cases as shaders |
-| Tests | none | 521, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Tests | none | 539, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run |
 | Licence | GPL dependency | MIT throughout |
 
@@ -591,12 +591,22 @@ Removing it also orphaned the `binary-in` trait, which nothing else carried, so 
 
 | Filter | Summary | Effort |
 |---|---|---|
-| **CRT** | Bows the frame outward like a curved screen, with optional scanlines and vignette. | Low–Medium |
+| ~~**FishEye**~~ ✓ | Bows the image outward like a lens, or pinches it inward. | Done |
+| ~~**Vignette**~~ ✓ | Darkens towards the corners. | Done |
+| ~~**CRT**~~ ✓ | *Not a filter.* `FishEye` + `HanoverBars,mode=scanlines` + `Vignette`. | Done — a chain |
 | **DotCrawl** | The crawling dot pattern composite video leaves along chroma edges. | Low |
 | **ScreenBurn** | Burns a persistent ghost of bright areas into the frame over time. | Low |
 | **ShotDetector** | Flags a cut by how far the frame moved from the one before it. | Low |
 
-`DotCrawl` completes the composite-video set alongside `Bleed`, `HanoverBars` and `ChromaticAberration`. `ScreenBurn` and `ShotDetector` are `temporal` and need `retains`, which exists.
+**CRT shipped as two filters and a chain rather than one filter**, which is the better shape: a CRT look is a lens curve, a scanline pattern and a corner falloff, and `HanoverBars` already had the scanlines. Written as one filter those three would have been six properties nobody could reuse; written separately, `FishEye` is a lens effect and `Vignette` is a photographic one, and the CRT is a link:
+
+[`FishEye,amount=0.35/HanoverBars,mode=scanlines/Vignette,amount=0.7,radius=0.4,softness=0.7`](https://clarity.clarklavery.com/#colours/FishEye,amount=0.35/HanoverBars,mode=scanlines/Vignette,amount=0.7,radius=0.4,softness=0.7)
+
+Both normalise distance by **half the diagonal**, so the effect is circular in pixel space rather than stretched with the aspect ratio, and a radius of 1 is exactly the corner. `FishEye` is a gather — it asks each output pixel where its input came from — because a scatter leaves holes wherever the distortion stretches. It leaves anything sampled from outside the frame black rather than clamping, since the point of the barrel case is that the screen *has* an edge; `zoom` pushes that edge back off-screen when you want the curve without the border.
+
+`FishEye` is compared with the population metric rather than a tolerance: a radial term inside a `floor` means a pixel near a rounding boundary can take its colour from the neighbouring source pixel on one backend and not the other, which is a large delta on a few pixels rather than a small one everywhere.
+
+`DotCrawl` would complete the composite-video set alongside `Bleed`, `HanoverBars` and `ChromaticAberration`. `ScreenBurn` and `ShotDetector` are `temporal` and need `retains`, which exists.
 
 ### The rest
 

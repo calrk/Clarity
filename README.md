@@ -20,6 +20,7 @@ lives in the URL, so any stack you build is a link you can send:
 - [A cloud texture from nothing](https://clarity.clarklavery.com/#blank/Cloud,iterations=6) — the starters need no input at all
 - [Height map to normal map](https://clarity.clarklavery.com/#heightmap/NormalGenerator) — then [flipped and re-lit](https://clarity.clarklavery.com/#heightmap/NormalGenerator/NormalIntensity)
 - [Scrambled like a puzzle](https://clarity.clarklavery.com/#colours/Puzzler,horizontalSegs=8,verticalSegs=6)
+- [A CRT](https://clarity.clarklavery.com/#colours/FishEye,amount=0.35/HanoverBars,mode=scanlines/Vignette,amount=0.7,radius=0.4,softness=0.7) — which is not a filter but three of them: a lens curve, scanlines, and a corner falloff
 
 Why you might want it
 ---------------------
@@ -425,17 +426,17 @@ LICENSE and is baked into every built bundle.
 Filters
 =======
 
-44 of them, in eight families. The **[full reference](docs/FILTERS.md)**
+46 of them, in eight families. The **[full reference](docs/FILTERS.md)**
 gives each one a before/after image, an options table and a live playground link -
 generated from the library by `npm run docs`, and checked by the test suite, so it
 cannot describe a filter that no longer works that way.
 
 | Family | Filters |
 |---|---|
-| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `Glow`, `HanoverBars`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `hsvShifter` |
+| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `Glow`, `HanoverBars`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `Vignette`, `hsvShifter` |
 | Thresholders | `GradientThreshold`, `MedianThreshold`, `ValueThreshold` |
 | Salience | `EdgeDetector`, `MotionDetector`, `SkinDetector` |
-| Transform | `ChromaticAberration`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
+| Transform | `ChromaticAberration`, `FishEye`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
 | Height Map | `Contourer`, `NormalFlip`, `NormalGenerator`, `NormalIntensity` |
 | Starters | `Cloud`, `FillHSV`, `FillRGB`, `Gradient`, `Voronoi` |
 | Dual Input | `Add`, `Subtract`, `Difference`, `Blend`, `Mask`, `Multiply` |

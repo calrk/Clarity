@@ -14,6 +14,7 @@ import { Bleed } from './filters/Process/Bleed.js';
 import { Blur } from './filters/Process/Blur.js';
 import { Desaturate } from './filters/Process/Desaturate.js';
 import { Morphology } from './filters/Process/Morphology.js';
+import { Vignette } from './filters/Process/Vignette.js';
 import { Glow } from './filters/Process/Glow.js';
 import { HanoverBars } from './filters/Process/HanoverBars.js';
 import { Invert } from './filters/Process/Invert.js';
@@ -38,6 +39,7 @@ import { ChromaticAberration } from './filters/Transform/ChromaticAberration.js'
 import { Mirror } from './filters/Transform/Mirror.js';
 import { Rotator } from './filters/Transform/Rotator.js';
 import { Tiler } from './filters/Transform/Tiler.js';
+import { FishEye } from './filters/Transform/FishEye.js';
 import { Translator } from './filters/Transform/Translator.js';
 import { Wave } from './filters/Transform/Wave.js';
 import { Brickulate } from './filters/misc/Brickulate.js';
@@ -72,6 +74,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Blur,
 	Desaturate,
 	Morphology,
+	Vignette,
 	Glow,
 	HanoverBars,
 	Invert,
@@ -96,6 +99,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Mirror,
 	Rotator,
 	Tiler,
+	FishEye,
 	Translator,
 	Wave,
 	Brickulate,

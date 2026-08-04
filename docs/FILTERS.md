@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-44 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+46 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,13 +14,13 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
 **Salience** — [EdgeDetector](#edgedetector) · [MotionDetector](#motiondetector) · [SkinDetector](#skindetector)
 
-**Transform** — [ChromaticAberration](#chromaticaberration) · [Mirror](#mirror) · [Rotator](#rotator) · [Tiler](#tiler) · [Translator](#translator) · [Wave](#wave)
+**Transform** — [ChromaticAberration](#chromaticaberration) · [FishEye](#fisheye) · [Mirror](#mirror) · [Rotator](#rotator) · [Tiler](#tiler) · [Translator](#translator) · [Wave](#wave)
 
 **Height Map** — [Contourer](#contourer) · [NormalFlip](#normalflip) · [NormalGenerator](#normalgenerator) · [NormalIntensity](#normalintensity)
 
@@ -269,6 +269,26 @@ new Posteriser({ colours: 6 });
 | `colours` | int | 1–20 | `5` | Palette size. Ignored by the fast method. |
 | `method` | select | `median` · `fast` | `median` | Median cut derives a palette from the image; fast snaps to fixed bands. |
 
+### Vignette
+
+Darkens towards the corners.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Vignette.png" width="192" alt="Vignette applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#colours/Vignette)
+
+```js
+import { Vignette } from '@calrk/clarity';
+
+new Vignette();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `amount` | float | 0–1 | `0.6` | How dark it gets at the outside. 1 is black. |
+| `radius` | float | 0–1.5 | `0.5` | Where the darkening starts, with 1 being the corner. |
+| `softness` | float | 0–1.5 | `0.5` | How far it takes to fade in. Zero gives a hard circle. |
+
 ### hsvShifter
 
 Rotates hue and scales saturation/value.
@@ -431,6 +451,25 @@ new ChromaticAberration({ xdistance: 4, ydistance: 2, fixed: true });
 | `xdistance` | int | -100–100 | `0` | How far red and blue pull apart horizontally, in pixels at the frame edge. |
 | `ydistance` | int | -100–100 | `0` | The same displacement vertically. Green never moves. |
 | `fixed` | bool | true / false | `false` | Displace uniformly rather than growing toward the edges. |
+
+### FishEye
+
+Bows the image outward like a lens, or pinches it inward.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/FishEye.png" width="192" alt="FishEye applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#colours/FishEye)
+
+```js
+import { FishEye } from '@calrk/clarity';
+
+new FishEye();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `amount` | float | -1–1 | `0.3` | Above zero bows the image outward like a lens or a CRT face; below zero pinches it inward. |
+| `zoom` | float | 0.5–2 | `1` | Scales the frame before distorting, to push the black corners back off-screen. |
 
 ### Mirror
 
