@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-43 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+44 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -24,7 +24,7 @@ playground link to see one at a sensible size.
 
 **Height Map** — [Contourer](#contourer) · [NormalFlip](#normalflip) · [NormalGenerator](#normalgenerator) · [NormalIntensity](#normalintensity)
 
-**Starters** — [Cloud](#cloud) · [FillHSV](#fillhsv) · [FillRGB](#fillrgb) · [Gradient](#gradient)
+**Starters** — [Cloud](#cloud) · [FillHSV](#fillhsv) · [FillRGB](#fillrgb) · [Gradient](#gradient) · [Voronoi](#voronoi)
 
 **Dual Input** — [Add](#add) · [Subtract](#subtract) · [Difference](#difference) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply)
 
@@ -709,6 +709,27 @@ new Gradient();
 | `angle` | int | 0–360 | `0` | Direction of a linear ramp, in degrees. 0 runs left to right. Ignored when radial. |
 | `start` | int | 0–255 | `0` | Value at the beginning of the ramp, or at the centre when radial. |
 | `end` | int | 0–255 | `255` | Value at the end of the ramp, or at the edge when radial. |
+
+### Voronoi
+
+Fills the frame with cellular noise - blobs, cracked seams, or flat stone cells.
+
+**Starter**
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Voronoi.png" width="192" alt="Voronoi applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#blank/Voronoi,cells=6)
+
+```js
+import { Voronoi } from '@calrk/clarity';
+
+new Voronoi({ cells: 6 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `cells` | int | 2–64 | `8` | How many cells across the frame. Rows are derived from the aspect so the cells stay square. |
+| `mode` | select | `distance` · `borders` · `cells` | `distance` | Three textures from one distance field. |
 
 ## Dual Input
 

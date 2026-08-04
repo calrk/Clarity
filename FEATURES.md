@@ -11,9 +11,9 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 43 of 43, each with a golden image, a GPU parity case and a generated docs entry |
+| Filters clean | 31 of 41, 4 hard crashes | 44 of 44, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 63/63 parity cases as shaders |
-| Tests | none | 504, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Tests | none | 515, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run |
 | Licence | GPL dependency | MIT throughout |
 
@@ -575,9 +575,9 @@ Modes `dilate / erode / open / close`. **Retires `DotRemover`.** It generalises 
 | Filter | Summary | Effort |
 |---|---|---|
 | ~~**Gradient**~~ ✓ | Fills the frame with a linear or radial grey ramp. | Done |
-| **Voronoi** | Fills the frame with cellular noise — stone, scales, cracked ground, caustics. | Low–Medium |
+| ~~**Voronoi**~~ ✓ | Fills the frame with cellular noise — stone, scales, cracked ground, caustics. | Done |
 
-**`Gradient` is done.** Grey rather than two colours on purpose: its job is to be a *mask*, and a coloured ramp is this multiplied by a `FillRGB` — one more stage, against six more properties nobody sets. The linear ramp normalises across the frame's extent *along the angle* rather than its width, so a diagonal reaches `end` in the corner instead of running out part way; the radial one normalises to the nearest edge, so a centred spotlight behaves as expected and the corners clamp. `Voronoi` is still open — the natural sibling of the gradient noise in `Cloud`, reusing the same hashing.
+**`Gradient` is done.** Grey rather than two colours on purpose: its job is to be a *mask*, and a coloured ramp is this multiplied by a `FillRGB` — one more stage, against six more properties nobody sets. The linear ramp normalises across the frame's extent *along the angle* rather than its width, so a diagonal reaches `end` in the corner instead of running out part way; the radial one normalises to the nearest edge, so a centred spotlight behaves as expected and the corners clamp. **`Voronoi` is done** — the sibling of the gradient noise in `Cloud`, reusing the same hashing so its feature points land identically on both backends, and wrapping at the frame edge so the result tiles. One difference from `Cloud` is deliberate: `Cloud` lays `grid × grid` cells over the frame whatever its shape, which stretches its noise. That is invisible in fog and glaring in cells, where a stretched Voronoi reads as a bug — so the row count is derived from the aspect in integer arithmetic and the cells stay square. Three modes off one distance field: `distance` (blobs), `borders` (the seams — cracked ground, stained glass) and `cells` (flat hashed values — stone, scales). `cells` uses the population GPU metric rather than a tolerance, because a near-tie between two feature points flips a whole cell at once, which no per-channel tolerance can describe.
 
 ### Video and CRT
 

@@ -140,6 +140,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	FillHSV: { category: 'Starters', summary: "Fills the frame with one colour, specified in HSV.", traits: ['starter'] },
 	FillRGB: { category: 'Starters', summary: "Fills the frame with one colour, specified in RGB.", traits: ['starter'] },
 	Gradient: { category: 'Starters', summary: "Fills the frame with a linear or radial grey ramp - the mask primitive for fading anything.", traits: ['starter'] },
+	Voronoi: { category: 'Starters', summary: "Fills the frame with cellular noise - blobs, cracked seams, or flat stone cells.", traits: ['starter'] },
 
 	// --- Dual Input ---
 	Add: { category: 'Dual Input', summary: "Adds the second image to the first, clamping at white.", traits: ['dual'] },

@@ -132,6 +132,11 @@ export const cases = [
 	{ filter: 'Gradient', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Gradient', name: 'angled', input: 'photo', options: { angle: 35 }, gpu: POINTWISE },
 	{ filter: 'Gradient', name: 'radial', input: 'photo', options: { shape: 'radial', start: 255, end: 0 }, gpu: POINTWISE },
+	{ filter: 'Voronoi', input: 'photo', options: { cells: 6 }, seed: 5, gpu: ACCUMULATING },
+	{ filter: 'Voronoi', name: 'borders', input: 'photo', options: { cells: 6, mode: 'borders' }, seed: 5, gpu: ACCUMULATING },
+	// a whole cell flips on a near-tie between two feature points, which a
+	// per-channel tolerance cannot describe - see the note at the top
+	{ filter: 'Voronoi', name: 'cells', input: 'photo', options: { cells: 6, mode: 'cells' }, seed: 5, gpu: BOUNDARY },
 	{ filter: 'Cloud', input: 'photo', options: { red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 	// alpha derived from the colour rather than opaque - the texture-mask mode,
 	// and the only case that exercises a non-255 alpha out of a starter

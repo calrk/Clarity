@@ -109,6 +109,8 @@ export { FillRGB } from './filters/Starters/FillRGB.js';
 export type { FillRGBOptions } from './filters/Starters/FillRGB.js';
 export { Gradient } from './filters/Starters/Gradient.js';
 export type { GradientOptions, GradientShape } from './filters/Starters/Gradient.js';
+export { Voronoi } from './filters/Starters/Voronoi.js';
+export type { VoronoiOptions, VoronoiMode } from './filters/Starters/Voronoi.js';
 
 // Thresholders
 export { GradientThreshold } from './filters/Thresholders/GradientThreshold.js';

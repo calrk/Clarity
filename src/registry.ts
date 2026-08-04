@@ -30,6 +30,7 @@ import { Cloud } from './filters/Starters/Cloud.js';
 import { FillHSV } from './filters/Starters/FillHSV.js';
 import { FillRGB } from './filters/Starters/FillRGB.js';
 import { Gradient } from './filters/Starters/Gradient.js';
+import { Voronoi } from './filters/Starters/Voronoi.js';
 import { GradientThreshold } from './filters/Thresholders/GradientThreshold.js';
 import { MedianThreshold } from './filters/Thresholders/MedianThreshold.js';
 import { ValueThreshold } from './filters/Thresholders/ValueThreshold.js';
@@ -87,6 +88,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	FillHSV,
 	FillRGB,
 	Gradient,
+	Voronoi,
 	GradientThreshold,
 	MedianThreshold,
 	ValueThreshold,
