@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [DotRemover](#dotremover) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -37,7 +37,6 @@ playground link to see one at a sensible size.
 | **Starter** | Ignores its input and generates a frame, so it belongs at the head of a chain. |
 | **Two inputs** | Needs a second frame as well as the one flowing through the pipeline. |
 | **Needs motion** | Compares frames over time. On a still image it has nothing to compare and outputs black. |
-| **Wants black & white** | Expects an already-thresholded image. On a photograph the result is meaningless. |
 | **Wants a height map** | Reads brightness as height, so it expects a greyscale height map rather than a picture. |
 | **Wants a normal map** | Reads the channels as an XYZ vector, so it expects a normal map - run NormalGenerator first. |
 | **Makes black & white** | Outputs two tones, which is what the filters wanting black and white are waiting for. |
@@ -118,26 +117,6 @@ new Desaturate();
 |---|---|---|---|---|
 | `amount` | float | 0–1 | `1` | How far towards grey. 1 removes colour entirely. |
 
-### DotRemover
-
-Removes isolated pixels from a binary image - a clean-up pass for the output of an edge detector or thresholder.
-
-**Wants black & white**
-
-<img src="../test/fixtures/binary.png" width="192" alt="The binary fixture"> <img src="../test/golden/DotRemover.png" width="192" alt="DotRemover applied to it">
-
-[Open in the playground →](https://clarity.clarklavery.com/#colours/DotRemover)
-
-```js
-import { DotRemover } from '@calrk/clarity';
-
-new DotRemover();
-```
-
-| Property | Type | Range | Default | |
-|---|---|---|---|---|
-| `neighboursReq` | int | 1–8 | `1` | A lit pixel with fewer lit neighbours than this is removed. |
-
 ### Glow
 
 Blurs the image and blends the blur back over the original.
@@ -214,6 +193,25 @@ new Levels({ black: 40, white: 210 });
 | `black` | int | 0–255 | `0` | Everything this dark or darker becomes black. |
 | `white` | int | 0–255 | `255` | Everything this bright or brighter becomes white. |
 | `gamma` | float | 0.1–5 | `1` | Midtones only: above 1 brightens, below 1 darkens, and both ends stay put. |
+
+### Morphology
+
+Grows or shrinks light regions; open and close remove speckle without moving the edges that remain.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Morphology.png" width="192" alt="Morphology applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#colours/Morphology,radius=2)
+
+```js
+import { Morphology } from '@calrk/clarity';
+
+new Morphology({ radius: 2 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `mode` | select | `dilate` · `erode` · `open` · `close` | `dilate` | Dilate grows light regions, erode shrinks them. Open removes small light specks, close fills small dark holes, and neither moves the edges that survive. |
+| `radius` | int | 1–20 | `1` | How far the effect reaches, in pixels. Bigger removes bigger specks and spreads further. |
 
 ### Noise
 

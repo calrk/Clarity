@@ -432,7 +432,7 @@ cannot describe a filter that no longer works that way.
 
 | Family | Filters |
 |---|---|
-| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `DotRemover`, `Glow`, `HanoverBars`, `Invert`, `Levels`, `Noise`, `Pixelate`, `Posteriser`, `hsvShifter` |
+| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `Glow`, `HanoverBars`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `hsvShifter` |
 | Thresholders | `GradientThreshold`, `MedianThreshold`, `ValueThreshold` |
 | Salience | `EdgeDetector`, `MotionDetector`, `SkinDetector` |
 | Transform | `ChromaticAberration`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |

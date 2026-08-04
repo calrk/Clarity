@@ -13,7 +13,7 @@ import { NormalIntensity } from './filters/HeightMap/NormalIntensity.js';
 import { Bleed } from './filters/Process/Bleed.js';
 import { Blur } from './filters/Process/Blur.js';
 import { Desaturate } from './filters/Process/Desaturate.js';
-import { DotRemover } from './filters/Process/DotRemover.js';
+import { Morphology } from './filters/Process/Morphology.js';
 import { Glow } from './filters/Process/Glow.js';
 import { HanoverBars } from './filters/Process/HanoverBars.js';
 import { Invert } from './filters/Process/Invert.js';
@@ -71,7 +71,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Bleed,
 	Blur,
 	Desaturate,
-	DotRemover,
+	Morphology,
 	Glow,
 	HanoverBars,
 	Invert,

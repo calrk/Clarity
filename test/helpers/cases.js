@@ -77,7 +77,11 @@ export const cases = [
 	// the framebuffer conversion rounds half up. Every pixel is within 1, which
 	// is a tolerance question rather than a boundary one.
 	{ filter: 'Posteriser', name: 'fast', input: 'photo', options: { method: 'fast', colours: 6 }, gpu: POINTWISE },
-	{ filter: 'DotRemover', input: 'binary', options: {}, gpu: BOUNDARY },
+	{ filter: 'Morphology', input: 'photo', options: { radius: 2 }, gpu: POINTWISE },
+	{ filter: 'Morphology', name: 'erode', input: 'photo', options: { mode: 'erode', radius: 2 }, gpu: POINTWISE },
+	// the despeckle DotRemover used to be, on the fixture it was built for
+	{ filter: 'Morphology', name: 'open', input: 'binary', options: { mode: 'open' }, gpu: POINTWISE },
+	{ filter: 'Morphology', name: 'close', input: 'binary', options: { mode: 'close' }, gpu: POINTWISE },
 
 	// --- Thresholders (hard boundaries) ---------------------------------
 	{ filter: 'ValueThreshold', input: 'photo', options: { threshold: 120 }, gpu: BOUNDARY },

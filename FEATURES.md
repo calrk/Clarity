@@ -13,7 +13,7 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
 | Filters clean | 31 of 41, 4 hard crashes | 44 of 44, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 63/63 parity cases as shaders |
-| Tests | none | 515, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Tests | none | 521, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run |
 | Licence | GPL dependency | MIT throughout |
 
@@ -553,9 +553,17 @@ The open question is the *custom* kernel. `FilterSchema` has no matrix type, so 
 
 | Filter | Summary | Effort |
 |---|---|---|
-| **Morphology** | Grows or shrinks light regions; open and close remove speckle without moving the edges that remain. | Low–Medium |
+| ~~**Morphology**~~ ✓ | Grows or shrinks light regions; open and close remove speckle without moving the edges that remain. | Done |
 
-Modes `dilate / erode / open / close`. **Retires `DotRemover`.** It generalises past binary images because morphology is defined by ordering, not by 0 and 1: dilate is the local maximum over the structuring element and erode the local minimum, so on a photograph dilate spreads highlights and swallows dark speckle while erode does the reverse. The binary case is the special case, not the only case.
+**Done.** Modes `dilate / erode / open / close`, and `DotRemover` is deleted. It generalises past binary images because morphology is defined by ordering rather than by 0 and 1 — dilate is the local maximum over the structuring element and erode the local minimum, so on a photograph dilate spreads highlights and erode deepens shadows. `radius` is the reach and is the thing to turn up.
+
+Three things worth keeping:
+
+- **It runs separably**, exactly as `Blur` does: the maximum over a box is the maximum of the row maxima, so it is two passes of 2r+1 taps rather than one of (2r+1)². At radius 10 that is 42 samples instead of 441.
+- **Four passes always run**, with a per-pass `uPhase` uniform choosing min, max or a bit-exact copy. `static shader` is fixed at class level and cannot vary by mode, so the compound modes get their second operation from passes 3 and 4 and the simple ones pass those through. (`uPass`, which the executor already supplies, is the *repeat* index rather than the pass index — worth knowing before reaching for it.)
+- **`open` is a better despeckle than `DotRemover` was.** `DotRemover` flipped any pixel with too few matching neighbours, in both directions at once, which also nibbled real edges. `open` removes anything smaller than the element and leaves everything else exactly the size it was. Its symmetric behaviour is an `open` followed by a `close` — two stages in a chain, which is what a pipeline is for.
+
+Removing it also orphaned the `binary-in` trait, which nothing else carried, so the vocabulary lost a word — which is what the drift test asking every declared trait to tag something is for. **`Skeletiser` reintroduces it** when it lands.
 
 ### Colour
 

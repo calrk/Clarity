@@ -21,14 +21,13 @@
  * is to say so up front rather than to leave it to be discovered.
  *
  * Split into what a filter *wants* and what it *makes*, because the pair is
- * what explains a chain: `DotRemover` wants binary, `ValueThreshold` makes it,
- * so the two go together in that order.
+ * what explains a chain: `NormalIntensity` wants a normal map and
+ * `NormalGenerator` produces one, so the two go together in that order.
  */
 export type FilterTrait =
 	| 'starter'
 	| 'dual'
 	| 'temporal'
-	| 'binary-in'
 	| 'heightmap-in'
 	| 'normalmap-in'
 	| 'binary-out';
@@ -46,10 +45,6 @@ export const TRAITS: Record<FilterTrait, { label: string; description: string }>
 	temporal: {
 		label: 'Needs motion',
 		description: 'Compares frames over time. On a still image it has nothing to compare and outputs black.'
-	},
-	'binary-in': {
-		label: 'Wants black & white',
-		description: 'Expects an already-thresholded image. On a photograph the result is meaningless.'
 	},
 	'heightmap-in': {
 		label: 'Wants a height map',
@@ -101,11 +96,11 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Blur: { category: 'Process', summary: "Stack blur - a fast Gaussian approximation." },
 	Convolver: { category: 'Process', summary: "Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace." },
 	Desaturate: { category: 'Process', summary: "Pulls colour towards grey, by an amount, keeping luminance." },
-	DotRemover: { category: 'Process', summary: "Removes isolated pixels from a binary image - a clean-up pass for the output of an edge detector or thresholder.", traits: ['binary-in'] },
 	Glow: { category: 'Process', summary: "Blurs the image and blends the blur back over the original." },
 	HanoverBars: { category: 'Process', summary: "Rotates the chroma of every other bar of lines, or darkens them." },
 	Invert: { category: 'Process', summary: "Inverts colour. In dynamic mode it reflects within the image's own range." },
 	Levels: { category: 'Process', summary: "Remaps the black point, white point and gamma - the everyday contrast control." },
+	Morphology: { category: 'Process', summary: "Grows or shrinks light regions; open and close remove speckle without moving the edges that remain." },
 	Noise: { category: 'Process', summary: "Adds random noise, optionally monochromatic." },
 	Pixelate: { category: 'Process', summary: "Snaps the image to fixed-size blocks." },
 	Posteriser: { category: 'Process', summary: "Quantises to a fixed number of colours via median cut." },

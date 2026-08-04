@@ -354,7 +354,7 @@ if (!existsSync(join(dist, 'index.html'))) {
 
 	test('a filter with a caveat wears it as a chip', async () => {
 		// The chips exist for the failures that look like nothing happening -
-		// MotionDetector on a still, DotRemover on a photograph. If they stop
+		// MotionDetector on a still, NormalIntensity on a photograph. If they stop
 		// rendering, the playground goes back to silently doing nothing.
 		const chips = await page.evaluate(() => {
 			const read = (wanted) => {
@@ -368,7 +368,7 @@ if (!existsSync(join(dist, 'index.html'))) {
 			};
 			return {
 				motion: read('MotionDetector'),
-				dots: read('DotRemover'),
+				normals: read('NormalIntensity'),
 				blend: read('Blend'),
 				// the ordinary case carries nothing, or the chips mean nothing
 				blur: read('Blur')
@@ -378,7 +378,7 @@ if (!existsSync(join(dist, 'index.html'))) {
 		assert.equal(chips.motion.length, 1);
 		assert.match(chips.motion[0].text, /motion/i);
 		assert.ok(chips.motion[0].title.length > 20, 'the chip explains itself on hover');
-		assert.match(chips.dots[0].text, /black & white/i);
+		assert.match(chips.normals[0].text, /normal map/i);
 		assert.match(chips.blend[0].text, /two inputs/i);
 		assert.deepEqual(chips.blur, []);
 	});

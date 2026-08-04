@@ -96,7 +96,7 @@ const second = build(W, H, (x, y) => {
 	return disc ? [240, 240, 240] : [25, 25, 25];
 });
 
-// 7. binary with salt-and-pepper noise. DotRemover is meant to run *after* an
+// 7. binary with salt-and-pepper noise. Morphology open is meant to run *after* an
 //    edge detector or thresholder, so it needs an already-binary image with
 //    isolated stray pixels - on a continuous-tone image it has nothing to do.
 const speckle = seededRandom(0xd07);
