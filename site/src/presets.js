@@ -60,22 +60,34 @@ export const PRESETS = [
 	{
 		id: 'lava',
 		label: 'Flowing lava',
-		note: 'Ridged noise read as heat, banded into a palette, and the palette rotating',
-		//The whole point of the three together: Cloud makes a field, steps turns
-		//it into bands, and cycle rotates the colours *through* those bands. The
-		//bands hold still and the colour moves, which is what reads as flow -
-		//exactly the trick pixel artists animated waterfalls with.
-		chain: 'blank/Cloud,fold=ridged,iterations=6/GradientMap,steps=10,cycle=0.15'
+		note: 'Ridged noise read as heat, banded into a palette, and the whole crust creeping',
+		//The core of it is Cloud into GradientMap: the field makes the shapes,
+		//`steps` turns them into bands, and `cycle` rotates the colours *through*
+		//those bands. The bands hold still and the colour moves, which is the
+		//trick pixel artists animated waterfalls with.
+		//
+		//The last two are what make it read as molten rather than as a pattern.
+		//`Glow` bleeds the bright seams into the dark rock, so the bands stop
+		//looking like contour lines, and a slow `Translator` drags the whole crust
+		//in a direction the palette is not moving in - two motions at different
+		//rates, which is much harder to read as a loop than one.
+		chain: 'blank/Cloud,fold=ridged,iterations=6/GradientMap,steps=17,cycle=0.15/Glow,radius=20/Translator,horizontal=0.3,vertical=0.1,speed=0.1'
 	},
 	{
 		id: 'fog',
 		label: 'Drifting fog',
-		note: 'A noise field scrolling slowly under its own steam',
+		note: 'A noise field scrolling slowly under its own steam, and curling as it goes',
 		//Two things had to land before this worked at all: Cloud holding its seed
 		//instead of redrawing itself every frame, and Translator being able to
 		//scroll. Before either, translating a cloud moved a picture that was
 		//already a different picture.
-		chain: 'blank/Cloud,persistence=0.6,iterations=6/Translator,horizontal=0.06,vertical=0.02,speed=1'
+		//
+		//The Wave is at speed 0 on purpose - it is a *fixed* distortion, not a
+		//second animation. The long wavelength curls the fog into something that
+		//looks blown around rather than slid sideways, and because the field
+		//underneath is the thing moving, the curl stays put while the fog runs
+		//through it.
+		chain: 'blank/Cloud,persistence=0.6,iterations=6/Translator,horizontal=0.06,vertical=0.02,speed=1/Wave,speed=0,frequency=45'
 	},
 	{
 		id: 'contour',
