@@ -2,7 +2,7 @@
 
 Clarity is a canvas image-filter library from 2014 — 41 filters across eight categories, all pure-JS `ImageData` loops, concatenated by Gulp 3 into one `CLARITY` global. The filter-chain design still holds up; everything around it (build, GPU, examples, tests) had aged out.
 
-**All eight of the original features are done**, plus #13, which was not on the list. What follows is the record: what was built, and the decisions that were not obvious at the time. Items #9, #10, #12 and #14 are still open, and are additive rather than gaps — the library works without them. #15 is the exception: it is the one open item that closes a claim the shipped docs already make.
+**Features #1–#8 are all done**, along with #11, and with #13, #15 and #16 which were added later. What follows is the record: what was built, and the decisions that were not obvious at the time. **Four are still open — #9, #10, #12 and #14** — and all four are additive rather than gaps: the library is built, tested, documented and published without them.
 
 Each shipped entry keeps its original write-up in a collapsed block underneath, because the *reasoning* is the part worth keeping and it is often the part that turned out to be wrong.
 
@@ -11,10 +11,11 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 49 of 49, each with a golden image, a GPU parity case and a generated docs entry |
-| GPU | none | every filter, 63/63 parity cases as shaders |
-| Tests | none | 563, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
-| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video and a webcam |
+| Filters clean | 31 of 41, 4 hard crashes | 50 of 50, each with a golden image, a GPU parity case and a generated docs entry |
+| GPU | none | every filter, 95/95 parity cases as shaders |
+| Tests | none | 604, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and ten presets |
+| Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
 
 Bugs found along the way: **four crashing filters**, plus roughly two dozen quieter ones — an inverted mask, a filter that blurred the wrong channel, a colour-space round trip that was not the identity, an "average" that averaged nothing, and a filter whose default mode did nothing at all. Most were found by *looking at pictures* rather than by reading code, which is the strongest argument in here for the contact sheet.
@@ -326,7 +327,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** The suite has grown with everything since — **434 tests** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
+**Done.** The suite has grown with everything since — **604 tests** and **95 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
 - **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
@@ -528,7 +529,52 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Every mechanism they need now exists, so most of these are genuinely small: a shader, a CPU twin, a schema, a golden case. Grouped by what they *need*, because that is what decides the effort — several are nearly free once one parent filter exists.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **twelve filters added, three deleted, 41 to 50** — and what is left is the seven below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+
+### Still to build
+
+| Filter | Summary | Effort |
+|---|---|---|
+| **ChromaKey** | Makes one colour transparent, with tolerance and edge softening. | Low |
+| **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
+| **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
+| **Halftone** | Redraws the frame as a grid of dots on a flat ground, sized by how strong each cell is. | Low–Medium |
+| **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
+| **Crackulate** | Draws procedural cracks across the frame. | Medium |
+| **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium–High |
+
+Roughly ordered by effort, which is also the order to do them in — the cheap ones reuse machinery that already exists, and the expensive ones need something the executor cannot currently do.
+
+**`ChromaKey`** was not on the old list and is the obvious partner to `Mask`. It is the first filter whose *output* is a real alpha channel rather than an opaque frame, which the alpha fixture already exists to check and which `Blur` had to be corrected for once already (see #3).
+
+**`Histogram` wants `samples` + `prepare`** — the shape that already exists for `Posteriser`'s palette: a thumbnail read back, the statistic derived on the CPU, the result handed to the shader through `data()`. `ShotDetector` is the closer model, since it uses that path for *state* rather than for a one-off statistic. The open question is whether it draws over the frame or replaces it, and the answer is probably an `overlay` bool, because both are wanted and neither is obviously the default.
+
+**`Dither` is the one honest use of `supportsGPU`.** Bayer is an ordered threshold and runs as a shader; Floyd–Steinberg diffuses error into pixels it has not visited yet and is inherently sequential, so it stays CPU-only. That flag exists precisely so one filter can say which half of itself the GPU can take.
+
+**`Halftone` is cheaper than it sounds and covers two effects at once.** For each output pixel: find its cell, sample the source at the cell's centre, turn that into a radius, and write the dot colour or the ground depending on the distance. One pass, pure gather, nothing retained — the same shape as `Pixelate`, which is already the closest thing in the library and is the reason this is not just a variant of it: `Pixelate` fills every cell edge to edge, so it never shows a ground and can never look drawn.
+
+The dot colour is the choice that splits it in two. Take it from the cell and you get **Clark's dot painting** — coloured dots on white, size by strength. Fix it to black and you get **newsprint**. One `colour: 'sampled' | 'ink'` covers both, alongside `spacing`, `background` and a `scale` for how much of a cell a full-strength dot fills.
+
+The one thing worth getting right rather than shipping naively: **rotate the grid**. An axis-aligned screen reads as a grid artifact laid over a photograph, because the rows line up with everything else rectangular in the frame; the classic screens sit near 15°, 45° and 75° precisely so the eye reads tone instead of pattern. It is one rotation of the cell coordinates and it is the difference between "looks like a halftone" and "looks like a bug". Per-channel angles are the full CMYK version and are a later problem — the rosette they make is the thing worth doing eventually, and it wants three sampled channels rather than one.
+
+It is also the honest partner to `Dither`: both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one, so they answer different questions and neither absorbs the other.
+
+**`Skeletiser` is the only genuinely hard one** — iterative thinning is sequential and needs a repeat-until-stable loop, which is a poor fit for a shader and the one item here that is a day rather than an hour. Zhang–Suen is the standard two-subiteration formulation and is the one to port; it is also the only filter on this list that would want `supportsGPU: false` for a reason other than `Dither`'s.
+
+It also **reintroduces the `binary-in` trait**, which `DotRemover` took with it when `Morphology` replaced it. **Three dead references survived that removal**, and they are worth sweeping up whether or not this ever ships:
+
+- `site/seo.js:60` tests `traits.includes('binary-in')` to pick a demo link. `binary-in` is no longer in `FilterTrait` (`src/catalogue.ts:27-33`), so the branch is permanently false.
+- `.chip-binary-in` at `site/src/styles.css:338` styles a chip nothing can produce.
+- `test/helpers/descriptions.js:53` still carries a `DotRemover` entry whose `note` points at *this section*, predicting the replacement that has already happened. Dead data for a filter that no longer exists.
+
+Adding the word back to `FilterTrait` and `TRAITS` revives the first two, which is a small argument for building this rather than deleting them. The third goes either way.
+
+**A 3D `.cube` LUT stays open too, and should be judged as an import feature rather than a filter.** `static data()` already uploads arbitrary texture data, so the mechanism exists; what does not exist is anywhere for a user of the playground to put a file. See the `GradientMap` note below for why the 1D version shipped instead.
+
+**Every filter added from here should arrive with the question "what does this combine with?" answered** — a new preset in `site/src/presets.js` where there is a good answer, and nothing where there is not. #16 shipped ahead of this section, and its list is the cheapest place in the project to make a new filter findable.
+
+<details>
+<summary>The twelve that shipped, and what each of them turned up</summary>
 
 ### The kernel family — one filter, then presets
 
@@ -543,9 +589,7 @@ The README's "Filters to be made" list had been sitting there since 2014. Every 
 
 Two details worth keeping: the CPU path **clamps at the border** to match `srcTexel`, rather than skipping a one-pixel ring the way `Sharpen` did and leaving a dark frame around every result; and the checkerboard behaviour is now a regression test — the `smooth` preset takes two opposite pixels to the *same* value in one pass and holds them there, where `Smoother` swapped them and oscillated forever.
 
-Do `Convolver` first: the other three are entries in a select rather than files. It also **retires `Sharpen`** and **retires `Smoother`** — the latter takes its centre-pixel bug with it, see below.
-
-The open question is the *custom* kernel. `FilterSchema` has no matrix type, so nine `float` fields is the only way to express one, and nine controls would clutter the panel for the 95% of uses that want a preset. Shipping presets first keeps the door open: adding `custom` to the select plus nine fields later does not break any existing link, because `formatChain` only writes non-defaults.
+**The *custom* kernel is still open**, and deliberately. `FilterSchema` has no matrix type, so nine `float` fields is the only way to express one, and nine controls would clutter the panel for the 95% of uses that want a preset. Shipping presets first kept the door open: adding `custom` to the select plus nine fields does not break any existing link, because `formatChain` only writes non-defaults.
 
 *`Smoother` is not merely redundant, it is wrong.* Its kernel **excludes the centre pixel**, giving frequency response `(cos 2πu + cos 2πv)/2`, which is exactly **−1** at the diagonal Nyquist. A one-pixel checkerboard is inverted at full strength rather than smoothed, and iterating flips it back and forth forever — measured: 0→255→0→255 over three passes, where `Blur` collapses the same input to flat grey. It is also ~4× slower than `Blur` for 1/36th of the reach, and it forces alpha to 255 where `Blur` preserves it. Deleting it in favour of a `smooth` preset fixes the bug by replacement.
 
@@ -572,8 +616,6 @@ Removing it also orphaned the `binary-in` trait, which nothing else carried, so 
 | ~~**Levels**~~ ✓ | Remaps the black point, white point and gamma — the everyday contrast control. | Done |
 | ~~**Sepia**~~ ✓ | Tones the frame to warm monochrome. | Done — a `GradientMap` ramp |
 | ~~**LUT**~~ ✓ | Remaps every colour through a lookup table. | Done as `GradientMap`; the 3D cube is a separate thing |
-| **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
-| **Halftone** | Redraws the frame as a grid of dots on a flat ground, sized by how strong each cell is. | Low–Medium |
 
 **`Levels` was a real gap rather than a nicety** and is now done: there was no brightness or contrast control anywhere in the library, only `hsvShifter.value` multiplying brightness, which can scale but never *stretch*. Gamma is applied after the black/white stretch, as `pow(t, 1/gamma)`, so the two ends stay pinned while the midtones move — doing it before would drag the ends with it.
 
@@ -583,18 +625,6 @@ Two things worth recording:
 
 - **`steps` and `cycle` together are palette cycling**, the trick pixel artists used to animate waterfalls and lava without touching a pixel. Banding happens *before* the rotation on purpose: quantising fixes where the bands are and the rotation then moves colours through them, which is what reads as flow. Rotating first and banding after slides the band edges instead, and the picture appears to crawl. The test asserts exactly that — two pixels sharing a colour before the rotation must still share one after.
 - **The table is built on the CPU and handed to the shader through `data()`**, so both backends look colours up in the same 256 bytes rather than each evaluating the ramp its own way. All that is left to disagree about is which entry a pixel lands on, which is a hard boundary and takes the population metric.
-
-`Dither` is the one honest use of `supportsGPU`: Bayer is an ordered threshold and runs as a shader, while Floyd–Steinberg diffuses error to pixels not yet visited and is inherently sequential, so it stays CPU-only.
-
-**`Halftone` is cheaper than it sounds and covers two effects at once.** For each output pixel: find its cell, sample the source at the cell's centre, turn that into a radius, and write the dot colour or the ground depending on the distance. One pass, pure gather, nothing retained — the same shape as `Pixelate`, which is already the closest thing in the library and is the reason this is not just a variant of it: `Pixelate` fills every cell edge to edge, so it never shows a ground and can never look drawn.
-
-The dot colour is the choice that splits it in two. Take it from the cell and you get **Clark's dot painting** — coloured dots on white, size by strength. Fix it to black and you get **newsprint**. One `colour: 'sampled' | 'ink'` covers both, alongside `spacing`, `background` and a `scale` for how much of a cell a full-strength dot fills.
-
-The one thing worth getting right rather than shipping naively: **rotate the grid**. An axis-aligned screen reads as a grid artifact laid over a photograph, because the rows line up with everything else rectangular in the frame; the classic screens sit near 15°, 45° and 75° precisely so the eye reads tone instead of pattern. It is one rotation of the cell coordinates and it is the difference between "looks like a halftone" and "looks like a bug". Per-channel angles are the full CMYK version and are a later problem — the rosette they make is the thing worth doing eventually, and it wants three sampled channels rather than one.
-
-Also worth knowing it is the honest partner to `Dither`: both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one, so they answer different questions and neither absorbs the other.
-
-**A 3D `.cube` LUT stays open, and should be judged as an import feature rather than a filter** — `static data()` already uploads arbitrary texture data, so the mechanism exists; what does not exist is anywhere for a user of the playground to put a file.
 
 ### Starters
 
@@ -648,20 +678,6 @@ That last one exposed a real limitation. `gpuBlocker` sent any `stateful` filter
 
 It also moved the `temporal` trait's derivation from `retains(filter) !== null` to `stateful`. `stateful` is the property that actually means "output depends on frames already seen"; `retains` is only its commonest implementation, and `ShotDetector` was temporal in every sense but the test's.
 
-### The rest
-
-| Filter | Summary | Effort |
-|---|---|---|
-| **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
-| **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
-| **ChromaKey** | Makes one colour transparent, with tolerance and edge softening. | Low |
-| **Crackulate** | Draws procedural cracks across the frame. | Medium |
-| **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium–High |
-
-`Histogram` wants `samples` + `prepare`, which is exactly the shape that already exists for `Posteriser`'s palette. `ChromaKey` was not on the old list and is the obvious partner to `Mask`. **`Skeletiser` is the only genuinely hard one** — iterative thinning is sequential and needs a repeat-until-stable loop, which is a poor fit for a shader and the one item here that is a day rather than an hour.
-
-*Chromatic aberration was on this list and is now shipped — it turned out `ChannelSeparate` had been it all along, with an inverted ramp. See #3. Difference clouds and ridged noise are done; see below.*
-
 ### ~~Difference clouds & ridged noise~~ ✓
 
 **Done.** Photoshop's one menu item was two separable ideas, and both shipped.
@@ -691,7 +707,9 @@ Tests: a golden and a GPU parity case each for `Difference`, `Cloud-ridged` and 
 
 Adding one filter also flushed out three more hardcoded copies of the dual-input list — in `filters.test.js`, in `schema.test.js`, and an `assert.equal(filterNames.length, 41)` that failed with a message saying nothing about what was wrong. All three now ask the catalogue.
 
-*Chromatic aberration was on this list and is now shipped — it turned out `ChannelSeparate` had been it all along, with an inverted ramp. See #3.*
+*Chromatic aberration was on this list too, and turned out to be already shipped — `ChannelSeparate` had been it all along, with an inverted ramp. See #3.*
+
+</details>
 
 ---
 
@@ -715,7 +733,7 @@ What is still worth doing:
 
 ## ~~11. Docs, Types & a README That Sells It~~ ✓
 
-**Done.** The README leads with the pitch, a screenshot of the playground and five example chains as live links — which works because the chain format *is* the URL format, so an example is a link rather than a picture that goes stale. `docs/FILTERS.md` is generated by `npm run docs` from `CATALOGUE`, the schemas, the golden images and the golden cases: a before/after pair, an options table and a playground link for all 41 filters.
+**Done.** The README leads with the pitch, a screenshot of the playground and five example chains as live links — which works because the chain format *is* the URL format, so an example is a link rather than a picture that goes stale. `docs/FILTERS.md` is generated by `npm run docs` from `CATALOGUE`, the schemas, the golden images and the golden cases: a before/after pair, an options table and a playground link for every filter — 41 when this landed, 50 now, with no further work at any point.
 
 Three things worth recording:
 
@@ -758,6 +776,8 @@ Fusibility is a property of each filter's **sampling footprint**, and Clarity's 
 > **What #3 actually declared, and what it didn't.** The advice above was half taken, and the half that was taken was taken for the reasons predicted. Filters now declare `stateful`, `varying`, `outputSize`, `retains`, `data` and `samples` — which between them identify every Class D barrier, because a barrier is exactly a filter that needs retained frames, a whole-image statistic, or a different output size. So **the group boundaries are already computable**; `gpuBlocker` and `endOfGPURun` in `Pipeline` do a cruder version of that walk today.
 >
 > What is *not* declared is the A/B/C distinction — pointwise vs UV-transform vs kernel. Nothing in #3 needed it, so adding it would have been speculative, and a shader's sampling footprint is not something a filter can be trusted to self-report accurately. The honest position: fusion needs one new declaration per filter, and the Class B list in this section is the design for it.
+>
+> **The roster above is the 2014 one and needs re-reading against the current 50.** `Sharpen` and `Smoother` are gone into `Convolver`, `DotRemover` into `Morphology`, and `ChannelSeparate` is `ChromaticAberration`. Of what has landed since: `Levels`, `GradientMap`, `Vignette` and `DotCrawl` are **Class A**; `FishEye` is **Class B** and the best argument in the library for it, since a lens curve composed with a rotate and a translate really is one coordinate map; `Convolver` is **Class C**; and `Morphology`, `Voronoi`, `ShotDetector` and `ScreenBurn` are **Class D** barriers. `Cloud`, `Gradient` and `Voronoi` are a case the original four buckets have no word for — they ignore their input entirely, so they do not merely *end* a group, they make everything before them dead code, which is a cheaper optimisation than fusion and worth doing first.
 
 ### The shape of the compiler
 
@@ -843,21 +863,19 @@ Two things worth recording, both found by reading the previously-published `vite
 - **`publish` is a real npm lifecycle hook**, running *after* a package is published — so a script named `publish` that itself calls `npm publish` recurses. The other package has exactly that and dodges it only by always being invoked as `npm run publish`. `prepublishOnly` is the right hook: same guarantee, no collision, and it fires whichever command is typed.
 - **`--access public` as a flag is a no-op on an unscoped package and essential on a scoped one**, which is the worst combination — it works everywhere it does not matter and is easy to forget where it does. `publishConfig.access` in the file does it every time, including from CI.
 
-Still open, and both now *possible* rather than blocked: `sameAs` on the `SoftwareSourceCode` node listing the npm page and the repo, and `softwareVersion` read from `package.json` rather than left out. The version was deliberately absent from the graph because there was nothing for it to be a version *of*.
+**Four small things survive the tick**, two of them decisions rather than work:
+
+- **`sameAs` on the `SoftwareSourceCode` node**, listing the npm page and the repo together. Now possible rather than blocked.
+- **`softwareVersion` read from `package.json`** rather than left out — it was deliberately absent from the graph because there was nothing for it to be a version *of*.
+- **Source maps are 1.6 MB of the 2.3 MB unpacked.** Shipped. Dropping them later reads as a regression while adding them later is a pure improvement, so the reversible direction was to ship them and see if anyone minds. 600 kB packed is not a burden on a library with no dependencies. Revisit only if someone does.
+- **`0.1.0` or `1.0.0`.** Published at `0.1.0`. Everything the README promises is built and tested, so it understates — but `1.0.0` is a promise about `exports`, the chain string format and the schema shape, and **#14 and #12 may still move all three**. It should stay `0.1.0` until they land or are dropped, and then move on purpose.
 
 <details>
-<summary>What was set up beforehand</summary>
+<summary>The original write-up, and what was set up beforehand</summary>
 
 `package.json` carries `publishConfig.access: "public"` (a scoped package publishes private by default and the first publish fails with a 402 without it), `prepublishOnly: "npm run build && npm test"` so the tarball cannot ship a `dist/` that does not match `src/`, `homepage` pointing at the playground, `bugs`, a full `author`, the repository URL corrected to the remote's capitalisation, and six more keywords — `image-filter`, `webgl`, `webgl2`, `shader`, `svelte`, `svelte-action` — which is the cheap half of the discoverability argument below.
 
-**Two decisions left, and they are both yours:**
-
-- **Source maps are 1.6 MB of the 2.3 MB unpacked.** Left in. Dropping them later reads as a regression while adding them later is a pure improvement, so the reversible direction is to ship them and see if anyone minds. 600 kB packed is not a burden on a library with no dependencies.
-- **`0.1.0` or `1.0.0`.** Left at `0.1.0`. Everything the README promises is built and tested, so it understates — but `1.0.0` is a promise about `exports`, the chain string format and the schema shape, and #14 and #12 may still move all three. It should be `0.1.0` on purpose rather than by default.
-
 Then it is `npm publish`, and the four claims below stop being 404s.
-
-</details>
 
 #2 made the package *publishable* and stopped there. `npm pack --dry-run` produces a clean 73-file tarball today — 516 kB packed, every path in the `exports` map resolving to a file that exists (`dist/clarity.js`, `dist/clarity.umd.cjs`, `dist/index.d.ts`, `dist/svelte.js`, `dist/svelte/index.d.ts`), README and LICENSE included automatically. The artefact is fine. Nobody has run `npm publish`.
 
@@ -907,22 +925,24 @@ Publishing does not make anyone install it. What it does is make the three claim
 
 Once it is live, two small additions to `site/seo.js` become possible and are worth doing in the same sitting: `sameAs` on the `SoftwareSourceCode` node listing both the npm page and the repo, and `softwareVersion` read from `package.json` rather than hardcoded — the version was deliberately left out of the graph precisely because there was nothing to be a version *of*.
 
+</details>
+
 ---
 
 ## ~~16. Presets — the README's Example Chains, Inside the Playground~~ ✓
 
-**Done.** Six presets as chips in the Pipeline panel, in `site/src/presets.js`. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
+**Done.** **Ten presets** as chips in the Pipeline panel, in `site/src/presets.js`, four shown and the rest behind a `+N more` toggle. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
 
-Four things worth recording:
+Six things worth recording:
 
-- **The `Renderer` grew an `onFrame` callback**, and it was overdue: `site/src/main.js` had reimplemented `renderer.start()` — same rAF handle, same idempotency guard — with a comment saying it existed only because the library's loop called back into nothing. That copy is gone. It is also the hook a property animator needs (#18), which is why it is one option rather than an animation system.
+- **The `Renderer` grew an `onFrame` callback**, and it was overdue: `site/src/main.js` had reimplemented `renderer.start()` — same rAF handle, same idempotency guard — with a comment saying it existed only because the library's loop called back into nothing. That copy is gone. It is also the hook a property animator would need, which is why it is one option rather than an animation system.
 - **The terrain preset had to be tuned down.** `fold=ridged` at the default persistence buries the ridges under fine octaves and the normal map reads as crumpled foil. `persistence=0.35` and `intensity=0.7` make it a surface.
-- **The round-trip test earned its place twice.** It rejected `iterations=4` in the terrain chain because that is Cloud's default and `formatChain` omits it — a preset string that does not survive the format is a preset that does not match the link it produces.
+- **The round-trip test earned its place three times.** It rejected `iterations=4` in the terrain chain because that is Cloud's default and `formatChain` omits it, then `ramp=fire` for the same reason, then `iterations=6,persistence=0.6` for being in the wrong *order* — `formatChain` emits schema order, so a preset string that does not survive the format is a preset that does not match the link it produces.
 - **A test flake turned out to be a real bug in the test harness.** `open('#x')` only waited for a frame size, but a URL differing solely in the hash is a *same-document* navigation, so the page does not reload and the previous source can still be rendering when that wait is already satisfied by the old readout. Switching from a video to a still occasionally measured the tail of the video. `open` now waits for the source picker to agree, which is what makes it mean "the page is showing x". Five consecutive full runs clean.
+- **The presets are what exposed the seed problem.** Half of them start from `Cloud`, and a chain that generates its own picture has to generate the *same* picture for everyone who opens the link. `#blank/Cloud` did not, until the seed was pinned per filter — see #9. `lava` and `fog` then needed a second motion each to stop reading as a loop, which is the whole argument for a preset list: nobody finds `GradientMap,cycle=0.15` under a `Translator,speed=0.1` by browsing a palette.
+- **Two layout bugs the longer chains found.** The pipeline squashed its cards instead of scrolling, because a flex item shrinks by default and `overflow-y: auto` never engages until the children declare `flex: 0 0 auto`; and the frame-time measurement was visible as a glitch on stills, because it rendered its sample frames to the screen. It is sliced and off-screen now, budgeted at 250ms in 8ms slices, with a generation counter so a stale measurement cannot land.
 
 Deliberately not done: **thumbnails on the chips.** They want a build step that renders each preset against its source, which is the same step #11 wanted for curated per-filter demos. Worth doing once, for both.
-
----
 
 <details>
 <summary>The original entry</summary>
@@ -989,29 +1009,32 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 1 | Correctness sweep | Low | 4 crashing filters revived, 31→40 of 41 clean; 5 more found later by the contact sheet |
 | 2 | ESM + Vite + publishable package | Medium | TS classes, 3 bundles, types, `npm test`; the type system found 3 more bugs |
 | 7 | Licensing / replace GPL MCut | Low–Med | MIT throughout, and the replacement quantiser is 2–21× faster |
-| 6 | Golden-image test suite | Medium | 63 goldens, contact sheet, determinism plumbing — and the parity harness written before there was a backend |
+| 6 | Golden-image test suite | Medium | 63 goldens then, 95 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
 | 8 | Declarative filter schemas | Medium | 717 lines out, DOM dependency gone, `setProperty` the one write path |
 | 4 | `Renderer` / `Pipeline` | Medium | Headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
-| 3 | GPU shader backend | High | Every filter has a shader; 63/63 parity cases on the GPU; 6 more bugs found |
+| 3 | GPU shader backend | High | Every filter has a shader; 95/95 parity cases on the GPU; 6 more bugs found |
 | 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
 | 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
-| 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for all 41 filters, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
-| 16 | Presets in the playground | Low | Six chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
-| 15 | Publish `@calrk/clarity` | Low | Live on npm. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
+| 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
+| 16 | Presets in the playground | Low | Ten chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
+| 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
+| 9 | Filter wishlist — 12 of 19 | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Seven left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | Finish the filter wishlist | Low each | Medium — genuinely cheap now; start with the custom 3×3 kernel and the rest are presets |
+| 9 | The last seven filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Halftone`, `Bilateral`, `Crackulate`, `Skeletiser`. Genuinely cheap except the last, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**Do #9 next.** It was never the highest-value item, but it is now the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first.
+**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first. **`ChromaKey` and `Histogram` first** — both reuse machinery that exists, and `Histogram` is the only one that tells you something about a picture rather than changing it.
 
 Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 
-**#16 shipped ahead of #9, which changes what #9 owes.** Every filter added from here should arrive with the question "what does this combine with?" answered — a new preset in `site/src/presets.js` where there is a good answer, and nothing where there is not. The list is the cheapest place in the project to make a new filter findable.
+**#16 shipped ahead of the rest of #9, which changes what #9 owes.** Every filter added from here should arrive with the question "what does this combine with?" answered — a new preset in `site/src/presets.js` where there is a good answer, and nothing where there is not. The list is the cheapest place in the project to make a new filter findable.
+
+**#12 is the one to actively *not* do without a number in front of you.** The playground's `Compare backends` button reports real per-frame figures for any chain, so the question has stopped being a guess. If a long `FishEye/Rotator/Translator/Tiler` chain is already comfortably at 60fps on the weakest machine you care about, the correct outcome is to leave it unbuilt.
 
 *More features to be added.*
