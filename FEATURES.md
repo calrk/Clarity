@@ -573,6 +573,7 @@ Removing it also orphaned the `binary-in` trait, which nothing else carried, so 
 | ~~**Sepia**~~ ✓ | Tones the frame to warm monochrome. | Done — a `GradientMap` ramp |
 | ~~**LUT**~~ ✓ | Remaps every colour through a lookup table. | Done as `GradientMap`; the 3D cube is a separate thing |
 | **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
+| **Halftone** | Redraws the frame as a grid of dots on a flat ground, sized by how strong each cell is. | Low–Medium |
 
 **`Levels` was a real gap rather than a nicety** and is now done: there was no brightness or contrast control anywhere in the library, only `hsvShifter.value` multiplying brightness, which can scale but never *stretch*. Gamma is applied after the black/white stretch, as `pow(t, 1/gamma)`, so the two ends stay pinned while the midtones move — doing it before would drag the ends with it.
 
@@ -584,6 +585,14 @@ Two things worth recording:
 - **The table is built on the CPU and handed to the shader through `data()`**, so both backends look colours up in the same 256 bytes rather than each evaluating the ramp its own way. All that is left to disagree about is which entry a pixel lands on, which is a hard boundary and takes the population metric.
 
 `Dither` is the one honest use of `supportsGPU`: Bayer is an ordered threshold and runs as a shader, while Floyd–Steinberg diffuses error to pixels not yet visited and is inherently sequential, so it stays CPU-only.
+
+**`Halftone` is cheaper than it sounds and covers two effects at once.** For each output pixel: find its cell, sample the source at the cell's centre, turn that into a radius, and write the dot colour or the ground depending on the distance. One pass, pure gather, nothing retained — the same shape as `Pixelate`, which is already the closest thing in the library and is the reason this is not just a variant of it: `Pixelate` fills every cell edge to edge, so it never shows a ground and can never look drawn.
+
+The dot colour is the choice that splits it in two. Take it from the cell and you get **Clark's dot painting** — coloured dots on white, size by strength. Fix it to black and you get **newsprint**. One `colour: 'sampled' | 'ink'` covers both, alongside `spacing`, `background` and a `scale` for how much of a cell a full-strength dot fills.
+
+The one thing worth getting right rather than shipping naively: **rotate the grid**. An axis-aligned screen reads as a grid artifact laid over a photograph, because the rows line up with everything else rectangular in the frame; the classic screens sit near 15°, 45° and 75° precisely so the eye reads tone instead of pattern. It is one rotation of the cell coordinates and it is the difference between "looks like a halftone" and "looks like a bug". Per-channel angles are the full CMYK version and are a later problem — the rosette they make is the thing worth doing eventually, and it wants three sampled channels rather than one.
+
+Also worth knowing it is the honest partner to `Dither`: both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one, so they answer different questions and neither absorbs the other.
 
 **A 3D `.cube` LUT stays open, and should be judged as an import feature rather than a filter** — `static data()` already uploads arbitrary texture data, so the mechanism exists; what does not exist is anywhere for a user of the playground to put a file.
 
@@ -827,7 +836,16 @@ Four things make it meaningfully more awkward than it looks, and they are the re
 
 ## 15. Actually Publish `@calrk/clarity`
 
-**Effort: Low**
+**Effort: Low** — *everything below is done except the one command.*
+
+**Ready.** `package.json` now carries `publishConfig.access: "public"` (a scoped package publishes private by default and the first publish fails with a 402 without it), `prepublishOnly: "npm run build && npm test"` so the tarball cannot ship a `dist/` that does not match `src/`, `homepage` pointing at the playground, `bugs`, a full `author`, the repository URL corrected to the remote's capitalisation, and six more keywords — `image-filter`, `webgl`, `webgl2`, `shader`, `svelte`, `svelte-action` — which is the cheap half of the discoverability argument below.
+
+**Two decisions left, and they are both yours:**
+
+- **Source maps are 1.6 MB of the 2.3 MB unpacked.** Left in. Dropping them later reads as a regression while adding them later is a pure improvement, so the reversible direction is to ship them and see if anyone minds. 600 kB packed is not a burden on a library with no dependencies.
+- **`0.1.0` or `1.0.0`.** Left at `0.1.0`. Everything the README promises is built and tested, so it understates — but `1.0.0` is a promise about `exports`, the chain string format and the schema shape, and #14 and #12 may still move all three. It should be `0.1.0` on purpose rather than by default.
+
+Then it is `npm publish`, and the four claims below stop being 404s.
 
 #2 made the package *publishable* and stopped there. `npm pack --dry-run` produces a clean 73-file tarball today — 516 kB packed, every path in the `exports` map resolving to a file that exists (`dist/clarity.js`, `dist/clarity.umd.cjs`, `dist/index.d.ts`, `dist/svelte.js`, `dist/svelte/index.d.ts`), README and LICENSE included automatically. The artefact is fine. Nobody has run `npm publish`.
 

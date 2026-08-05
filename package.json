@@ -4,18 +4,31 @@
   "description": "Canvas image filter library - composable, pipeline-style filters over ImageData",
   "type": "module",
   "license": "MIT",
-  "author": "Clark",
+  "author": "Clark Lavery (https://clarklavery.com)",
+  "homepage": "https://clarity.clarklavery.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/calrk/clarity.git"
+    "url": "git+https://github.com/calrk/Clarity.git"
+  },
+  "bugs": {
+    "url": "https://github.com/calrk/Clarity/issues"
   },
   "keywords": [
     "canvas",
     "image",
     "filter",
     "imagedata",
-    "image-processing"
+    "image-processing",
+    "image-filter",
+    "webgl",
+    "webgl2",
+    "shader",
+    "svelte",
+    "svelte-action"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "main": "./dist/clarity.umd.cjs",
   "module": "./dist/clarity.js",
@@ -45,6 +58,7 @@
     "build": "tsc --noEmit && vite build && vite build --config vite.svelte.config.ts",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build && npm run site:build",
+    "prepublishOnly": "npm run build && npm test",
     "test": "node --test test/*.test.js",
     "test:golden": "node --test test/golden.test.js",
     "test:update-golden": "node test/helpers/update-golden.js",
