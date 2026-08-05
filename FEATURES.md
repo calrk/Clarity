@@ -834,11 +834,21 @@ Four things make it meaningfully more awkward than it looks, and they are the re
 
 ---
 
-## 15. Actually Publish `@calrk/clarity`
+## ~~15. Actually Publish `@calrk/clarity`~~ ✓
 
-**Effort: Low** — *everything below is done except the one command.*
+**Done — live at [npmjs.com/package/@calrk/clarity](https://www.npmjs.com/package/@calrk/clarity).** The four places that already claimed the package existed were checked rather than changed, as predicted: `README.md:48`, the playground's FAQ answer at `site/seo.js:106` (mirrored verbatim into the `FAQPage` structured data), and the colophon link and `SoftwareSourceCode.url` at `:160` and `:240`, both built from the single `PACKAGE` constant at `:29`. All four now resolve.
 
-**Ready.** `package.json` now carries `publishConfig.access: "public"` (a scoped package publishes private by default and the first publish fails with a 402 without it), `prepublishOnly: "npm run build && npm test"` so the tarball cannot ship a `dist/` that does not match `src/`, `homepage` pointing at the playground, `bugs`, a full `author`, the repository URL corrected to the remote's capitalisation, and six more keywords — `image-filter`, `webgl`, `webgl2`, `shader`, `svelte`, `svelte-action` — which is the cheap half of the discoverability argument below.
+Two things worth recording, both found by reading the previously-published `vite-combine-audio` rather than by guessing:
+
+- **`publish` is a real npm lifecycle hook**, running *after* a package is published — so a script named `publish` that itself calls `npm publish` recurses. The other package has exactly that and dodges it only by always being invoked as `npm run publish`. `prepublishOnly` is the right hook: same guarantee, no collision, and it fires whichever command is typed.
+- **`--access public` as a flag is a no-op on an unscoped package and essential on a scoped one**, which is the worst combination — it works everywhere it does not matter and is easy to forget where it does. `publishConfig.access` in the file does it every time, including from CI.
+
+Still open, and both now *possible* rather than blocked: `sameAs` on the `SoftwareSourceCode` node listing the npm page and the repo, and `softwareVersion` read from `package.json` rather than left out. The version was deliberately absent from the graph because there was nothing for it to be a version *of*.
+
+<details>
+<summary>What was set up beforehand</summary>
+
+`package.json` carries `publishConfig.access: "public"` (a scoped package publishes private by default and the first publish fails with a 402 without it), `prepublishOnly: "npm run build && npm test"` so the tarball cannot ship a `dist/` that does not match `src/`, `homepage` pointing at the playground, `bugs`, a full `author`, the repository URL corrected to the remote's capitalisation, and six more keywords — `image-filter`, `webgl`, `webgl2`, `shader`, `svelte`, `svelte-action` — which is the cheap half of the discoverability argument below.
 
 **Two decisions left, and they are both yours:**
 
@@ -846,6 +856,8 @@ Four things make it meaningfully more awkward than it looks, and they are the re
 - **`0.1.0` or `1.0.0`.** Left at `0.1.0`. Everything the README promises is built and tested, so it understates — but `1.0.0` is a promise about `exports`, the chain string format and the schema shape, and #14 and #12 may still move all three. It should be `0.1.0` on purpose rather than by default.
 
 Then it is `npm publish`, and the four claims below stop being 404s.
+
+</details>
 
 #2 made the package *publishable* and stopped there. `npm pack --dry-run` produces a clean 73-file tarball today — 516 kB packed, every path in the `exports` map resolving to a file that exists (`dist/clarity.js`, `dist/clarity.umd.cjs`, `dist/index.d.ts`, `dist/svelte.js`, `dist/svelte/index.d.ts`), README and LICENSE included automatically. The artefact is fine. Nobody has run `npm publish`.
 
@@ -985,12 +997,12 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for all 41 filters, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
 | 16 | Presets in the playground | Low | Six chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
+| 15 | Publish `@calrk/clarity` | Low | Live on npm. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
-| 15 | Publish `@calrk/clarity` | Low | Medium — the package is built and packs clean; the README, the playground FAQ and the JSON-LD all already say it exists, and until it does they 404 |
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
 | 9 | Finish the filter wishlist | Low each | Medium — genuinely cheap now; start with the custom 3×3 kernel and the rest are presets |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
@@ -1001,7 +1013,5 @@ This is an afternoon, and it does not make the library better. What it does is m
 Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 
 **#16 shipped ahead of #9, which changes what #9 owes.** Every filter added from here should arrive with the question "what does this combine with?" answered — a new preset in `site/src/presets.js` where there is a good answer, and nothing where there is not. The list is the cheapest place in the project to make a new filter findable.
-
-**#15 is not really a feature and should not wait its turn.** It is four lines of `package.json` and one command, and it is the only open item that closes something already shipped: the README, the playground's FAQ and its structured data all state that `@calrk/clarity` is installable. Do it whenever, but do it before anything else adds a fifth place that says so.
 
 *More features to be added.*
