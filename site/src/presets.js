@@ -1,0 +1,60 @@
+// Chains worth starting from.
+//
+// A preset is a chain string, and a chain string *is* the URL - so applying one
+// is `location.hash = preset.chain` and the existing `hashchange` handler does
+// the rest. There is no second apply path, and therefore none that can drift
+// from what a shared link does.
+//
+// Each carries its own source, because most of these mean nothing without the
+// right one: the CRT chain on `blank` is a black rectangle, and the security
+// camera is nothing at all without something moving.
+//
+// `test/docs.test.js` round-trips every chain here through `buildChain` and
+// `formatChain`, so a renamed filter or a re-defaulted property fails the build
+// rather than silently loading a shorter chain than it claims.
+
+/** @typedef {{ id: string, label: string, note: string, chain: string }} Preset */
+
+/** @type {Preset[]} */
+export const PRESETS = [
+	{
+		id: 'crt',
+		label: 'CRT',
+		note: 'A lens curve, scanlines and a corner falloff — three filters, not one',
+		chain: 'landscape/FishEye,amount=0.35/HanoverBars,mode=scanlines/Vignette,amount=0.7,radius=0.4,softness=0.7'
+	},
+	{
+		id: 'composite',
+		label: 'Composite video',
+		note: 'Colour bleeding off its edges, fringing, and the dots that crawl along them',
+		chain: 'books/Bleed,radius=24/ChromaticAberration,xdistance=16/DotCrawl,intensity=1'
+	},
+	{
+		id: 'security',
+		label: 'Security camera',
+		note: 'Grainy monochrome, and a burn-in that only bright things leave',
+		chain: 'box/Desaturate/Noise,intensity=12,monochromatic=true/ScreenBurn,length=32,decay=0.99'
+	},
+	{
+		id: 'sketch',
+		label: 'Pencil sketch',
+		note: 'Edges, inverted, then pushed to paper white',
+		chain: 'face/EdgeDetector/Invert/Levels,black=140,gamma=0.6'
+	},
+	{
+		id: 'despeckle',
+		label: 'Speckle removal',
+		note: 'Open eats the specks and the hairlines; the thick shapes do not move',
+		chain: 'rorschach/Morphology,mode=open,radius=3'
+	},
+	{
+		id: 'terrain',
+		label: 'Terrain',
+		note: 'Ridged noise read as a height map — a lit surface out of an empty frame',
+		//A low persistence on purpose: at the default the fine octaves drown the
+		//ridges and the normal map reads as crumpled foil rather than a surface.
+		//`iterations` stays at its default, so it is not written here - the chain
+		//format omits anything unchanged, and the drift test holds it to that.
+		chain: 'blank/Cloud,fold=ridged,persistence=0.35/NormalGenerator/NormalIntensity,intensity=0.7'
+	}
+];

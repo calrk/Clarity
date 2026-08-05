@@ -18,6 +18,20 @@ export type RenderSource =
 export interface RendererOptions {
 	/** Use shaders where possible. Defaults to true. */
 	gpu?: boolean;
+	/**
+	 * Called after every frame the renderer draws, with what it drew.
+	 *
+	 * Without this, wanting to do anything per-frame means abandoning
+	 * {@link Renderer.start} and writing the `requestAnimationFrame` loop again -
+	 * which the playground did, comment and all, purely to read `stats` after
+	 * each frame. Two things want it: reading the stats, and animating a
+	 * property, which is a `setProperty` here that takes effect on the next
+	 * frame.
+	 *
+	 * It fires on every `render()`, not only inside the loop, so a one-off frame
+	 * and a looped one are not different cases to the caller.
+	 */
+	onFrame?: (output: ImageData) => void;
 }
 
 export interface SourceOptions {
@@ -75,7 +89,14 @@ export class Renderer {
 		this.context = context;
 		this.pipeline =
 			pipeline instanceof Pipeline ? pipeline : new Pipeline([], { gpu: pipeline.gpu });
+		this.onFrame = pipeline instanceof Pipeline ? undefined : pipeline.onFrame;
 	}
+
+	/**
+	 * Called with each frame drawn. Assignable, so it can be attached after
+	 * construction or swapped out. See {@link RendererOptions.onFrame}.
+	 */
+	onFrame: ((output: ImageData) => void) | undefined;
 
 	/** Whether the chain is running as shaders. */
 	get usingGPU(): boolean {
@@ -172,6 +193,7 @@ export class Renderer {
 		}
 
 		this.context.putImageData(output, 0, 0);
+		this.onFrame?.(output);
 		return output;
 	}
 

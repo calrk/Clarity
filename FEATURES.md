@@ -858,9 +858,23 @@ Once it is live, two small additions to `site/seo.js` become possible and are wo
 
 ---
 
-## 16. Presets — the README's Example Chains, Inside the Playground
+## ~~16. Presets — the README's Example Chains, Inside the Playground~~ ✓
 
-**Effort: Low**
+**Done.** Six presets as chips in the Pipeline panel, in `site/src/presets.js`. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
+
+Four things worth recording:
+
+- **The `Renderer` grew an `onFrame` callback**, and it was overdue: `site/src/main.js` had reimplemented `renderer.start()` — same rAF handle, same idempotency guard — with a comment saying it existed only because the library's loop called back into nothing. That copy is gone. It is also the hook a property animator needs (#18), which is why it is one option rather than an animation system.
+- **The terrain preset had to be tuned down.** `fold=ridged` at the default persistence buries the ridges under fine octaves and the normal map reads as crumpled foil. `persistence=0.35` and `intensity=0.7` make it a surface.
+- **The round-trip test earned its place twice.** It rejected `iterations=4` in the terrain chain because that is Cloud's default and `formatChain` omits it — a preset string that does not survive the format is a preset that does not match the link it produces.
+- **A test flake turned out to be a real bug in the test harness.** `open('#x')` only waited for a frame size, but a URL differing solely in the hash is a *same-document* navigation, so the page does not reload and the previous source can still be rendering when that wait is already satisfied by the old readout. Switching from a video to a still occasionally measured the tail of the video. `open` now waits for the source picker to agree, which is what makes it mean "the page is showing x". Five consecutive full runs clean.
+
+Deliberately not done: **thumbnails on the chips.** They want a build step that renders each preset against its source, which is the same step #11 wanted for curated per-filter demos. Worth doing once, for both.
+
+---
+
+<details>
+<summary>The original entry</summary>
 
 The playground gives you forty-nine filters and an empty pipeline. Everything interesting in this project is a *combination* — CRT is a lens curve, scanlines and a corner falloff; the composite-video look is `Bleed` into `ChromaticAberration` into `DotCrawl` — and none of that is discoverable by reading an alphabetical palette. The six best chains anyone has built are currently hand-written links in `README.md:18-24`, visible to someone reading GitHub and invisible to someone standing in the app.
 
@@ -911,6 +925,8 @@ The fog/water chain — `Cloud` + `Translator` looping, multiplied against a sec
 
 This is an afternoon, and it does not make the library better. What it does is make the library's *range* visible to someone who has just arrived, which is currently something you only learn by reading the README. Do it after #9 adds the filters worth combining.
 
+</details>
+
 ---
 
 ## Rough Priority Order
@@ -929,6 +945,7 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
 | 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for all 41 filters, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
+| 16 | Presets in the playground | Low | Six chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 
 ### Open
 
@@ -937,7 +954,6 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 15 | Publish `@calrk/clarity` | Low | Medium — the package is built and packs clean; the README, the playground FAQ and the JSON-LD all already say it exists, and until it does they 404 |
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
 | 9 | Finish the filter wishlist | Low each | Medium — genuinely cheap now; start with the custom 3×3 kernel and the rest are presets |
-| 16 | Presets in the playground | Low | Medium — a preset is a chain string is a URL, so applying one is a single assignment onto the existing hash path; makes the library's range visible to someone who has not read the README |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
@@ -945,7 +961,7 @@ This is an afternoon, and it does not make the library better. What it does is m
 
 Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 
-**#16 pairs with #9 rather than competing with it.** Presets are only worth building once there are combinations worth presetting, and every filter #9 adds is another chain that nobody will find by browsing an alphabetical list. Doing #9 first also means the preset list is written once instead of twice.
+**#16 shipped ahead of #9, which changes what #9 owes.** Every filter added from here should arrive with the question "what does this combine with?" answered — a new preset in `site/src/presets.js` where there is a good answer, and nothing where there is not. The list is the cheapest place in the project to make a new filter findable.
 
 **#15 is not really a feature and should not wait its turn.** It is four lines of `package.json` and one command, and it is the only open item that closes something already shipped: the README, the playground's FAQ and its structured data all state that `@calrk/clarity` is installable. Do it whenever, but do it before anything else adds a fifth place that says so.
 

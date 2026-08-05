@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { buildDocs, DOCS_PATH } from './helpers/make-docs.js';
+//Importable directly, unlike sources.js, because it is data and imports nothing
+import { PRESETS } from '../site/src/presets.js';
 import * as CLARITY from '../dist/clarity.js';
 
 const SOURCES_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'site', 'src', 'sources.js');
@@ -83,6 +85,31 @@ test('every playground link parses back to the chain it claims', () => {
 
 	assert.equal(links.length, Object.keys(CLARITY.CATALOGUE).length, 'one link per filter');
 	checkLinks(links, playgroundSources(), 'FILTERS.md');
+});
+
+test('every preset still builds the chain it claims', () => {
+	// A preset that has rotted loads a shorter chain than its label promises and
+	// says nothing about it, which is the worst failure mode on the page: the
+	// user has no chain of their own to compare it against.
+	assert.ok(PRESETS.length >= 4, `only found ${PRESETS.length} presets`);
+	checkLinks(
+		PRESETS.map((preset) => preset.chain),
+		playgroundSources(),
+		'preset'
+	);
+
+	const ids = PRESETS.map((preset) => preset.id);
+	assert.equal(new Set(ids).size, ids.length, 'two presets share an id');
+
+	for (const preset of PRESETS) {
+		assert.ok(preset.label, `${preset.id} has no label`);
+		assert.ok(preset.note, `${preset.id} has no note - it is the button's tooltip`);
+		//a one-filter preset is a filter, not a preset; the point is combinations
+		assert.ok(
+			preset.chain.split('/').length >= 2,
+			`${preset.id} is a bare source with no filters`
+		);
+	}
 });
 
 test("the README's example chains still work", () => {

@@ -218,3 +218,39 @@ test('start and stop drive a frame loop', () => {
 		delete globalThis.cancelAnimationFrame;
 	}
 });
+
+test('onFrame is handed every frame that gets drawn', () => {
+	// Without this the only way to do anything per-frame is to abandon `start()`
+	// and write the rAF loop again - which the playground did, to read `stats`.
+	const seen = [];
+	const canvas = new StubCanvas(4, 3);
+	const renderer = new CLARITY.Renderer(canvas, { onFrame: (output) => seen.push(output) })
+		.source(frameOf(4, 3))
+		.add(new CLARITY.Invert({}));
+
+	const output = renderer.render();
+	assert.equal(seen.length, 1, 'a one-off render fires it too, not only the loop');
+	assert.equal(seen[0], output, 'it gets the frame that was drawn');
+
+	// assignable after construction, since a host may not own the constructor call
+	renderer.onFrame = undefined;
+	renderer.render();
+	assert.equal(seen.length, 1, 'clearing it stops the callbacks');
+});
+
+test('onFrame can animate a property, and the change lands on the next frame', () => {
+	// The reason to want the hook at all: a property nudged here takes effect on
+	// the frame after, which is what a `from → to over N ms` tween amounts to.
+	const canvas = new StubCanvas(4, 3);
+	const translator = new CLARITY.Translator({ horizontal: 0, vertical: 0 });
+	const renderer = new CLARITY.Renderer(canvas).source(frameOf(4, 3)).add(translator);
+
+	renderer.onFrame = () => {
+		translator.setProperty('horizontal', translator.getProperty('horizontal') + 0.25);
+	};
+
+	renderer.render();
+	assert.equal(translator.getProperty('horizontal'), 0.25);
+	renderer.render();
+	assert.equal(translator.getProperty('horizontal'), 0.5);
+});

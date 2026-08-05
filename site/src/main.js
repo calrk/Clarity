@@ -10,6 +10,7 @@ import * as CLARITY from '@calrk/clarity';
 import { CATALOGUE, CATEGORY_ORDER, Pipeline, Renderer, TRAITS } from '@calrk/clarity';
 
 import { createChainView, isDualInput } from './chain.js';
+import { PRESETS } from './presets.js';
 import { readHash, writeHash } from './share.js';
 import { SOURCES, addSource, loadFile, loadImage, openSource } from './sources.js';
 import './styles.css';
@@ -17,7 +18,7 @@ import './styles.css';
 const $ = (id) => document.getElementById(id);
 
 const canvas = $('canvas');
-const renderer = new Renderer(canvas);
+const renderer = new Renderer(canvas, { onFrame: showStats });
 
 /** Second-input frames for the dual-input filters, by stage. */
 const seconds = new Map();
@@ -191,6 +192,46 @@ function rebuildStages() {
 	}
 }
 
+// ---------------------------------------------------------------- presets
+
+/**
+ * Applying a preset is one assignment.
+ *
+ * A preset is a chain string and a chain string is the URL, so this lands on
+ * the same `hashchange` -> `loadFromHash` path a pasted link takes. Nothing
+ * here rebuilds the pipeline itself, which is the point: there is no second
+ * apply path to drift from what a shared link does.
+ *
+ * Assigning to `location.hash` also pushes a history entry, so browser-back
+ * restores whatever chain was there. An action that replaces your work would
+ * otherwise want a confirmation step; this one does not need one.
+ */
+function applyPreset(preset) {
+	if (location.hash === `#${preset.chain}`) {
+		//already exactly here, so hashchange would not fire - rebuild anyway, so
+		//the button never looks broken
+		loadFromHash();
+		return;
+	}
+	location.hash = preset.chain;
+}
+
+function buildPresetList() {
+	const list = $('presets');
+	list.replaceChildren();
+
+	for (const preset of PRESETS) {
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'preset';
+		button.textContent = preset.label;
+		button.title = preset.note;
+		button.dataset.preset = preset.id;
+		button.addEventListener('click', () => applyPreset(preset));
+		list.appendChild(button);
+	}
+}
+
 // ---------------------------------------------------------------- sources
 
 function buildSourceList() {
@@ -350,39 +391,20 @@ async function openFile(file) {
 // ---------------------------------------------------------------- rendering
 
 /**
- * The frame loop lives here rather than in `renderer.start()` because the page
- * wants to read `renderer.stats` after every frame, and the library's loop
- * quite reasonably does not call back into anything.
+ * This used to be a copy of `renderer.start()` - same rAF handle, same
+ * idempotency guard - written out again only because the page wants to read
+ * `renderer.stats` after every frame and the library's loop called back into
+ * nothing. `onFrame` is that callback, so the loop goes back to the library.
  */
-let loop = 0;
-
-function startLoop() {
-	if (loop) return;
-	const tick = () => {
-		loop = requestAnimationFrame(tick);
-		draw();
-	};
-	loop = requestAnimationFrame(tick);
-}
-
-function stopLoop() {
-	if (loop) {
-		cancelAnimationFrame(loop);
-		loop = 0;
-	}
-}
+const startLoop = () => renderer.start();
+const stopLoop = () => renderer.stop();
 
 /** One frame, now, unless the loop is already producing them. */
 function requestFrame() {
-	if (loop) return;
+	if (renderer.running) return;
 	renderer.invalidateSource();
-	draw();
+	renderer.render();
 	scheduleMeasure();
-}
-
-function draw() {
-	const output = renderer.render();
-	if (output) showStats(output);
 }
 
 /**
@@ -403,7 +425,7 @@ let measureTimer = 0;
 
 function scheduleMeasure() {
 	clearTimeout(measureTimer);
-	if (loop) {
+	if (renderer.running) {
 		return;	//a live source produces real frames; those are the honest number
 	}
 	measureTimer = setTimeout(measure, 160);
@@ -436,7 +458,7 @@ function measure() {
 
 	for (const filter of filters) filter.reset();
 	renderer.pipeline.invalidate();
-	draw();
+	renderer.render();
 }
 
 function setFrameTime(ms, samples) {
@@ -465,7 +487,7 @@ function showStats(output) {
 			: 'Forced onto the CPU path. Click to use shaders.';
 
 	$('mBackend').textContent = badge.textContent;
-	if (loop) {
+	if (renderer.running) {
 		//a live source: an exponential average, because a per-frame number is
 		//unreadable and every frame is a real one
 		smoothedFrameTime = smoothedFrameTime ? smoothedFrameTime * 0.9 + stats.total * 0.1 : stats.total;
@@ -661,6 +683,7 @@ async function start() {
 	setUpTheme();
 	buildPalette();
 	buildSourceList();
+	buildPresetList();
 	setUpDropzone();
 
 	$('paletteSearch').addEventListener('input', (event) => buildPalette(event.target.value));

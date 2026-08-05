@@ -97,6 +97,19 @@ if (!existsSync(join(dist, 'index.html'))) {
 		await page.goto(`http://127.0.0.1:${port}/${hash}`, { waitUntil: 'networkidle0' });
 		//the first source is decoded and drawn asynchronously
 		await page.waitForFunction(() => document.getElementById('mSize').textContent !== '—');
+
+		// A URL differing only in the hash is a *same-document* navigation, so
+		// `goto` does not reload - it fires `hashchange`, and the previous source
+		// can still be rendering when the two waits above are already satisfied by
+		// the old page's readout. Waiting for the source picker to agree is what
+		// makes `open('#x')` mean "the page is showing x". Without it, switching
+		// from a video to a still occasionally measured the tail of the video.
+		const wanted = hash.replace(/^#/, '').split('/')[0];
+		await page.waitForFunction((id) => {
+			const buttons = document.querySelectorAll('#sources button');
+			const expected = id || buttons[0]?.dataset.id;
+			return document.querySelector('#sources button[aria-pressed="true"]')?.dataset.id === expected;
+		}, {}, wanted);
 	};
 
 	/** The rendered canvas, as a hash, so "did the picture change" is answerable. */
@@ -126,6 +139,40 @@ if (!existsSync(join(dist, 'index.html'))) {
 		assert.deepEqual(errors, []);
 		const size = await page.$eval('#mSize', (el) => el.textContent);
 		assert.match(size, /^\d+ × \d+$/, `expected a frame size, got "${size}"`);
+	});
+
+	test('a preset replaces the chain, the source and the URL', async () => {
+		// Presets are one assignment to `location.hash`, which means the thing
+		// being tested is really that the hashchange path handles a wholesale
+		// swap - chain, source and share link together - rather than the button.
+		await open('#colours/Invert');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+
+		await page.click('#presets button[data-preset="crt"]');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 3);
+
+		assert.equal(
+			await page.$eval('#sources button[aria-pressed="true"]', (el) => el.dataset.id),
+			'landscape',
+			'a preset brings its own source, or half of them show nothing'
+		);
+
+		const hash = await page.evaluate(() => location.hash);
+		assert.match(hash, /^#landscape\/FishEye/, `the URL should be the preset, got "${hash}"`);
+		assert.deepEqual(
+			await page.$$eval('#chain li .stage-name', (els) => els.map((el) => el.textContent)),
+			['FishEye', 'HanoverBars', 'Vignette']
+		);
+
+		// Assigning to location.hash pushes history, so back is a free undo - which
+		// is why replacing the user's chain needs no confirmation step.
+		await page.goBack();
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+		assert.match(await page.evaluate(() => location.hash), /^#colours\/Invert/);
+
+		// The tests below share this page and start from an empty chain, the way
+		// the `open()` above the suite left it. Hand it back in that state.
+		await open();
 	});
 
 	test('the palette lists every filter in the library', async () => {
@@ -419,9 +466,28 @@ if (!existsSync(join(dist, 'index.html'))) {
 		// once, so a fixed sleep is a flake waiting to happen on a loaded machine.
 		// The moving case returns the moment it moves; the still case has to sit
 		// out the full window to prove it never does.
-		const movesWithin = async (id, ms) => {
+		// `open` resolves as soon as a frame size appears, which on a loaded
+		// machine can be before the source has finished being decoded and drawn at
+		// its real size. Waiting for two readings in a row to agree means the
+		// still-image control is measuring a settled picture rather than the tail
+		// of the page starting up - which it once read as movement.
+		const settledDigest = async () => {
+			let previous = await canvasDigest();
+			const deadline = Date.now() + 4000;
+			while (Date.now() < deadline) {
+				await new Promise((resolve) => setTimeout(resolve, 100));
+				const current = await canvasDigest();
+				if (current === previous) return current;
+				previous = current;
+			}
+			return previous;
+		};
+
+		// Only the still control settles first: a playing video never gives two
+		// readings in a row that agree, so it would just burn the whole window.
+		const movesWithin = async (id, ms, settle = false) => {
 			await open('#' + id);
-			const before = await canvasDigest();
+			const before = settle ? await settledDigest() : await canvasDigest();
 			const deadline = Date.now() + ms;
 			while (Date.now() < deadline) {
 				await new Promise((resolve) => setTimeout(resolve, 120));
@@ -443,7 +509,7 @@ if (!existsSync(join(dist, 'index.html'))) {
 
 		// and the control: a still source must not be spuriously 'moving', or the
 		// assertions above would pass on a source that never decoded
-		assert.equal(await movesWithin('face', 1800), false, 'a still image should not change');
+		assert.equal(await movesWithin('face', 1800, true), false, 'a still image should not change');
 	});
 	test('nothing threw along the way', async () => {
 		assert.deepEqual(errors, []);

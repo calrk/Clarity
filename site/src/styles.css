@@ -345,6 +345,40 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 
 .stage-card .chips { padding: 0 .5rem .1rem; }
 
+/* ---------- presets ----------
+ *
+ * Deliberately not `.chip`, which means "a caveat on this filter" and is styled
+ * to be ignored. These are the opposite: the one thing on the page worth
+ * clicking before you know what anything does.
+ */
+.presets {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .3rem;
+	margin: .1rem 0 .6rem;
+}
+
+.preset {
+	appearance: none;
+	padding: .2rem .5rem;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: var(--bg-tint);
+	color: var(--muted);
+	font: inherit;
+	font-size: .7rem;
+	line-height: 1.5;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.preset:hover,
+.preset:focus-visible {
+	color: var(--accent);
+	border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+	background: var(--accent-wash);
+}
+
 /* ---------- stage ---------- */
 
 .stage { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
