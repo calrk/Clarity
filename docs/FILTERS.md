@@ -269,6 +269,7 @@ new Noise({ intensity: 40 });
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
+| `seed` | int | 0–16777215, or empty for random | _random_ | Which grain. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same result - which is what makes a link reproduce. |
 | `intensity` | float | 0–100 | `1` | Largest amount a channel can be pushed up or down. |
 | `monochromatic` | bool | true / false | `false` | Move all three channels together, so the grain is grey rather than coloured. |
 
@@ -729,6 +730,7 @@ new Cloud({ red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 });
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
+| `seed` | int | 0–16777215, or empty for random | _random_ | Which cloud. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same result - which is what makes a link reproduce. |
 | `red` | int | 0–255 | `255` | Scales the noise into the red channel. All three at 255 gives grey cloud. |
 | `green` | int | 0–255 | `255` | Scales the noise into the green channel. |
 | `blue` | int | 0–255 | `255` | Scales the noise into the blue channel. |
@@ -824,6 +826,7 @@ new Voronoi({ cells: 6 });
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
+| `seed` | int | 0–16777215, or empty for random | _random_ | Which arrangement of cells. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same result - which is what makes a link reproduce. |
 | `cells` | int | 2–64 | `8` | How many cells across the frame. Rows are derived from the aspect so the cells stay square. |
 | `mode` | select | `distance` · `borders` · `cells` | `distance` | Three textures from one distance field. |
 

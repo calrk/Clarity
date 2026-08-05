@@ -97,6 +97,8 @@
 			<div class="metric"><span class="k">Frame</span><span class="v" id="mFrame">&mdash;</span></div>
 			<div class="metric"><span class="k">Size</span><span class="v" id="mSize">&mdash;</span></div>
 			<div class="metric"><span class="k">Stages</span><span class="v" id="mStages">&mdash;</span></div>
+			<!-- hidden unless something in the chain has a seed to roll -->
+			<button class="ghost small" id="rerollButton" type="button" hidden>Reshuffle</button>
 			<button class="ghost small" id="benchButton" type="button">Compare backends</button>
 		</div>
 		<p class="bench" id="benchResult" hidden></p>

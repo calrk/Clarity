@@ -180,10 +180,12 @@ test('add and remove invalidate', () => {
 });
 
 test('a varying filter re-runs every frame and is never cached', () => {
-	// Noise re-randomises per call. Caching it would freeze the grain, which
-	// looks like the filter has stopped working.
+	// Wave reads the clock, so caching it would freeze the animation - which
+	// looks like the filter has stopped working. This used to use Noise, back
+	// when Noise re-rolled its seed on every call rather than holding one.
+	let clock = 0;
 	const pipeline = new CLARITY.Pipeline([
-		new CLARITY.Noise({ intensity: 40, random: CLARITY.seededRandom(1) })
+		new CLARITY.Wave({ amplitude: 6, now: () => (clock += 120) })
 	]);
 	const frame = makeFrame();
 
@@ -191,7 +193,7 @@ test('a varying filter re-runs every frame and is never cached', () => {
 	const second = bytes(pipeline.run(frame));
 
 	assert.equal(pipeline.stats.from, 0, 'ran again despite nothing being dirty');
-	assert.notDeepEqual(second, first, 'and produced new noise');
+	assert.notDeepEqual(second, first, 'and produced a new frame');
 });
 
 test('a stateful filter sees every frame exactly once', () => {
@@ -214,9 +216,9 @@ test('a stateful filter sees every frame exactly once', () => {
 
 test('an impure filter early in the chain defeats caching downstream', () => {
 	// worth asserting rather than assuming - it is the honest cost of putting
-	// Noise at the front, and the playground should be able to show it
+	// an animating filter at the front, and the playground should be able to show it
 	const pipeline = new CLARITY.Pipeline([
-		new CLARITY.Noise({ intensity: 20, random: CLARITY.seededRandom(2) }),
+		new CLARITY.Wave({ amplitude: 4, now: () => Date.now() }),
 		new CLARITY.Blur({ radius: 3 }),
 		new CLARITY.Invert({})
 	]);
@@ -231,7 +233,7 @@ test('an impure filter early in the chain defeats caching downstream', () => {
 	const tail = new CLARITY.Pipeline([
 		new CLARITY.Blur({ radius: 3 }),
 		new CLARITY.Invert({}),
-		new CLARITY.Noise({ intensity: 20, random: CLARITY.seededRandom(2) })
+		new CLARITY.Wave({ amplitude: 4, now: () => Date.now() })
 	]);
 	tail.run(frame);
 	tail.run(frame);
@@ -296,7 +298,11 @@ test('a second input given as a function is called each run', () => {
 
 test('stateful and varying filters are declared, and nothing else is', () => {
 	const stateful = ['Ghoster', 'MotionDetector', 'DifferenceDetector'];
-	const varying = ['Noise', 'Cloud', 'Wave'];
+	// Only the ones that read the *clock*. Noise, Cloud and Voronoi used to be
+	// here on the strength of reading `random` instead, which is a different
+	// thing: they draw the same picture forever once their seed is fixed, and
+	// being impure only meant they could never be cached.
+	const varying = ['Wave', 'DotCrawl', 'GradientMap'];
 
 	for (const name of stateful) {
 		assert.equal(CLARITY[name].stateful, true, `${name} is stateful`);
@@ -311,6 +317,9 @@ test('stateful and varying filters are declared, and nothing else is', () => {
 	// to declare itself fails here rather than showing a frozen picture
 	assert.equal(CLARITY.Blur.pure, true);
 	assert.equal(CLARITY.Puzzler.pure, true, 'Puzzler shuffles once, in its constructor');
+	for (const name of ['Cloud', 'Voronoi', 'Noise']) {
+		assert.equal(CLARITY[name].pure, true, `${name} hashes from a fixed seed now`);
+	}
 });
 
 test('invalidate forces a full recompute', () => {

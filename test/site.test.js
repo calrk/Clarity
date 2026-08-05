@@ -215,6 +215,60 @@ if (!existsSync(join(dist, 'index.html'))) {
 		await open();
 	});
 
+	test('reshuffling writes the seed into the link', async () => {
+		// A filter with no seed set picks one when it is built, which is what stops
+		// a cloud flickering - but it also means a shared link builds its own
+		// filters and opens on a *different* cloud. Rolling writes the number down.
+		await open('#blank/Cloud');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+
+		assert.equal(await page.$eval('#rerollButton', (el) => el.hidden), false);
+		assert.equal(await page.evaluate(() => decodeURIComponent(location.hash)), '#blank/Cloud');
+
+		const before = await canvasDigest();
+		await page.click('#rerollButton');
+		await page.waitForFunction(() => location.hash.includes('seed='));
+
+		assert.notEqual(await canvasDigest(), before, 'reshuffling drew the same cloud');
+
+		// and the point of writing it down: reopening that exact link reproduces it
+		const link = await page.evaluate(() => decodeURIComponent(location.hash));
+		const rolled = await canvasDigest();
+		await open('#colours');
+		await open(link);
+		assert.equal(await canvasDigest(), rolled, 'the seeded link did not reproduce');
+
+		await open();
+	});
+
+	test('the reshuffle button hides when there is nothing to roll', async () => {
+		await open('#colours/Blur');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+		assert.equal(await page.$eval('#rerollButton', (el) => el.hidden), true);
+		assert.equal(await page.$$eval('#chain [data-roll]', (els) => els.length), 0);
+
+		await open('#colours/Noise');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+		assert.equal(await page.$eval('#rerollButton', (el) => el.hidden), false);
+		assert.equal(await page.$$eval('#chain [data-roll]', (els) => els.length), 1, 'no per-card roll');
+
+		await open();
+	});
+
+	test('the preset row folds, and unfolds', async () => {
+		const chips = () => page.$$eval('#presets button.preset:not(.preset-more)', (els) => els.length);
+
+		const folded = await chips();
+		assert.ok(folded < 9, `the whole list is showing: ${folded} chips`);
+
+		await page.click('#presetsMore');
+		const opened = await chips();
+		assert.ok(opened > folded, `expanding showed nothing new: ${folded} then ${opened}`);
+
+		await page.click('#presetsMore');
+		assert.equal(await chips(), folded, 'it did not fold back up');
+	});
+
 	test('the palette lists every filter in the library', async () => {
 		const { shown, catalogued } = await page.evaluate(() => ({
 			shown: document.querySelectorAll('#palette button').length,

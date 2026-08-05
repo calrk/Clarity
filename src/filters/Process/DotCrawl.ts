@@ -37,6 +37,11 @@ export class DotCrawl extends Filter {
 	//the pattern moves with the clock, so the same frame twice is not the same
 	static override varying = true;
 
+	//The checkerboard steps once per beat; at speed 0 there is no beat.
+	static override animated(filter: any): boolean {
+		return filter.properties.speed !== 0;
+	}
+
 	static override shader = /* glsl */ `
 uniform float u_intensity;
 uniform float u_speed;

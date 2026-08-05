@@ -516,3 +516,84 @@ test('GradientMap cycling moves the colours and leaves the bands alone', () => {
 		'cycle defaults to 0, so the clock should not matter'
 	);
 });
+
+test('a random filter draws the same thing every time it runs', () => {
+	// It used to draw a fresh seed inside `doProcess`, so one Cloud produced a
+	// different cloud on every call. Invisible while a still image rendered once
+	// and stopped; a strobe the moment anything drove a loop.
+	for (const name of ['Cloud', 'Voronoi', 'Noise']) {
+		const filter = new CLARITY[name]({});
+		const first = [...filter.process(makeFrame()).data];
+		const again = [...filter.process(makeFrame()).data];
+		assert.deepEqual(again, first, `${name} redrew itself on the second run`);
+		assert.equal(CLARITY[name].pure, true, `${name} should be cacheable now`);
+	}
+});
+
+test('two instances of a random filter still differ, and a set seed pins them', () => {
+	// The Photoshop trick this has to keep: Cloud/Difference/Cloud folds an
+	// already-folded field, which only works if the two Clouds are different.
+	const a = [...new CLARITY.Cloud({}).process(makeFrame()).data];
+	const b = [...new CLARITY.Cloud({}).process(makeFrame()).data];
+	assert.notDeepEqual(b, a, 'two separate Clouds came out identical');
+
+	// and the other half: naming a seed makes it reproducible, which is what
+	// lets a chain in a URL open on the same picture for everyone
+	assert.deepEqual(
+		[...new CLARITY.Cloud({ seed: 4242 }).process(makeFrame()).data],
+		[...new CLARITY.Cloud({ seed: 4242 }).process(makeFrame()).data]
+	);
+});
+
+test('a cloud under an animating wave holds still', () => {
+	// The question this whole change came from. Wave is impure, so the pipeline
+	// re-runs it every frame - and it used to drag the Cloud above it along,
+	// because an impure stage cannot be cached either. With the clock frozen the
+	// wave is fixed, so the only thing that could move is the cloud.
+	let clock = 0;
+	const chain = new CLARITY.Pipeline([
+		new CLARITY.Cloud({ iterations: 3 }),
+		new CLARITY.Wave({ now: () => clock, amplitude: 6 })
+	]);
+
+	const blank = new NodeImageData(W, H);
+	const first = [...chain.run(blank).data];
+	for (let i = 0; i < 4; i++) chain.run(blank);
+	assert.deepEqual([...chain.run(blank).data], first, 'something underneath the wave moved');
+
+	// and the control: let the clock run and the wave really does move
+	clock = 500;
+	assert.notDeepEqual([...chain.run(blank).data], first);
+});
+
+test('animated is a question about time, not about caching', () => {
+	// `pure` says "may I reuse the last output" and `animated` says "will waiting
+	// produce a new one". A Wave parked at speed 0 answers no to both, and the
+	// playground loops on the second - it used to loop on the first and spin
+	// forever redrawing an identical frame.
+	const still = [
+		new CLARITY.Wave({ speed: 0 }),
+		new CLARITY.DotCrawl({ speed: 0 }),
+		new CLARITY.GradientMap({ cycle: 0 })
+	];
+	for (const filter of still) {
+		const type = filter.constructor;
+		assert.equal(type.animated(filter), false, `${type.name} claims to be animating`);
+		assert.equal(type.pure, false, `${type.name} is still impure, and should be`);
+	}
+
+	const moving = [
+		new CLARITY.Wave({ speed: 2 }),
+		new CLARITY.DotCrawl({ speed: 4 }),
+		new CLARITY.GradientMap({ cycle: 0.5 })
+	];
+	for (const filter of moving) {
+		assert.equal(filter.constructor.animated(filter), true, `${filter.constructor.name} should animate`);
+	}
+
+	// the three that were reseeding are not animating at all any more
+	for (const name of ['Cloud', 'Voronoi', 'Noise']) {
+		const filter = new CLARITY[name]({});
+		assert.equal(CLARITY[name].animated(filter), false, `${name} should not drive a loop`);
+	}
+});

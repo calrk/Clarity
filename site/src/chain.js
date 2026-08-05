@@ -71,7 +71,23 @@ export function createChainView(list, handlers) {
 		remove.title = 'Remove';
 		remove.addEventListener('click', () => handlers.onRemove(index));
 
-		head.append(grip, title, power, remove);
+		head.append(grip, title);
+
+		// A filter whose randomness is hashed from a seed can be re-rolled. The
+		// test is the schema rather than a list of names, so a new one gets the
+		// button without anything here being told about it.
+		if ('seed' in (filter.constructor.schema ?? {})) {
+			const roll = document.createElement('button');
+			roll.className = 'icon-button';
+			roll.type = 'button';
+			roll.textContent = '⤨';
+			roll.title = 'Roll a new seed for this filter';
+			roll.dataset.roll = String(index);
+			roll.addEventListener('click', () => handlers.onReroll(index));
+			head.appendChild(roll);
+		}
+
+		head.append(power, remove);
 		item.appendChild(head);
 
 		// The same chips as the palette, repeated here on purpose: the palette

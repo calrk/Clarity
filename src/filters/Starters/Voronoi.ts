@@ -2,7 +2,7 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { hashedRandom, hashedByte, seedFrom } from '../../helpers/hash.js';
+import { hashedRandom, hashedByte } from '../../helpers/hash.js';
 import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
 
@@ -13,6 +13,7 @@ const BORDER_SCALE = 3;
 export type VoronoiMode = 'distance' | 'borders' | 'cells';
 
 export interface VoronoiOptions extends FilterOptions {
+	seed?: number | null;
 	cells?: number;
 	mode?: VoronoiMode;
 }
@@ -38,8 +39,10 @@ export interface VoronoiOptions extends FilterOptions {
  * fills each with a flat hashed value, for stone or scales.
  */
 export class Voronoi extends Filter {
-	//Regenerates its field every call, like Cloud.
-	static override varying = true;
+	//Pure, now that the seed is fixed per instance rather than drawn on every
+	//call. It used to be varying, which meant a single Cloud produced a new
+	//field every time it ran - invisible while a still rendered once, and a
+	//strobe as soon as anything drove a loop. See Filter.seed.
 
 	static override shader = /* glsl */ `
 uniform float u_cells;
@@ -107,6 +110,17 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
+		seed: {
+			type: 'int',
+			label: 'Seed',
+			min: 0,
+			max: 16777215,
+			step: 1,
+			default: null,
+			nullable: true,
+			nullLabel: 'random',
+			description: 'Which arrangement of cells. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same result - which is what makes a link reproduce.'
+		},
 		cells: {
 			type: 'int',
 			label: 'Cells',
@@ -131,6 +145,7 @@ void main(){
 	};
 
 	override properties: {
+		seed: number | null;
 		cells: number;
 		mode: VoronoiMode;
 	};
@@ -138,6 +153,7 @@ void main(){
 	constructor(options: VoronoiOptions = {}) {
 		super(options);
 		this.properties = {
+			seed: options.seed === undefined || options.seed === null ? null : Math.round(options.seed),
 			cells: options.cells || 8,
 			mode: options.mode ?? 'distance'
 		};
@@ -145,7 +161,7 @@ void main(){
 
 	override doProcess(frame: ImageData): ImageData {
 		const output = createImageData(frame.width, frame.height);
-		const seed = seedFrom(this.random);
+		const seed = this.seed;
 		const width = frame.width;
 		const height = frame.height;
 

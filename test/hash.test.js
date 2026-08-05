@@ -56,11 +56,19 @@ test('a seeded source still reproduces a frame exactly', () => {
 	assert.deepEqual(bytes(a.process(frame())), bytes(b.process(frame())));
 });
 
-test('successive frames get different noise', () => {
-	// one draw per frame becomes the seed, so the grain still moves
+test('successive frames get the same noise, and a new instance gets its own', () => {
+	// This asserted the opposite until the seed was pinned per instance. One
+	// draw per *call* meant the grain re-rolled every frame, which is only
+	// invisible while a still image renders once and stops - the moment anything
+	// drove a loop it strobed, and it dragged whatever sat above it in the chain
+	// along with it, because an impure stage cannot be cached either.
 	const noise = new CLARITY.Noise({ intensity: 40, random: CLARITY.seededRandom(5) });
 	const first = [...noise.process(frame()).data];
 	const second = [...noise.process(frame()).data];
 
-	assert.notDeepEqual(first, second);
+	assert.deepEqual(second, first, 'the grain moved between frames');
+
+	// the seed is still drawn from `random`, so a second filter gets its own
+	const other = new CLARITY.Noise({ intensity: 40, random: CLARITY.seededRandom(6) });
+	assert.notDeepEqual([...other.process(frame()).data], first);
 });

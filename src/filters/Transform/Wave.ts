@@ -58,6 +58,12 @@ void main(){
 	//Phase comes from the clock, so the output moves on its own.
 	static override varying = true;
 
+	//...but not at speed 0, where the clock cancels out and every frame is the
+	//same picture. A host looping for that is looping for nothing.
+	static override animated(filter: any): boolean {
+		return filter.properties.speed !== 0;
+	}
+
 	static override schema: FilterSchema = {
 		//A select rather than two booleans, because two booleans have a fourth
 		//state - neither - which is a filter that does nothing, and that was the

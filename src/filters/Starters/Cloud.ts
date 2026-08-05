@@ -2,7 +2,7 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { hashedByte, seedFrom } from '../../helpers/hash.js';
+import { hashedByte } from '../../helpers/hash.js';
 import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
 
@@ -30,6 +30,7 @@ const GX = new Float64Array([1, -1, 0, 0, 1, -1, 1, -1]);
 const GY = new Float64Array([0, 0, 1, -1, 1, 1, -1, -1]);
 
 export interface CloudOptions extends FilterOptions {
+	seed?: number | null;
 	red?: number;
 	green?: number;
 	blue?: number;
@@ -45,8 +46,10 @@ export interface CloudOptions extends FilterOptions {
 }
 
 export class Cloud extends Filter {
-	//Regenerates its noise field every call.
-	static override varying = true;
+	//Pure, now that the seed is fixed per instance rather than drawn on every
+	//call. It used to be varying, which meant a single Cloud produced a new
+	//field every time it ran - invisible while a still rendered once, and a
+	//strobe as soon as anything drove a loop. See Filter.seed.
 
 	static override shader = /* glsl */ `
 uniform float u_red;
@@ -179,6 +182,17 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
+		seed: {
+			type: 'int',
+			label: 'Seed',
+			min: 0,
+			max: 16777215,
+			step: 1,
+			default: null,
+			nullable: true,
+			nullLabel: 'random',
+			description: 'Which cloud. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same result - which is what makes a link reproduce.'
+		},
 		//White by default. The colour scales the noise, so zero meant a black
 		//frame - and with the old alpha rule, an invisible one.
 		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 255, description: 'Scales the noise into the red channel. All three at 255 gives grey cloud.' },
@@ -213,6 +227,7 @@ void main(){
 	};
 
 	override properties: {
+		seed: number | null;
 		red: number;
 		green: number;
 		blue: number;
@@ -227,6 +242,7 @@ void main(){
 	constructor(options: CloudOptions = {}) {
 		super(options);
 		this.properties = {
+			seed: options.seed === undefined || options.seed === null ? null : Math.round(options.seed),
 			red: options.red === undefined ? 255 : options.red,
 			green: options.green === undefined ? 255 : options.green,
 			blue: options.blue === undefined ? 255 : options.blue,
@@ -248,7 +264,7 @@ void main(){
 		//after that. It used to draw size*size values per octave in row-major
 		//order, which a shader cannot reproduce - fragments have no order to draw
 		//in. See src/helpers/hash.ts.
-		const seed = seedFrom(this.random);
+		const seed = this.seed;
 
 		let size = this.properties.initialSize;
 		let used = 0;

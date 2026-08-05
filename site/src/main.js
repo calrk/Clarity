@@ -147,8 +147,33 @@ const chainView = createChainView($('chain'), {
 		seconds.set(renderer.pipeline.at(index), id);
 		rebuildStages();
 		sync();
+	},
+	onReroll(index) {
+		reroll([renderer.pipeline.at(index)]);
 	}
 });
+
+/** Every filter in the chain that hashes its randomness from a seed. */
+function seeded() {
+	return renderer.pipeline.filters.filter((filter) => 'seed' in (filter.constructor.schema ?? {}));
+}
+
+/**
+ * Rolls new seeds, and writes them into the chain rather than leaving them
+ * implicit.
+ *
+ * A filter with no `seed` set picks one when it is built and keeps it, which is
+ * what stops a cloud flickering - but it also means the link you share opens on
+ * a *different* cloud for whoever you send it to, since their page builds its
+ * own filters. Rolling writes a concrete number, so from then on the URL says
+ * which cloud it is and everyone sees the same one.
+ */
+function reroll(filters) {
+	for (const filter of filters) {
+		filter.setProperty('seed', Math.floor(Math.random() * 16777216));
+	}
+	sync();
+}
 
 function addFilter(name, options = {}, enabled = true) {
 	const filter = new CLARITY[name](options);
@@ -218,11 +243,23 @@ function applyPreset(preset) {
 	location.hash = preset.chain;
 }
 
+/**
+ * How many presets show before the list folds.
+ *
+ * Chips beat a dropdown for this because picking one is a single click and the
+ * whole set is readable at a glance - but that stops being true once the row
+ * wraps three deep and pushes the pipeline off the screen. Four plus an
+ * expander keeps one row and keeps the click.
+ */
+const PRESETS_SHOWN = 4;
+let presetsExpanded = false;
+
 function buildPresetList() {
 	const list = $('presets');
 	list.replaceChildren();
 
-	for (const preset of PRESETS) {
+	const shown = presetsExpanded ? PRESETS : PRESETS.slice(0, PRESETS_SHOWN);
+	for (const preset of shown) {
 		const button = document.createElement('button');
 		button.type = 'button';
 		button.className = 'preset';
@@ -231,6 +268,20 @@ function buildPresetList() {
 		button.dataset.preset = preset.id;
 		button.addEventListener('click', () => applyPreset(preset));
 		list.appendChild(button);
+	}
+
+	if (PRESETS.length > PRESETS_SHOWN) {
+		const more = document.createElement('button');
+		more.type = 'button';
+		more.className = 'preset preset-more';
+		more.id = 'presetsMore';
+		more.textContent = presetsExpanded ? 'Fewer' : `+${PRESETS.length - PRESETS_SHOWN} more`;
+		more.setAttribute('aria-expanded', String(presetsExpanded));
+		more.addEventListener('click', () => {
+			presetsExpanded = !presetsExpanded;
+			buildPresetList();
+		});
+		list.appendChild(more);
 	}
 }
 
@@ -398,15 +449,16 @@ const stopLoop = () => renderer.stop();
  *
  * A still source with an ordinary chain renders once and sits there, which is
  * why the loop is not simply always on. But a filter can be the moving part
- * instead: `Wave`, `Cloud`, `DotCrawl`, `Noise` and `GradientMap`'s cycling all
- * declare themselves impure because they read the clock or the random source,
- * and a stateful filter's output depends on how many frames it has seen. Those
- * were all frozen on a still image - a wave that never waved - because the loop
- * only ever asked the *source* whether anything was going to change.
+ * instead - `Wave`, `DotCrawl`, `GradientMap` cycling - and those were frozen
+ * on a still image, a wave that never waved, because the loop only ever asked
+ * the *source* whether anything was going to change.
+ *
+ * `animated` and not `pure`: purity is a caching question and answers yes for
+ * things that will never draw anything new, like a `Wave` parked at speed 0.
  */
 function chainIsLive() {
 	return renderer.pipeline.filters.some(
-		(filter) => filter.enabled && !filter.constructor.pure
+		(filter) => filter.enabled && filter.constructor.animated(filter)
 	);
 }
 
@@ -712,6 +764,8 @@ async function loadFromHash() {
 function sync() {
 	chainView.render(renderer.pipeline.filters, seconds);
 	$('chainHint').hidden = renderer.pipeline.length > 0;
+	//shown only when there is something to roll, so it is never a dead control
+	$('rerollButton').hidden = seeded().length === 0;
 	updateCode();
 	updateShare();
 	requestFrame();
@@ -760,6 +814,9 @@ async function start() {
 		seconds.clear();
 		sync();
 	});
+	//one button for the whole chain, because with two Clouds in it you almost
+	//always mean both - the per-card roll is there for when you do not
+	$('rerollButton').addEventListener('click', () => reroll(seeded()));
 	$('benchButton').addEventListener('click', benchmark);
 	$('backendBadge').addEventListener('click', () => {
 		renderer.gpu = !renderer.gpu;

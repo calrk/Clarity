@@ -2,18 +2,21 @@
 
 import { Filter } from '../../core/Filter.js';
 import { createImageData } from '../../core/imagedata.js';
-import { hashedRandom, seedFrom } from '../../helpers/hash.js';
+import { hashedRandom } from '../../helpers/hash.js';
 import type { FilterOptions } from '../../core/Filter.js';
 import type { FilterSchema } from '../../core/schema.js';
 
 export interface NoiseOptions extends FilterOptions {
+	seed?: number | null;
 	intensity?: number;
 	monochromatic?: boolean;
 }
 
 export class Noise extends Filter {
-	//Fresh noise every call - caching it would freeze the grain.
-	static override varying = true;
+	//Pure, now that the seed is fixed per instance rather than drawn on every
+	//call. It used to be varying, which meant a single Cloud produced a new
+	//field every time it ran - invisible while a still rendered once, and a
+	//strobe as soon as anything drove a loop. See Filter.seed.
 
 	static override shader = /* glsl */ `
 uniform float u_intensity;
@@ -42,11 +45,23 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
+		seed: {
+			type: 'int',
+			label: 'Seed',
+			min: 0,
+			max: 16777215,
+			step: 1,
+			default: null,
+			nullable: true,
+			nullLabel: 'random',
+			description: 'Which grain. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same result - which is what makes a link reproduce.'
+		},
 		intensity: { type: 'float', label: 'Intensity', min: 0, max: 100, step: 0.1, default: 1, description: 'Largest amount a channel can be pushed up or down.' },
 		monochromatic: { type: 'bool', label: 'Monochromatic', default: false, description: 'Move all three channels together, so the grain is grey rather than coloured.' }
 	};
 
 	override properties: {
+		seed: number | null;
 		intensity: number;
 		monochromatic: boolean;
 	};
@@ -54,6 +69,7 @@ void main(){
 	constructor(options: NoiseOptions = {}) {
 		super(options);
 		this.properties = {
+			seed: options.seed === undefined || options.seed === null ? null : Math.round(options.seed),
 			intensity: options.intensity || 1,
 			monochromatic: options.monochromatic || false
 		};
@@ -66,7 +82,7 @@ void main(){
 		//per channel per pixel, in whatever order the loop happened to run - which
 		//a shader cannot reproduce, because fragments have no order. See
 		//src/helpers/hash.ts.
-		const seed = seedFrom(this.random);
+		const seed = this.seed;
 
 		for(let y = 0; y < frame.height; y++){
 			for(let x = 0; x < frame.width; x++){

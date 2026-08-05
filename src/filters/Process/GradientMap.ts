@@ -85,6 +85,12 @@ export class GradientMap extends Filter {
 	//need not, on a filter that is one texture fetch.
 	static override varying = true;
 
+	//Only the rotation reads the clock, so a static ramp is a still picture and
+	//there is nothing for a frame loop to reveal.
+	static override animated(filter: any): boolean {
+		return filter.properties.cycle !== 0;
+	}
+
 	static override shader = /* glsl */ `
 void main(){
 	ivec2 p = outPixel();

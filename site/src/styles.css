@@ -373,6 +373,12 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 	cursor: pointer;
 }
 
+/* the expander is a control, not a preset - dimmer, so the choices read first */
+.preset-more {
+	border-style: dashed;
+	opacity: .8;
+}
+
 .preset:hover,
 .preset:focus-visible {
 	color: var(--accent);

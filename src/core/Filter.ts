@@ -1,4 +1,5 @@
 import { defaultClock } from './random.js';
+import { seedFrom } from '../helpers/hash.js';
 import { coerceValue } from './schema.js';
 import type { Clock, RandomSource } from './random.js';
 import type { FilterSchema, PropertyValue } from './schema.js';
@@ -79,6 +80,25 @@ export class Filter {
 	 */
 	static get pure(): boolean {
 		return !this.stateful && !this.varying;
+	}
+
+	/**
+	 * Whether this filter will draw something *different* if asked again later,
+	 * with nothing else having changed - which is what a host needs to decide
+	 * whether to run a frame loop over a still image.
+	 *
+	 * Deliberately not the same question as {@link pure}. Purity is about
+	 * caching: "may I reuse the last output". This is about time: "will waiting
+	 * produce a new one". A `Wave` parked at `speed = 0` is impure - its output
+	 * is not a function of its input alone - and yet it will draw the same frame
+	 * forever, so a loop is wasted on it. Answering the caching question here
+	 * kept the loop running for filters that had nothing left to show.
+	 *
+	 * Per instance, like `retains` and `supportsGPU`, because the answer usually
+	 * turns on one property.
+	 */
+	static animated(_filter: Filter): boolean {
+		return this.varying;
 	}
 
 	/**
@@ -212,11 +232,46 @@ export class Filter {
 	random: RandomSource;
 	now: Clock;
 
+	/**
+	 * Drawn once, on first use, rather than once per frame. See {@link seed}.
+	 *
+	 * Lazy rather than drawn in the constructor, because drawing eagerly would
+	 * take a number out of `random` for *every* filter - and the ones that use
+	 * the stream for something else, like `Puzzler`'s shuffle, would then get a
+	 * different sequence than they used to. Once drawn it never changes, which
+	 * is the only property that matters.
+	 */
+	private rolledSeed: number | undefined;
+
 	constructor(options: FilterOptions = {}) {
 		this.channel = options.channel ?? 'grey';
 		this.enabled = options.enabled !== false;
 		this.random = options.random ?? Math.random;
 		this.now = options.now ?? defaultClock;
+	}
+
+	/**
+	 * The seed for the filters that hash their randomness rather than sampling it
+	 * - `Cloud`, `Voronoi`, `Noise`.
+	 *
+	 * **Fixed for the life of the filter**, which is the whole point. It used to
+	 * be drawn afresh on every call, so a single `Cloud` produced a different
+	 * cloud every time it ran. That was invisible while a still image rendered
+	 * once and stopped, and became a strobe the moment anything drove a loop -
+	 * including an *unrelated* filter downstream, because an impure stage cannot
+	 * be cached and so re-ran with it. Pinning it also makes these three pure, so
+	 * a cloud under an animating wave is computed once and reused.
+	 *
+	 * A filter that declares `seed` in its schema can override the drawn value,
+	 * which is how a chain in a URL reproduces the same picture for everyone.
+	 */
+	get seed(): number {
+		const declared = (this.properties as FilterProperties | undefined)?.seed;
+		if (typeof declared === 'number') {
+			return declared;
+		}
+		this.rolledSeed ??= seedFrom(this.random);
+		return this.rolledSeed;
 	}
 
 	process(frame: ImageData | ImageData[]): ImageData {
