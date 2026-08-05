@@ -23,6 +23,14 @@ export interface ScreenBurnOptions extends FilterOptions {
  *
  * `decay` is the per-frame weight on that maximum, so the ghost fades
  * geometrically rather than falling off a cliff when it leaves the ring.
+ *
+ * That was not quite enough on its own. A geometric weight is still non-zero at
+ * the oldest retained frame - at the old defaults it was 0.37 - so a frame's
+ * contribution did not fade away, it *stopped*, and the tail of the trail
+ * visibly popped out of existence one frame at a time. The weight is therefore
+ * tapered to reach zero at `count + 1`, one step past the ring, so a frame has
+ * already faded to nothing by the moment it is dropped. `decay` still shapes
+ * the falloff; the taper only guarantees where it ends.
  */
 export class ScreenBurn extends Filter {
 	//has to see every frame, in order, exactly once
@@ -50,7 +58,13 @@ void main(){
 			break;
 		}
 		weight *= u_decay;
-		burn = max(burn, historyTexel(j, p).rgb * weight);
+		//Tapered to zero at the far end of the ring, so a frame's contribution
+		//has already reached nothing by the step it is dropped. Against
+		//uHistoryLength rather than 'count', so a frame's weight depends only on
+		//its age: while the ring is still filling nothing is being dropped, so
+		//there is nothing to pop, and once it is full the two agree anyway.
+		float fade = weight * (1.0 - float(j + 1) / float(uHistoryLength));
+		burn = max(burn, historyTexel(j, p).rgb * fade);
 	}
 
 	writePixel(vec4(burn, srcTexel(p).a));
@@ -58,8 +72,10 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		length: { type: 'int', label: 'Length', min: 1, max: 32, step: 1, default: 12, description: 'How many frames the burn remembers.' },
-		decay: { type: 'float', label: 'Decay', min: 0.5, max: 1, step: 0.01, default: 0.92, description: 'How much dimmer the ghost gets each frame. 1 never fades.' }
+		//12 frames was too short to read as a burn at all - the effect the filter
+		//exists for was invisible at its own defaults
+		length: { type: 'int', label: 'Length', min: 1, max: 32, step: 1, default: 24, description: 'How many frames the burn remembers.' },
+		decay: { type: 'float', label: 'Decay', min: 0.5, max: 1, step: 0.01, default: 0.98, description: 'How much dimmer the ghost gets each frame. At 1 it fades only with age, so the trail stays bright until it drops out.' }
 	};
 
 	override properties: {
@@ -72,8 +88,8 @@ void main(){
 	constructor(options: ScreenBurnOptions = {}) {
 		super(options);
 		this.properties = {
-			length: options.length || 12,
-			decay: options.decay === undefined ? 0.92 : options.decay
+			length: options.length || 24,
+			decay: options.decay === undefined ? 0.98 : options.decay
 		};
 	}
 
@@ -98,19 +114,29 @@ void main(){
 		}
 
 		const decay = this.properties.decay;
+		const count = this.frames.length;
+		const span = Math.max(1, this.properties.length);
+
+		//hoisted: the weight for a given age is the same for every pixel, and the
+		//taper costs a divide that has no business being in the inner loop
+		const weights = [];
+		let weight = 1;
+		for(let j = 0; j < count; j++){
+			weight *= decay;
+			weights[j] = weight * (1 - (j + 1) / span);
+		}
 
 		for(let i = 0; i < frame.data.length; i += 4){
 			let r = frame.data[i];
 			let g = frame.data[i+1];
 			let b = frame.data[i+2];
-			let weight = 1;
 
-			for(let j = 0; j < this.frames.length; j++){
-				weight *= decay;
+			for(let j = 0; j < count; j++){
+				const fade = weights[j];
 				const older = this.frames[j].data;
-				if(older[i]*weight   > r) r = older[i]*weight;
-				if(older[i+1]*weight > g) g = older[i+1]*weight;
-				if(older[i+2]*weight > b) b = older[i+2]*weight;
+				if(older[i]*fade   > r) r = older[i]*fade;
+				if(older[i+1]*fade > g) g = older[i+1]*fade;
+				if(older[i+2]*fade > b) b = older[i+2]*fade;
 			}
 
 			output.data[i  ] = r;

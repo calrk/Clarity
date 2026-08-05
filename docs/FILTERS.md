@@ -1001,8 +1001,8 @@ new ScreenBurn({ length: 3 });
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `length` | int | 1–32 | `12` | How many frames the burn remembers. |
-| `decay` | float | 0.5–1 | `0.92` | How much dimmer the ghost gets each frame. 1 never fades. |
+| `length` | int | 1–32 | `24` | How many frames the burn remembers. |
+| `decay` | float | 0.5–1 | `0.98` | How much dimmer the ghost gets each frame. At 1 it fades only with age, so the trail stays bright until it drops out. |
 
 ### Puzzler
 

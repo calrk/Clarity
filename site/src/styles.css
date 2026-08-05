@@ -356,6 +356,7 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 	flex-wrap: wrap;
 	gap: .3rem;
 	margin: .1rem 0 .6rem;
+	flex: 0 0 auto;	/* the chain scrolls, not this - see .stage-card */
 }
 
 .preset {
@@ -454,6 +455,14 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 }
 
 .stage-card {
+	/*
+	 * The reason the list scrolls at all. `.chain` is a flex column, and a flex
+	 * item shrinks by default - so with more stages than fit, every card was
+	 * compressed instead, down to a 22px sliver with its controls clipped, and
+	 * `overflow-y` never engaged because the content had been squashed to fit.
+	 * Refusing to shrink is what turns "squash them all" into "scroll".
+	 */
+	flex: 0 0 auto;
 	border: 1px solid var(--line);
 	border-radius: var(--radius-sm);
 	background: var(--bg-tint);

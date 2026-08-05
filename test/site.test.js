@@ -175,6 +175,46 @@ if (!existsSync(join(dist, 'index.html'))) {
 		await open();
 	});
 
+	test('a long pipeline scrolls instead of squashing its cards', async () => {
+		// `.chain` is a flex column, and a flex item shrinks by default - so a
+		// chain taller than the rail compressed every card rather than scrolling,
+		// down to a 22px sliver with the controls clipped out of view. `overflow-y`
+		// never engaged, because the content had been squashed to fit.
+		//
+		// The invariant is that a card is the same height however many are beside
+		// it, which is what makes the container overflow and therefore scroll.
+		//
+		// Needs the three-column layout: below 1100px the rails go static with no
+		// max-height, so there is deliberately nothing to scroll.
+		const viewport = page.viewport();
+		await page.setViewport({ width: 1400, height: 800 });
+
+		await open('#colours/ChromaticAberration,xdistance=12');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+		const alone = await page.$eval('#chain li', (el) => el.getBoundingClientRect().height);
+
+		await open(
+			'#colours/ChromaticAberration,xdistance=12/Blur,radius=8/Bleed,radius=20' +
+				'/Posteriser,colours=6/Vignette/HanoverBars,mode=scanlines/Wave,amplitude=6/Noise,intensity=8'
+		);
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 8);
+
+		const crowded = await page.$eval('#chain li', (el) => el.getBoundingClientRect().height);
+		assert.equal(crowded, alone, 'the first card changed height when seven more joined it');
+
+		const { scrollHeight, clientHeight } = await page.$eval('#chain', (el) => ({
+			scrollHeight: el.scrollHeight,
+			clientHeight: el.clientHeight
+		}));
+		assert.ok(
+			scrollHeight > clientHeight,
+			`the chain should overflow and scroll, got ${scrollHeight} in ${clientHeight}`
+		);
+
+		if (viewport) await page.setViewport(viewport);
+		await open();
+	});
+
 	test('the palette lists every filter in the library', async () => {
 		const { shown, catalogued } = await page.evaluate(() => ({
 			shown: document.querySelectorAll('#palette button').length,

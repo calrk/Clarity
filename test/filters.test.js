@@ -409,3 +409,46 @@ test('the neutral filters really are neutral, and really do work', () => {
 	assert.notDeepEqual([...new CLARITY.hsvShifter({ hue: 90 }).process(makeFrame()).data], [...original.data]);
 	assert.notDeepEqual([...new CLARITY.NormalFlip({ green: true }).process(makeFrame()).data], [...original.data]);
 });
+
+test('a ScreenBurn ghost fades out rather than popping out', () => {
+	// The trail is the age-weighted maximum over a ring of retained frames. A
+	// purely geometric weight is still non-zero at the oldest one - so a frame's
+	// contribution did not fade away, it stopped, and the tail of the trail
+	// visibly blinked out one frame at a time.
+	//
+	// Asserted without magic numbers: feed one white frame and then black ones,
+	// and require that the step where the ghost leaves the ring is no bigger
+	// than the largest step before it. A pop *is* that final step being the
+	// largest, so this is the defect stated directly.
+	const solid = (value) => {
+		const frame = new NodeImageData(4, 4);
+		frame.data.fill(value);
+		for (let i = 3; i < frame.data.length; i += 4) frame.data[i] = 255;
+		return frame;
+	};
+	const brightest = (frame) => {
+		let peak = 0;
+		for (let i = 0; i < frame.data.length; i += 4) peak = Math.max(peak, frame.data[i]);
+		return peak;
+	};
+
+	const length = 6;
+	const burn = new CLARITY.ScreenBurn({ length });
+	burn.process(solid(255));
+
+	// Exactly `length` steps: the white frame is pushed out of the ring on the
+	// last one, so the final reading is the moment it leaves. Running even one
+	// step further appends a 0 -> 0 step and hides the pop behind it.
+	const trail = [];
+	for (let step = 0; step < length; step++) trail.push(brightest(burn.process(solid(0))));
+
+	assert.ok(trail[0] > 0, 'a white frame should leave something behind at all');
+	assert.equal(trail.at(-1), 0, 'the ghost should be gone once it leaves the ring');
+
+	const drops = trail.slice(1).map((value, i) => trail[i] - value);
+	const final = drops.at(-1);
+	assert.ok(
+		final <= Math.max(...drops.slice(0, -1)),
+		`the ghost popped: it lost ${final} on the last step, against ${drops.slice(0, -1).join(', ')} before`
+	);
+});
