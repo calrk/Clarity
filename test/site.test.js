@@ -390,23 +390,36 @@ if (!existsSync(join(dist, 'index.html'))) {
 		assert.match(title, /Median of \d+ runs/);
 	});
 
-	test('measuring a still does not redraw it', async () => {
-		// The timing burst used to finish with another `render()`, and for a
-		// filter with a random element that draws a *different* picture - so the
-		// frame you were looking at was replaced a moment after it appeared, which
-		// reads as the image glitching rather than as a measurement.
+	test('a filter that moves keeps moving on a still image', async () => {
+		// The loop used to ask only the *source* whether anything would change, so
+		// every filter that animates itself was frozen on a photograph - a wave
+		// that never waved, clouds that never drifted, and a colour cycle that did
+		// nothing at all, which is most of the point of having one.
 		//
-		// Noise is the sharpest case: every run of it differs from the last.
-		await open('#colours/Noise,intensity=40');
+		// This also retired a test. The timing burst used to end with another
+		// `render()`, which for a filter with a random or time-varying element drew
+		// a different picture and read as the image glitching. Those are exactly
+		// the filters that now run a loop instead of being measured, and the ones
+		// still measured are pure, so a redraw of them is invisible by definition.
+		await open('#colours/Wave,amplitude=20');
 		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
-		await page.evaluate(() => document.getElementById('mFrame').replaceChildren('—'));
 
-		const shown = await canvasDigest();
-		await page.waitForFunction(() => document.getElementById('mFrame').textContent !== '—');
-		//and a moment past the point the number lands, in case a draw trails it
-		await new Promise((resolve) => setTimeout(resolve, 250));
+		const before = await canvasDigest();
+		let moved = false;
+		const deadline = Date.now() + 4000;
+		while (Date.now() < deadline && !moved) {
+			await new Promise((resolve) => setTimeout(resolve, 120));
+			moved = (await canvasDigest()) !== before;
+		}
+		assert.ok(moved, 'a varying filter on a still source never redrew');
 
-		assert.equal(await canvasDigest(), shown, 'the picture changed while it was being timed');
+		// and the control: an ordinary chain must not spin the loop up for nothing
+		await open('#colours/Desaturate');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+		const still = await canvasDigest();
+		await new Promise((resolve) => setTimeout(resolve, 1200));
+		assert.equal(await canvasDigest(), still, 'a pure chain on a still should settle and stop');
+
 		await open();
 	});
 

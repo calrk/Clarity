@@ -16,6 +16,7 @@ import { Desaturate } from './filters/Process/Desaturate.js';
 import { DotCrawl } from './filters/Process/DotCrawl.js';
 import { Morphology } from './filters/Process/Morphology.js';
 import { Vignette } from './filters/Process/Vignette.js';
+import { GradientMap } from './filters/Process/GradientMap.js';
 import { Glow } from './filters/Process/Glow.js';
 import { HanoverBars } from './filters/Process/HanoverBars.js';
 import { Invert } from './filters/Process/Invert.js';
@@ -79,6 +80,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	DotCrawl,
 	Morphology,
 	Vignette,
+	GradientMap,
 	Glow,
 	HanoverBars,
 	Invert,

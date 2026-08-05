@@ -465,3 +465,54 @@ test('a slow ScreenBurn still reaches black, however slow', () => {
 	assert.equal(trail.at(-1), 0, `decay=${slowest} never reached black in ${trail.length} frames`);
 	assert.ok(trail.length > 100, `decay=${slowest} should be a long fade, gone in ${trail.length}`);
 });
+
+test('GradientMap bands the ramp into exactly the number of steps asked for', () => {
+	// `steps` is what makes `cycle` read as flowing bands rather than as a wash,
+	// so "how many distinct colours came out" is the property, not the look.
+	const distinct = (frame) => {
+		const seen = new Set();
+		for (let i = 0; i < frame.data.length; i += 4) {
+			seen.add(`${frame.data[i]},${frame.data[i + 1]},${frame.data[i + 2]}`);
+		}
+		return seen.size;
+	};
+
+	const source = makeFrame();
+	const smooth = distinct(new CLARITY.GradientMap({}).process(source));
+	const banded = distinct(new CLARITY.GradientMap({ steps: 5 }).process(source));
+
+	assert.ok(banded <= 5, `steps=5 should give at most 5 colours, got ${banded}`);
+	assert.ok(smooth > banded, `smooth should be richer than banded, got ${smooth} vs ${banded}`);
+});
+
+test('GradientMap cycling moves the colours and leaves the bands alone', () => {
+	// Palette cycling is the *colours* moving through fixed bands. Rotating
+	// before banding instead would slide the band edges, and the picture would
+	// appear to crawl rather than to flow - so both halves are asserted.
+	const source = makeFrame();
+	const at = (ms) =>
+		new CLARITY.GradientMap({ ramp: 'spectrum', steps: 6, cycle: 1, now: () => ms }).process(source);
+
+	const first = at(0);
+	const later = at(400);
+
+	assert.notDeepEqual([...later.data], [...first.data], 'cycling did not change anything');
+
+	// Same pixels grouped together in both, because banding happens first: two
+	// pixels sharing a colour before the rotation must still share one after.
+	const groups = new Map();
+	for (let i = 0; i < first.data.length; i += 4) {
+		const was = `${first.data[i]},${first.data[i + 1]},${first.data[i + 2]}`;
+		const now = `${later.data[i]},${later.data[i + 1]},${later.data[i + 2]}`;
+		const already = groups.get(was);
+		if (already === undefined) groups.set(was, now);
+		else assert.equal(now, already, `band ${was} split into ${now} and ${already}`);
+	}
+
+	// and a still cycle really is still
+	assert.deepEqual(
+		[...new CLARITY.GradientMap({ now: () => 9999 }).process(source).data],
+		[...new CLARITY.GradientMap({ now: () => 0 }).process(source).data],
+		'cycle defaults to 0, so the clock should not matter'
+	);
+});

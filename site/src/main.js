@@ -29,6 +29,8 @@ let currentSourceId = null;
 /** The live element, so a camera or video can be shut down when replaced. */
 let currentElement = null;
 let smoothedFrameTime = 0;
+/** Whether the *source* produces new frames; the chain can also be the moving part. */
+let sourceLive = false;
 
 // ---------------------------------------------------------------- palette
 
@@ -290,12 +292,8 @@ async function useSource(id) {
 		currentElement = element;
 		renderer.source(element, { live });
 
-		if (live) {
-			startLoop();
-		} else {
-			stopLoop();
-			requestFrame();
-		}
+		sourceLive = live;
+		requestFrame();
 	} catch (error) {
 		reportError(error);
 		return;
@@ -376,12 +374,8 @@ async function openFile(file) {
 		await loadSecondFrames();
 		chainView.render(renderer.pipeline.filters, seconds);
 
-		if (live) {
-			startLoop();
-		} else {
-			stopLoop();
-			requestFrame();
-		}
+		sourceLive = live;
+		requestFrame();
 		updateShare();
 	} catch (error) {
 		reportError(error);
@@ -399,9 +393,36 @@ async function openFile(file) {
 const startLoop = () => renderer.start();
 const stopLoop = () => renderer.stop();
 
+/**
+ * Whether the picture changes on its own, from either end of the pipeline.
+ *
+ * A still source with an ordinary chain renders once and sits there, which is
+ * why the loop is not simply always on. But a filter can be the moving part
+ * instead: `Wave`, `Cloud`, `DotCrawl`, `Noise` and `GradientMap`'s cycling all
+ * declare themselves impure because they read the clock or the random source,
+ * and a stateful filter's output depends on how many frames it has seen. Those
+ * were all frozen on a still image - a wave that never waved - because the loop
+ * only ever asked the *source* whether anything was going to change.
+ */
+function chainIsLive() {
+	return renderer.pipeline.filters.some(
+		(filter) => filter.enabled && !filter.constructor.pure
+	);
+}
+
+/** Starts or stops the loop to match what the source and the chain need. */
+function matchLoop(sourceIsLive) {
+	if (sourceIsLive || chainIsLive()) {
+		startLoop();
+	} else {
+		stopLoop();
+	}
+	return renderer.running;
+}
+
 /** One frame, now, unless the loop is already producing them. */
 function requestFrame() {
-	if (renderer.running) return;
+	if (matchLoop(sourceLive)) return;
 	renderer.invalidateSource();
 	renderer.render();
 	scheduleMeasure();

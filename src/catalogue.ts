@@ -97,6 +97,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Convolver: { category: 'Process', summary: "Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace." },
 	Desaturate: { category: 'Process', summary: "Pulls colour towards grey, by an amount, keeping luminance." },
 	DotCrawl: { category: 'Process', summary: "The crawling dot pattern composite video leaves along colour edges." },
+	GradientMap: { category: 'Process', summary: "Recolours the frame by brightness through a named ramp - fire, ice, thermal - and can cycle it." },
 	Glow: { category: 'Process', summary: "Blurs the image and blends the blur back over the original." },
 	HanoverBars: { category: 'Process', summary: "Rotates the chroma of every other bar of lines, or darkens them." },
 	Invert: { category: 'Process', summary: "Inverts colour. In dynamic mode it reflects within the image's own range." },

@@ -65,6 +65,13 @@ export const cases = [
 	{ filter: 'Bleed', input: 'photo', options: { radius: 6 }, gpu: ACCUMULATING },
 	{ filter: 'DotCrawl', input: 'photo', options: {}, now: 1234, gpu: ACCUMULATING },
 	{ filter: 'Glow', input: 'photo', options: { radius: 6 }, gpu: ACCUMULATING },
+	// The table is built on the CPU and handed to the shader, so the ramp itself
+	// cannot disagree - only which of its 256 entries a pixel lands on, which is
+	// a hard boundary and wants the population metric rather than a tolerance.
+	{ filter: 'GradientMap', input: 'photo', options: {}, gpu: BOUNDARY },
+	{ filter: 'GradientMap', name: 'thermal', input: 'heightmap', options: { ramp: 'thermal' }, gpu: BOUNDARY },
+	// banded and rotated: palette cycling, with the clock pinned so it is a still
+	{ filter: 'GradientMap', name: 'cycled', input: 'heightmap', now: 2500, options: { ramp: 'spectrum', steps: 6, cycle: 0.25 }, gpu: BOUNDARY },
 	{ filter: 'Convolver', input: 'photo', options: {}, gpu: KERNEL },
 	{ filter: 'Convolver', name: 'smooth', input: 'photo', options: { preset: 'smooth', iterations: 2 }, gpu: KERNEL },
 	{ filter: 'Convolver', name: 'sobel', input: 'photo', options: { preset: 'sobel' }, gpu: KERNEL },

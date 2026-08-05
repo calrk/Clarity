@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-49 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+50 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [DotCrawl](#dotcrawl) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -135,6 +135,27 @@ new DotCrawl();
 |---|---|---|---|---|
 | `intensity` | float | 0–2 | `0.5` | How strong the dots are, as a multiple of the colour difference they sit on. |
 | `speed` | float | 0–30 | `8` | How many times a second the pattern steps. 0 freezes it. |
+
+### GradientMap
+
+Recolours the frame by brightness through a named ramp - fire, ice, thermal - and can cycle it.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/GradientMap.png" width="192" alt="GradientMap applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/GradientMap)
+
+```js
+import { GradientMap } from '@calrk/clarity';
+
+new GradientMap();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `ramp` | select | `fire` · `ember` · `ice` · `thermal` · `toxic` · `sepia` · `spectrum` | `fire` | Which colours brightness maps onto. Spectrum is the one that loops, so it cycles without a seam. |
+| `steps` | int | 2–32, or empty for smooth | _smooth_ | Bands the ramp into this many colours. Empty leaves it smooth; a low number is what makes cycling read as flow. |
+| `cycle` | float | -2–2 | `0` | Rotations of the ramp per second. Negative runs it the other way, 0 holds still. |
+| `offset` | float | 0–1 | `0` | Where in the ramp the darkest pixel starts. |
 
 ### Glow
 

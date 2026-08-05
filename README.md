@@ -1,7 +1,7 @@
 Clarity
 =======
 
-Forty-nine composable image filters for canvas — blur, edge detection, chromatic
+Fifty composable image filters for canvas — blur, edge detection, chromatic
 aberration, posterising, normal maps, motion detection — running as fragment
 shaders by default, with a CPU implementation of every one of them behind it.
 
@@ -434,7 +434,7 @@ cannot describe a filter that no longer works that way.
 
 | Family | Filters |
 |---|---|
-| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `DotCrawl`, `Glow`, `HanoverBars`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `Vignette`, `hsvShifter` |
+| Process | `Bleed`, `Blur`, `Convolver`, `Desaturate`, `DotCrawl`, `Glow`, `GradientMap`, `HanoverBars`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `Vignette`, `hsvShifter` |
 | Thresholders | `GradientThreshold`, `MedianThreshold`, `ValueThreshold` |
 | Salience | `EdgeDetector`, `MotionDetector`, `ShotDetector`, `SkinDetector` |
 | Transform | `ChromaticAberration`, `FishEye`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |

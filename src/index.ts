@@ -77,6 +77,8 @@ export { Morphology } from './filters/Process/Morphology.js';
 export type { MorphologyOptions, MorphologyMode } from './filters/Process/Morphology.js';
 export { Vignette } from './filters/Process/Vignette.js';
 export type { VignetteOptions } from './filters/Process/Vignette.js';
+export { GradientMap } from './filters/Process/GradientMap.js';
+export type { GradientMapOptions, Ramp } from './filters/Process/GradientMap.js';
 export { Glow } from './filters/Process/Glow.js';
 export type { GlowOptions } from './filters/Process/Glow.js';
 export { HanoverBars } from './filters/Process/HanoverBars.js';

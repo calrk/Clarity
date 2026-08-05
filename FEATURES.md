@@ -570,13 +570,22 @@ Removing it also orphaned the `binary-in` trait, which nothing else carried, so 
 | Filter | Summary | Effort |
 |---|---|---|
 | ~~**Levels**~~ ✓ | Remaps the black point, white point and gamma — the everyday contrast control. | Done |
-| **Sepia** | Tones the frame to warm monochrome. | Low |
+| ~~**Sepia**~~ ✓ | Tones the frame to warm monochrome. | Done — a `GradientMap` ramp |
+| ~~**LUT**~~ ✓ | Remaps every colour through a lookup table. | Done as `GradientMap`; the 3D cube is a separate thing |
 | **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
-| **LUT** | Remaps every colour through a lookup table, for film-style grades. | Medium |
 
 **`Levels` was a real gap rather than a nicety** and is now done: there was no brightness or contrast control anywhere in the library, only `hsvShifter.value` multiplying brightness, which can scale but never *stretch*. Gamma is applied after the black/white stretch, as `pow(t, 1/gamma)`, so the two ends stay pinned while the midtones move — doing it before would drag the ends with it.
 
-`Dither` is the one honest use of `supportsGPU`: Bayer is an ordered threshold and runs as a shader, while Floyd–Steinberg diffuses error to pixels not yet visited and is inherently sequential, so it stays CPU-only. `LUT` needs a decision on where the table comes from — a second input image, or `static data()`, which already uploads arbitrary texture data.
+**`LUT` shipped as `GradientMap`, indexed by brightness rather than by colour**, and the reframing is the whole of it. A 3D colour cube is the film-grade version and is genuinely useful — but the table has to come from *somewhere*, and in practice that means a `.cube` exported from Resolve. That is an asset-pipeline feature wearing a filter's clothes, and it is the only thing in the library that would need a file the user does not have. A 1D ramp indexed by luminance needs no asset at all, because the ramps are authored here, and it pays off against how much of this library **outputs grey and had nothing to do with it**: `Cloud`, `Gradient`, `Contourer`, height maps, `EdgeDetector`, the thresholders, `DifferenceDetector`. Seven ramps — `fire`, `ember`, `ice`, `thermal`, `toxic`, `sepia`, `spectrum` — and **`Sepia` is one of them rather than a filter**, the same absorption `Convolver` did to `Sharpen`.
+
+Two things worth recording:
+
+- **`steps` and `cycle` together are palette cycling**, the trick pixel artists used to animate waterfalls and lava without touching a pixel. Banding happens *before* the rotation on purpose: quantising fixes where the bands are and the rotation then moves colours through them, which is what reads as flow. Rotating first and banding after slides the band edges instead, and the picture appears to crawl. The test asserts exactly that — two pixels sharing a colour before the rotation must still share one after.
+- **The table is built on the CPU and handed to the shader through `data()`**, so both backends look colours up in the same 256 bytes rather than each evaluating the ramp its own way. All that is left to disagree about is which entry a pixel lands on, which is a hard boundary and takes the population metric.
+
+`Dither` is the one honest use of `supportsGPU`: Bayer is an ordered threshold and runs as a shader, while Floyd–Steinberg diffuses error to pixels not yet visited and is inherently sequential, so it stays CPU-only.
+
+**A 3D `.cube` LUT stays open, and should be judged as an import feature rather than a filter** — `static data()` already uploads arbitrary texture data, so the mechanism exists; what does not exist is anywhere for a user of the playground to put a file.
 
 ### Starters
 

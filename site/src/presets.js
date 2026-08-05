@@ -58,6 +58,22 @@ export const PRESETS = [
 		chain: 'rorschach/Morphology,mode=open,radius=3'
 	},
 	{
+		id: 'lava',
+		label: 'Flowing lava',
+		note: 'Ridged noise read as heat, banded into a palette, and the palette rotating',
+		//The whole point of the three together: Cloud makes a field, steps turns
+		//it into bands, and cycle rotates the colours *through* those bands. The
+		//bands hold still and the colour moves, which is what reads as flow -
+		//exactly the trick pixel artists animated waterfalls with.
+		chain: 'blank/Cloud,fold=ridged,iterations=6/GradientMap,steps=10,cycle=0.15'
+	},
+	{
+		id: 'contour',
+		label: 'Contour map',
+		note: 'A height map read as heat - the same data a topographic map draws',
+		chain: 'heightmap/GradientMap,ramp=thermal,steps=12'
+	},
+	{
 		id: 'terrain',
 		label: 'Terrain',
 		note: 'Ridged noise read as a height map — a lit surface out of an empty frame',
