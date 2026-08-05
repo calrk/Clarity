@@ -68,6 +68,16 @@ export const PRESETS = [
 		chain: 'blank/Cloud,fold=ridged,iterations=6/GradientMap,steps=10,cycle=0.15'
 	},
 	{
+		id: 'fog',
+		label: 'Drifting fog',
+		note: 'A noise field scrolling slowly under its own steam',
+		//Two things had to land before this worked at all: Cloud holding its seed
+		//instead of redrawing itself every frame, and Translator being able to
+		//scroll. Before either, translating a cloud moved a picture that was
+		//already a different picture.
+		chain: 'blank/Cloud,persistence=0.6,iterations=6/Translator,horizontal=0.06,vertical=0.02,speed=1'
+	},
+	{
 		id: 'contour',
 		label: 'Contour map',
 		note: 'A height map read as heat - the same data a topographic map draws',

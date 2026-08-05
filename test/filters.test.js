@@ -597,3 +597,83 @@ test('animated is a question about time, not about caching', () => {
 		assert.equal(CLARITY[name].animated(filter), false, `${name} should not drive a loop`);
 	}
 });
+
+test('cycling a ramp never jumps, whether or not the ramp closes', () => {
+	// `fire` runs black to white, so rotating it straight through slammed white
+	// into black once per cycle - a visible tear rather than a fade. A ramp that
+	// does not end where it started is swept up and back down instead. Asserted
+	// as continuity, which is what "no seam" actually means.
+	const colourAt = (ramp, ms) => {
+		const out = new CLARITY.GradientMap({ ramp, cycle: 1, now: () => ms }).process(makeFrame());
+		//one fixed pixel: what matters is how its colour moves as the phase does
+		return [out.data[0], out.data[1], out.data[2]];
+	};
+
+	for (const ramp of CLARITY.GradientMap.schema.ramp.options.map((o) => o.value)) {
+		let worst = 0;
+		let previous = colourAt(ramp, 0);
+		//two full cycles at 1/s, so a fold is crossed in both directions
+		for (let ms = 10; ms <= 2000; ms += 10) {
+			const now = colourAt(ramp, ms);
+			worst = Math.max(worst, ...now.map((v, i) => Math.abs(v - previous[i])));
+			previous = now;
+		}
+		assert.ok(worst < 25, `${ramp} jumped by ${worst} between adjacent frames`);
+	}
+});
+
+test('the fold leaves a ramp that is not cycling exactly as it was', () => {
+	// the fold is the identity on 0-1, which is why adding it moved no goldens
+	const source = makeFrame();
+	for (const ramp of CLARITY.GradientMap.schema.ramp.options.map((o) => o.value)) {
+		assert.deepEqual(
+			[...new CLARITY.GradientMap({ ramp, now: () => 5000 }).process(source).data],
+			[...new CLARITY.GradientMap({ ramp, now: () => 0 }).process(source).data],
+			`${ramp} moved without being asked to cycle`
+		);
+	}
+});
+
+test('Translator loses no pixels, however far it has scrolled', () => {
+	// A wrapping translate is a permutation: every pixel goes somewhere and
+	// nothing lands twice. The old wrap adjusted the index once, which was only
+	// ever enough because the offset was clamped to a single frame - scrolling
+	// carries it past that, and one adjustment then leaves the index off the end
+	// of the row, reading a neighbouring line or falling outside the frame.
+	// The offset reaches `horizontal + almost one frame` of travel, so a large
+	// offset puts the destination index more than two frames past the source and
+	// needs two subtractions, not one. A gentle offset never gets there, which is
+	// why this sweeps the extremes rather than picking comfortable numbers.
+	const original = makeFrame();
+	for (const horizontal of [0.35, 0.9, 1, -0.9]) {
+		for (const ms of [0, 900, 4300, 7700, 61000]) {
+			const out = new CLARITY.Translator({
+				horizontal,
+				vertical: -horizontal,
+				speed: 3,
+				now: () => ms
+			}).process(makeFrame());
+
+			assert.ok(
+				sameHistogram(out.data, original.data),
+				`horizontal=${horizontal} at ${ms}ms did not preserve the pixels`
+			);
+		}
+	}
+});
+
+test('Translator only moves when it is told to', () => {
+	const still = new CLARITY.Translator({ horizontal: 0.25, now: () => 0 }).process(makeFrame());
+	const later = new CLARITY.Translator({ horizontal: 0.25, now: () => 8000 }).process(makeFrame());
+	assert.deepEqual([...later.data], [...still.data], 'it drifted at speed 0');
+
+	// 5s rather than 8s: at a quarter of a frame per second, eight seconds is
+	// exactly two whole frames of travel, and a wrapping scroll that has gone
+	// round twice is back where it started - a true result that would read here
+	// as the filter having failed to move.
+	const scrolling = new CLARITY.Translator({ horizontal: 0.25, speed: 1, now: () => 5000 }).process(makeFrame());
+	assert.notDeepEqual([...scrolling.data], [...still.data]);
+
+	assert.equal(CLARITY.Translator.animated(new CLARITY.Translator({})), false);
+	assert.equal(CLARITY.Translator.animated(new CLARITY.Translator({ speed: 0.5 })), true);
+});

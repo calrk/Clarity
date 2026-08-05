@@ -55,6 +55,41 @@ const RAMPS: Record<Ramp, Stop[]> = {
 const RAMP_NAMES = Object.keys(RAMPS) as Ramp[];
 
 /**
+ * Whether a ramp ends on the colour it started on, and so can be rotated
+ * straight through without a visible join.
+ *
+ * Read off the stops rather than declared, because it is a fact about them: a
+ * ramp that is edited to close, or to stop closing, cannot get this wrong.
+ */
+const CLOSES: Record<string, boolean> = Object.fromEntries(
+	Object.entries(RAMPS).map(([name, stops]) => {
+		const first = stops[0];
+		const last = stops[stops.length - 1];
+		return [name, first[1] === last[1] && first[2] === last[2] && first[3] === last[3]];
+	})
+);
+
+/**
+ * Where in the ramp position `t` lands, once rotation has carried it outside
+ * 0-1.
+ *
+ * A closing ramp wraps: it comes back round to where it began and nothing
+ * jumps. One that does not close is *folded* instead - swept up the ramp and
+ * back down - because wrapping `fire` would slam white straight into black
+ * once per cycle, which is a visible tear rather than a fade.
+ *
+ * Note the fold is the identity on 0-1, so a filter that is not cycling looks
+ * exactly as it did before this existed.
+ */
+function fold(t: number, closes: boolean): number {
+	if(closes){
+		return t - Math.floor(t);
+	}
+	const doubled = t - 2 * Math.floor(t / 2);
+	return doubled <= 1 ? doubled : 2 - doubled;
+}
+
+/**
  * Recolours the frame by brightness, through a named ramp.
  *
  * Every pixel's brightness picks a colour out of a 256-entry table and that
@@ -112,7 +147,7 @@ void main(){
 			type: 'select',
 			label: 'Ramp',
 			default: 'fire',
-			description: 'Which colours brightness maps onto. Spectrum is the one that loops, so it cycles without a seam.',
+			description: 'Which colours brightness maps onto. Spectrum runs right round the hues, so cycling it sweeps continuously; the rest sweep up and back down.',
 			options: [
 				{ value: 'fire', label: 'Fire - black through red and orange to white' },
 				{ value: 'ember', label: 'Ember - coals, with no white at the top' },
@@ -189,10 +224,8 @@ void main(){
 	}
 }
 
-/** The ramp at `t`, wrapped into 0-1, as whole 0-255 channels. */
-function sample(stops: Stop[], t: number): [number, number, number] {
-	const at = t - Math.floor(t);
-
+/** The ramp at `at`, which must already be in 0-1, as whole 0-255 channels. */
+function sample(stops: Stop[], at: number): [number, number, number] {
 	let upper = 1;
 	while(upper < stops.length - 1 && stops[upper][0] < at){
 		upper++;
@@ -219,7 +252,9 @@ function sample(stops: Stop[], t: number): [number, number, number] {
  * slide the band edges instead, and the picture would appear to crawl.
  */
 function buildTable(filter: GradientMap): Uint8Array {
-	const stops = RAMPS[filter.properties.ramp] ?? RAMPS.fire;
+	const ramp = filter.properties.ramp;
+	const stops = RAMPS[ramp] ?? RAMPS.fire;
+	const closes = CLOSES[ramp] ?? false;
 	const steps = filter.properties.steps;
 	const phase = (filter.now() / 1000) * filter.properties.cycle + filter.properties.offset;
 
@@ -230,7 +265,7 @@ function buildTable(filter: GradientMap): Uint8Array {
 			t = Math.min(steps - 1, Math.floor(t * steps)) / (steps - 1);
 		}
 
-		const [r, g, b] = sample(stops, t + phase);
+		const [r, g, b] = sample(stops, fold(t + phase, closes));
 		bytes[i*4  ] = r;
 		bytes[i*4+1] = g;
 		bytes[i*4+2] = b;

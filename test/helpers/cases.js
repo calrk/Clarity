@@ -130,6 +130,10 @@ export const cases = [
 	{ filter: 'FishEye', input: 'photo', options: {}, gpu: BOUNDARY },
 	{ filter: 'FishEye', name: 'pinch', input: 'photo', options: { amount: -0.4, zoom: 1.2 }, gpu: BOUNDARY },
 	{ filter: 'Translator', input: 'photo', options: { horizontal: 0.25, vertical: 0.1 }, gpu: POINTWISE },
+	// Scrolling carries the offset past a whole frame, which is where the CPU's
+	// single add-or-subtract wrap used to run off the end of the row. The clock
+	// is pinned, so this is a still of a moving picture.
+	{ filter: 'Translator', name: 'scrolled', input: 'photo', now: 3400, options: { horizontal: 0.25, vertical: 0.1, speed: 1.5 }, gpu: POINTWISE },
 	{ filter: 'Tiler', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Tiler', name: 'odd', input: 'odd', options: {}, gpu: POINTWISE },
 	{ filter: 'ChromaticAberration', input: 'photo', options: { xdistance: 4, ydistance: 2, fixed: true }, gpu: POINTWISE },

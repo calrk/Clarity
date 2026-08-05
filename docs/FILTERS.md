@@ -152,7 +152,7 @@ new GradientMap();
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `ramp` | select | `fire` · `ember` · `ice` · `thermal` · `toxic` · `sepia` · `spectrum` | `fire` | Which colours brightness maps onto. Spectrum is the one that loops, so it cycles without a seam. |
+| `ramp` | select | `fire` · `ember` · `ice` · `thermal` · `toxic` · `sepia` · `spectrum` | `fire` | Which colours brightness maps onto. Spectrum runs right round the hues, so cycling it sweeps continuously; the rest sweep up and back down. |
 | `steps` | int | 2–32, or empty for smooth | _smooth_ | Bands the ramp into this many colours. Empty leaves it smooth; a low number is what makes cycling read as flow. |
 | `cycle` | float | -2–2 | `0` | Rotations of the ramp per second. Negative runs it the other way, 0 holds still. |
 | `offset` | float | 0–1 | `0` | Where in the ramp the darkest pixel starts. |
@@ -604,6 +604,7 @@ new Translator({ horizontal: 0.25, vertical: 0.1 });
 |---|---|---|---|---|
 | `horizontal` | float | -1–1 | `0.5` | Fraction of the frame width, wrapping at the edges. |
 | `vertical` | float | -1–1 | `0.5` | Fraction of the frame height, wrapping at the edges. |
+| `speed` | float | -4–4 | `0` | Scrolls along the offset, that many times over per second. 0 holds still; the offset sets the direction and how far one second carries it. |
 
 ### Wave
 
