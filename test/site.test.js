@@ -390,6 +390,26 @@ if (!existsSync(join(dist, 'index.html'))) {
 		assert.match(title, /Median of \d+ runs/);
 	});
 
+	test('measuring a still does not redraw it', async () => {
+		// The timing burst used to finish with another `render()`, and for a
+		// filter with a random element that draws a *different* picture - so the
+		// frame you were looking at was replaced a moment after it appeared, which
+		// reads as the image glitching rather than as a measurement.
+		//
+		// Noise is the sharpest case: every run of it differs from the last.
+		await open('#colours/Noise,intensity=40');
+		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
+		await page.evaluate(() => document.getElementById('mFrame').replaceChildren('—'));
+
+		const shown = await canvasDigest();
+		await page.waitForFunction(() => document.getElementById('mFrame').textContent !== '—');
+		//and a moment past the point the number lands, in case a draw trails it
+		await new Promise((resolve) => setTimeout(resolve, 250));
+
+		assert.equal(await canvasDigest(), shown, 'the picture changed while it was being timed');
+		await open();
+	});
+
 	test('the backend badge forces the chain onto the CPU and back', async () => {
 		await open('#colours/Invert');
 		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);

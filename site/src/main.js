@@ -422,16 +422,45 @@ function requestFrame() {
  * measurement happens once the value settles.
  */
 let measureTimer = 0;
+/**
+ * Bumped whenever the picture changes, so a measurement still in flight can see
+ * that it is timing something nobody is looking at any more and give up.
+ */
+let measureGeneration = 0;
+
+/** Total work to spend on a measurement, and the longest it may block for. */
+const MEASURE_BUDGET_MS = 250;
+const MEASURE_SLICE_MS = 8;
 
 function scheduleMeasure() {
 	clearTimeout(measureTimer);
+	measureGeneration++;
 	if (renderer.running) {
 		return;	//a live source produces real frames; those are the honest number
 	}
 	measureTimer = setTimeout(measure, 160);
 }
 
-function measure() {
+const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+
+/**
+ * Times the chain without the page showing it happening.
+ *
+ * Two things made the measurement visible, and both are the kind of thing you
+ * only notice on the filters that make it obvious:
+ *
+ * - it used to finish by calling `render()` again, which for anything with a
+ *   random or time-varying element drew a *different* picture. The frame you
+ *   were looking at was replaced by another one a fraction of a second later,
+ *   which reads as the image glitching. The canvas already holds a correct
+ *   frame when this starts, so the fix is to leave it alone: nothing here draws.
+ * - it ran its whole burst in one go. 250ms of straight-line work on the main
+ *   thread is a quarter-second where nothing repaints and no input is handled,
+ *   which reads as the page hanging. It runs in slices now, yielding to the
+ *   browser between them, and spends its budget in *work* time so yielding does
+ *   not cost it samples.
+ */
+async function measure() {
 	const frame = renderer.sourceFrame;
 	const filters = renderer.pipeline.filters;
 
@@ -440,25 +469,43 @@ function measure() {
 		return;
 	}
 
+	const mine = measureGeneration;
+
 	//a stateful filter would otherwise spend the burst accumulating a history of
 	//the same frame over and over, and time something nobody asked for
 	for (const filter of filters) filter.reset();
 
 	const times = [];
-	const deadline = performance.now() + 250;
-	while (times.length < 30 && performance.now() < deadline) {
-		renderer.pipeline.invalidate();
-		const at = performance.now();
-		renderer.pipeline.run(frame);
-		times.push(performance.now() - at);
+	let spent = 0;
+	const more = () => times.length < 30 && spent < MEASURE_BUDGET_MS;
+
+	while (more()) {
+		const sliceEnd = performance.now() + MEASURE_SLICE_MS;
+		do {
+			renderer.pipeline.invalidate();
+			const at = performance.now();
+			renderer.pipeline.run(frame);
+			const took = performance.now() - at;
+			times.push(took);
+			spent += took;
+		} while (more() && performance.now() < sliceEnd);
+
+		await nextFrame();
+		if (measureGeneration !== mine) {
+			//the source, the chain or a property moved on; whoever changed it has
+			//already scheduled a measurement of its own
+			return;
+		}
 	}
 
 	times.sort((a, b) => a - b);
 	setFrameTime(times[times.length >> 1], times.length);
 
+	//Put the pipeline back the way a fresh render expects to find it, but do not
+	//draw: the canvas is showing the frame from before the burst, and redrawing
+	//is exactly the flicker this is avoiding.
 	for (const filter of filters) filter.reset();
 	renderer.pipeline.invalidate();
-	renderer.render();
 }
 
 function setFrameTime(ms, samples) {

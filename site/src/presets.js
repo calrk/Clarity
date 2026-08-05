@@ -24,6 +24,16 @@ export const PRESETS = [
 		chain: 'landscape/FishEye,amount=0.35/HanoverBars,mode=scanlines/Vignette,amount=0.7,radius=0.4,softness=0.7'
 	},
 	{
+		id: 'pixelart',
+		label: 'Pixel art',
+		note: 'Chunky pixels and six colours, the way a console with no memory did it',
+		//Posteriser is doing the work here: a median cut to six colours per frame
+		//is exactly the constraint an old palette was, and it is what makes the
+		//result read as drawn rather than as a photo with big pixels. The
+		//saturation lift is because a small palette always looks washed out.
+		chain: 'landscape/Pixelate,size=8/Posteriser,colours=6/hsvShifter,saturation=1.4'
+	},
+	{
 		id: 'composite',
 		label: 'Composite video',
 		note: 'Colour bleeding off its edges, fringing, and the dots that crawl along them',
