@@ -858,6 +858,61 @@ Once it is live, two small additions to `site/seo.js` become possible and are wo
 
 ---
 
+## 16. Presets — the README's Example Chains, Inside the Playground
+
+**Effort: Low**
+
+The playground gives you forty-nine filters and an empty pipeline. Everything interesting in this project is a *combination* — CRT is a lens curve, scanlines and a corner falloff; the composite-video look is `Bleed` into `ChromaticAberration` into `DotCrawl` — and none of that is discoverable by reading an alphabetical palette. The six best chains anyone has built are currently hand-written links in `README.md:18-24`, visible to someone reading GitHub and invisible to someone standing in the app.
+
+**A preset is already a data type here.** A chain is a string, and that string *is* the URL, so a preset is `{ id, label, chain }` and applying one is:
+
+```js
+location.hash = preset.chain;   // 'landscape/FishEye,amount=0.35/HanoverBars,mode=scanlines/…'
+```
+
+That lands on the existing `hashchange` → `loadFromHash` path (`site/src/main.js:599`, wired at `:684`), which already clears the pipeline, rebuilds the filters, switches the source and syncs. **There is no second apply path to write, and therefore none that can drift from the link format.** Three things follow for free:
+
+- **Undo costs nothing.** Assigning to `location.hash` pushes a history entry, so browser-back restores whatever chain was there. An action that overwrites your work normally needs a confirmation step; this one does not.
+- **A preset carries its source**, because the chain format has a source segment. This is not a nicety — the CRT chain on `blank` is a black rectangle, and the `ScreenBurn` one is nothing at all without `box`.
+- **They cannot rot.** The round-trip check added alongside the README links (`test/docs.test.js`) applies unchanged: every preset must name a source that exists in `sources.js` and survive `formatChain`. A renamed filter or a re-defaulted property fails the build — which has already happened once, when `ChromaticAberration,xdistance=8` stopped round-tripping the moment `8` became the default.
+
+### Where it goes
+
+**Not a tab in the Filters panel.** A tab hides the palette — the thing you use continuously — behind the thing you touch once a session, and it puts the control a long way from what it replaces. The preset overwrites the *pipeline*, so it belongs in the Pipeline panel (`site/index.html:107`), beside the existing `Clear` button:
+
+- **Quick fix** — a `<select>` labelled "Start from…" in the `panel-head`. Two elements, no new CSS.
+- **Better** — a row of chips under the heading, same treatment as the source picker. Browsable at a glance, and the labels are the point.
+- **Best** — chips with a thumbnail each, generated the way the golden images are. Costs a build step to render each preset against its source, and that step is the same one #11 wanted for curated per-filter demos, so the two share the work.
+
+### One list, three consumers
+
+`site/src/presets.js` should be the single source, and the README and `docs/FILTERS.md` should read from it rather than keeping their own copies — the README's six links are exactly the second copy that goes stale. That makes this partly a cleanup: it removes hand-written chains from a file no test used to check, and it is the same move that `CATALOGUE` made for the filter list.
+
+### Starting set
+
+Each names its own source, which is half of why they read well:
+
+| Preset | Chain | Why it earns a slot |
+|---|---|---|
+| CRT | `landscape` · FishEye + HanoverBars + Vignette | Already in the README; the clearest demonstration that Clarity composes |
+| Composite video | `books` · Bleed + ChromaticAberration + DotCrawl | Nobody finds these three together by browsing |
+| Security camera | `box` · Desaturate + Noise + ScreenBurn | The temporal family is the least discoverable, and `box` is the source built for it |
+| Pencil sketch | `face` · EdgeDetector + Invert + Levels | The one result people recognise instantly |
+| Speckle removal | `rorschach` · Morphology open, then close | Shows the operator pair doing something a threshold cannot |
+| Terrain | `blank` · Cloud + NormalGenerator + NormalIntensity | Starters need no input, which is surprising until you see it |
+
+**`ScreenBurn`'s defaults undersell it** and this is the feature that exposes it: at `length=12, decay=0.92` the scar is invisible on `box`, and at `length=32, decay=1` it draws a clean arc across the frame. Fix the default in the same sitting — it is the same class as `Wave` and `Rotator` defaulting to no-ops, only subtler, and only `ScreenBurn`'s own golden moves.
+
+### The one that cannot ship yet
+
+The fog/water chain — `Cloud` + `Translator` looping, multiplied against a second `Cloud` drifting the other way — is probably the most impressive thing on the list and **cannot be a preset until dual inputs take a pipeline.** `Multiply`'s second frame comes from the still-image sources only (`site/src/main.js:270`), and the chain format has no way to spell a nested chain. The library already supports it (`second` accepts a whole `Pipeline`); the playground and the string format do not. That is its own piece of work — a grammar change to the chain format — and it should not be smuggled into this one.
+
+### Honest expectations
+
+This is an afternoon, and it does not make the library better. What it does is make the library's *range* visible to someone who has just arrived, which is currently something you only learn by reading the README. Do it after #9 adds the filters worth combining.
+
+---
+
 ## Rough Priority Order
 
 ### Shipped, in the order it happened
@@ -882,12 +937,15 @@ Once it is live, two small additions to `site/seo.js` become possible and are wo
 | 15 | Publish `@calrk/clarity` | Low | Medium — the package is built and packs clean; the README, the playground FAQ and the JSON-LD all already say it exists, and until it does they 404 |
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
 | 9 | Finish the filter wishlist | Low each | Medium — genuinely cheap now; start with the custom 3×3 kernel and the rest are presets |
+| 16 | Presets in the playground | Low | Medium — a preset is a chain string is a URL, so applying one is a single assignment onto the existing hash path; makes the library's range visible to someone who has not read the README |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
 **Do #9 next.** It was never the highest-value item, but it is now the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first.
 
 Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
+
+**#16 pairs with #9 rather than competing with it.** Presets are only worth building once there are combinations worth presetting, and every filter #9 adds is another chain that nobody will find by browsing an alphabetical list. Doing #9 first also means the preset list is written once instead of twice.
 
 **#15 is not really a feature and should not wait its turn.** It is four lines of `package.json` and one command, and it is the only open item that closes something already shipped: the README, the playground's FAQ and its structured data all state that `@calrk/clarity` is installable. Do it whenever, but do it before anything else adds a fifth place that says so.
 
