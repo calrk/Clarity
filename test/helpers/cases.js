@@ -176,7 +176,34 @@ export const cases = [
 	// stateful pair: first frame is the reference, second is the comparison
 	{ filter: 'DifferenceDetector', input: ['clean', 'moved'], sequence: true, options: {}, gpu: BOUNDARY },
 	{ filter: 'Ghoster', input: ['clean', 'moved'], sequence: true, options: { length: 3 }, gpu: ACCUMULATING },
-	{ filter: 'ScreenBurn', input: ['clean', 'moved'], sequence: true, options: { length: 3 }, gpu: ACCUMULATING },
+	{ filter: 'ScreenBurn', input: ['clean', 'moved'], sequence: true, options: { decay: 0.75 }, gpu: ACCUMULATING },
+	// ScreenBurn reads back its own last output, so a one-step disagreement
+	// between the backends is fed into the next frame rather than confined to the
+	// one it happened in. Two frames only closes that loop once; this closes it
+	// eight times, which is the only way the compounding case can show up.
+	{
+		filter: 'ScreenBurn',
+		name: 'sustained',
+		input: ['clean', 'moved', 'clean', 'moved', 'clean', 'moved', 'clean', 'moved'],
+		sequence: true,
+		options: { decay: 0.95 },
+		gpu: ACCUMULATING
+	},
+	// One bright frame and then darkness, long enough for the trail to be gone.
+	// The golden is pure black, so this fails if the burn levels off instead of
+	// fading - which is a live risk on the GPU specifically, where the trail is
+	// fed back through an 8-bit frame and rounding to nearest leaves every value
+	// below about 1/(1-decay) exactly where it stands, for good. The CPU floors,
+	// so a GPU that stopped would sit several steps above a black reference and
+	// break parity too.
+	{
+		filter: 'ScreenBurn',
+		name: 'toblack',
+		input: ['photo', ...Array(60).fill('black')],
+		sequence: true,
+		options: { decay: 0.9 },
+		gpu: ACCUMULATING
+	},
 	// two unrelated frames is a cut; the same frame twice is not, and both paths
 	// matter because the whole filter is that one decision
 	{ filter: 'ShotDetector', input: ['clean', 'photo'], sequence: true, options: {}, gpu: POINTWISE },

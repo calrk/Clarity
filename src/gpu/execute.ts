@@ -141,7 +141,11 @@ export function executeChain(
 			//push after the opening frame, and the shader still has to be able to
 			//tell that frame apart from the ones after it
 			history.before = history.count;
-			if (retains.mode !== 'first' || history.count === 0) {
+			//'output' pushes after the draw instead - see below
+			if (retains.mode === 'output') {
+				//nothing yet; the shader reads the previous output, which is what is
+				//already in there
+			} else if (retains.mode !== 'first' || history.count === 0) {
 				backend.pushHistory(history, gpuTarget ? gpuTarget.texture : gpuTexture!);
 			}
 		}
@@ -208,6 +212,14 @@ export function executeChain(
 			result.fallbacks.push({ index, filter: filter.constructor.name, reason: failed });
 			cpuFrame = second ? filter.process([cpuFrame!, second]) : filter.process(cpuFrame!);
 			continue;
+		}
+
+		//A feedback filter reads what it produced last time, so its state is the
+		//stage *output* and can only be captured now that the draw has happened.
+		//Reading and writing one texture in a single pass is undefined, which is
+		//why this is a copy into a separate history rather than a target alias.
+		if (history && retains?.mode === 'output') {
+			backend.pushHistory(history, gpuTarget ? gpuTarget.texture : gpuTexture!);
 		}
 
 		result.onGPU.push(index);

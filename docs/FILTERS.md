@@ -991,18 +991,17 @@ Burns a fading ghost of the brightest thing that has been on screen.
 
 <img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/ScreenBurn.png" width="192" alt="ScreenBurn applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#crystal/ScreenBurn,length=3)
+[Open in the playground →](https://clarity.clarklavery.com/#crystal/ScreenBurn,decay=0.75)
 
 ```js
 import { ScreenBurn } from '@calrk/clarity';
 
-new ScreenBurn({ length: 3 });
+new ScreenBurn({ decay: 0.75 });
 ```
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `length` | int | 1–32 | `24` | How many frames the burn remembers. |
-| `decay` | float | 0.5–1 | `0.98` | How much dimmer the ghost gets each frame. At 1 it fades only with age, so the trail stays bright until it drops out. |
+| `decay` | float | 0.5–0.995 | `0.97` | How much of the burn survives each frame. Higher lasts longer - 0.5 is gone in a moment, 0.99 takes several seconds. |
 
 ### Puzzler
 

@@ -135,7 +135,14 @@ const clean = build(W, H, (x, y) => {
 	return [45 + hill, 105 + y * 0.4, 40];
 });
 
-const fixtures = { photo, edges, heightmap, alpha, odd, second, binary, clean, moved };
+// 10. Nothing at all. A feedback filter has to be run against darkness for a
+//     long stretch before the question "does the trail actually reach black, or
+//     does it level off?" can be asked - and on the GPU that question is a real
+//     one, because the trail is fed back through an 8-bit frame and rounding to
+//     nearest leaves every dim value fixed where it stands.
+const black = build(W, H, () => [0, 0, 0]);
+
+const fixtures = { photo, edges, heightmap, alpha, odd, second, binary, clean, moved, black };
 
 for (const [name, image] of Object.entries(fixtures)) {
 	const path = join(out, `${name}.png`);

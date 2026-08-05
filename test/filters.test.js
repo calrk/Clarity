@@ -410,45 +410,58 @@ test('the neutral filters really are neutral, and really do work', () => {
 	assert.notDeepEqual([...new CLARITY.NormalFlip({ green: true }).process(makeFrame()).data], [...original.data]);
 });
 
-test('a ScreenBurn ghost fades out rather than popping out', () => {
-	// The trail is the age-weighted maximum over a ring of retained frames. A
-	// purely geometric weight is still non-zero at the oldest one - so a frame's
-	// contribution did not fade away, it stopped, and the tail of the trail
-	// visibly blinked out one frame at a time.
-	//
-	// Asserted without magic numbers: feed one white frame and then black ones,
-	// and require that the step where the ghost leaves the ring is no bigger
-	// than the largest step before it. A pop *is* that final step being the
-	// largest, so this is the defect stated directly.
-	const solid = (value) => {
-		const frame = new NodeImageData(4, 4);
-		frame.data.fill(value);
-		for (let i = 3; i < frame.data.length; i += 4) frame.data[i] = 255;
-		return frame;
-	};
-	const brightest = (frame) => {
-		let peak = 0;
-		for (let i = 0; i < frame.data.length; i += 4) peak = Math.max(peak, frame.data[i]);
-		return peak;
-	};
+const solidFrame = (value) => {
+	const frame = new NodeImageData(4, 4);
+	frame.data.fill(value);
+	for (let i = 3; i < frame.data.length; i += 4) frame.data[i] = 255;
+	return frame;
+};
+const brightestOf = (frame) => {
+	let peak = 0;
+	for (let i = 0; i < frame.data.length; i += 4) peak = Math.max(peak, frame.data[i]);
+	return peak;
+};
 
-	const length = 6;
-	const burn = new CLARITY.ScreenBurn({ length });
-	burn.process(solid(255));
+/** One white frame, then black ones, until the trail is gone or `limit` runs out. */
+function burnTrail(filter, limit = 4000) {
+	filter.process(solidFrame(255));
 
-	// Exactly `length` steps: the white frame is pushed out of the ring on the
-	// last one, so the final reading is the moment it leaves. Running even one
-	// step further appends a 0 -> 0 step and hides the pop behind it.
 	const trail = [];
-	for (let step = 0; step < length; step++) trail.push(brightest(burn.process(solid(0))));
+	for (let step = 0; step < limit; step++) {
+		const peak = brightestOf(filter.process(solidFrame(0)));
+		trail.push(peak);
+		if (peak === 0) break;
+	}
+	return trail;
+}
 
-	assert.ok(trail[0] > 0, 'a white frame should leave something behind at all');
-	assert.equal(trail.at(-1), 0, 'the ghost should be gone once it leaves the ring');
+test('a ScreenBurn ghost fades all the way out, one step at a time', () => {
+	// This used to be a ring of frames blended by age, and a ring has an edge to
+	// fall off: the oldest frame's weight was not zero, so its contribution did
+	// not fade away, it stopped, and the tail blinked out one frame at a time.
+	// Accumulating geometrically has no edge - but it does have a trap, which is
+	// what this really guards.
+	const trail = burnTrail(new CLARITY.ScreenBurn({ decay: 0.9 }));
 
-	const drops = trail.slice(1).map((value, i) => trail[i] - value);
-	const final = drops.at(-1);
-	assert.ok(
-		final <= Math.max(...drops.slice(0, -1)),
-		`the ghost popped: it lost ${final} on the last step, against ${drops.slice(0, -1).join(', ')} before`
-	);
+	assert.ok(trail.length > 4, `the ghost should outlive a few frames, got ${trail.join(', ')}`);
+	assert.equal(trail.at(-1), 0, 'the ghost must reach black rather than levelling off');
+
+	for (let i = 1; i < trail.length; i++) {
+		assert.ok(trail[i] < trail[i - 1], `the trail went ${trail[i - 1]} -> ${trail[i]}, so it stalled`);
+	}
+});
+
+test('a slow ScreenBurn still reaches black, however slow', () => {
+	// The trap. The trail is fed back through an 8-bit frame, and rounding a
+	// float colour to the nearest step means `round(v * 0.98) == v` for every v
+	// up to 25 - so with anything but a floor, every dim pixel freezes at its
+	// value and stays there for good. It would read as permanent grime rather
+	// than as a long fade, and only at the slow end of the slider.
+	//
+	// The slowest setting the schema allows, so nothing in range can stall.
+	const slowest = CLARITY.ScreenBurn.schema.decay.max;
+	const trail = burnTrail(new CLARITY.ScreenBurn({ decay: slowest }));
+
+	assert.equal(trail.at(-1), 0, `decay=${slowest} never reached black in ${trail.length} frames`);
+	assert.ok(trail.length > 100, `decay=${slowest} should be a long fade, gone in ${trail.length}`);
 });

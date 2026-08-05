@@ -33,7 +33,7 @@ export const PRESETS = [
 		id: 'security',
 		label: 'Security camera',
 		note: 'Grainy monochrome, and a burn-in that only bright things leave',
-		chain: 'box/Desaturate/Noise,intensity=12,monochromatic=true/ScreenBurn,length=32,decay=0.99'
+		chain: 'box/Desaturate/Noise,intensity=12,monochromatic=true/ScreenBurn,decay=0.99'
 	},
 	{
 		id: 'sketch',

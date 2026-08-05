@@ -98,8 +98,13 @@ export interface RetainedFrames {
 	/**
 	 * `ring` keeps the last `length` frames, overwriting the oldest.
 	 * `first` captures one frame and holds it - DifferenceDetector's reference.
+	 * `output` keeps what this stage last *produced* rather than what it was
+	 * given, which is what a filter needs to accumulate into itself:
+	 * `ScreenBurn` reads its own previous frame back, dims it, and takes the
+	 * brighter of that and the current pixel. One retained frame and one fetch,
+	 * however long the trail.
 	 */
-	mode?: 'ring' | 'first';
+	mode?: 'ring' | 'first' | 'output';
 }
 
 /** One filter's retained frames: a texture array and where the newest is. */
