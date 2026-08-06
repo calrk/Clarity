@@ -31,9 +31,6 @@ const GY = new Float64Array([0, 0, 1, -1, 1, 1, -1, -1]);
 
 export interface CloudOptions extends FilterOptions {
 	seed?: number | null;
-	red?: number;
-	green?: number;
-	blue?: number;
 	linear?: boolean;
 	/** Folds each octave about its midpoint - see {@link Cloud}. */
 	fold?: CloudFold;
@@ -41,10 +38,23 @@ export interface CloudOptions extends FilterOptions {
 	persistence?: number | null;
 	iterations?: number;
 	initialSize?: number;
-	/** Opaque output. Off derives alpha from the colour - see {@link Cloud}. */
-	opaque?: boolean;
 }
 
+/**
+ * Fractal gradient noise, in grey.
+ *
+ * It used to carry `red`, `green` and `blue` that scaled the noise into each
+ * channel, plus an `opaque` that derived alpha from them - four of its ten
+ * properties spent on tinting, and the only starter that did it. `Gradient` had
+ * already made the opposite call in writing: a coloured ramp is this multiplied
+ * by a fill, one more stage against several more properties nobody sets. So the
+ * colour lives downstream now, where `GradientMap` gives it seven hand-authored
+ * ramps that are richer than a flat tint ever was, and `Voronoi` and the rest of
+ * the greyscale-out family read the same way.
+ *
+ * The default output has not moved: the colours defaulted to white, which
+ * scaled the noise by 1 and produced exactly this grey.
+ */
 export class Cloud extends Filter {
 	//Pure, now that the seed is fixed per instance rather than drawn on every
 	//call. It used to be varying, which meant a single Cloud produced a new
@@ -52,10 +62,6 @@ export class Cloud extends Filter {
 	//strobe as soon as anything drove a loop. See Filter.seed.
 
 	static override shader = /* glsl */ `
-uniform float u_red;
-uniform float u_green;
-uniform float u_blue;
-uniform float u_opaque;
 uniform float u_linear;
 uniform float u_fold;
 uniform float u_persistence;
@@ -167,17 +173,14 @@ void main(){
 	}
 
 	if(used == 0){
-		fragColor = vec4(0.0);	//initialSize was wider than the frame
+		//initialSize was wider than the frame. Opaque black rather than a
+		//transparent frame, which is what it used to be only because alpha was
+		//derived from colours that no longer exist.
+		writeRGB(vec3(0.0));
 		return;
 	}
 
-	float value = total / weight;
-	writePixel(vec4(
-		value * u_red / 255.0,
-		value * u_green / 255.0,
-		value * u_blue / 255.0,
-		u_opaque > 0.5 ? 255.0 : (u_red + u_green + u_blue) / 3.0
-	));
+	writeRGB(vec3(total / weight));
 }
 `;
 
@@ -193,12 +196,6 @@ void main(){
 			nullLabel: 'random',
 			description: 'Which cloud. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same result - which is what makes a link reproduce.'
 		},
-		//White by default. The colour scales the noise, so zero meant a black
-		//frame - and with the old alpha rule, an invisible one.
-		red: { type: 'int', label: 'Red', min: 0, max: 255, step: 1, default: 255, description: 'Scales the noise into the red channel. All three at 255 gives grey cloud.' },
-		green: { type: 'int', label: 'Green', min: 0, max: 255, step: 1, default: 255, description: 'Scales the noise into the green channel.' },
-		blue: { type: 'int', label: 'Blue', min: 0, max: 255, step: 1, default: 255, description: 'Scales the noise into the blue channel.' },
-		opaque: { type: 'bool', label: 'Opaque', default: true, description: 'Off derives alpha from the colour, for use as a texture mask.' },
 		linear: { type: 'bool', label: 'Linear', default: false, description: 'Skip the fade curve on the cell blend. Cheaper, and it makes the lattice edges visible.' },
 		fold: {
 			type: 'select',
@@ -228,10 +225,6 @@ void main(){
 
 	override properties: {
 		seed: number | null;
-		red: number;
-		green: number;
-		blue: number;
-		opaque: boolean;
 		linear: boolean;
 		fold: CloudFold;
 		persistence: number | null;
@@ -243,10 +236,6 @@ void main(){
 		super(options);
 		this.properties = {
 			seed: options.seed === undefined || options.seed === null ? null : Math.round(options.seed),
-			red: options.red === undefined ? 255 : options.red,
-			green: options.green === undefined ? 255 : options.green,
-			blue: options.blue === undefined ? 255 : options.blue,
-			opaque: options.opaque !== false,
 			linear: options.linear || false,
 			fold: options.fold ?? 'none',
 			//not `?? 0.5`: that would turn an explicit null - the caller asking
@@ -334,19 +323,15 @@ void main(){
 			}
 		}
 
-		if(used == 0){
-			return output;	//initialSize was wider than the frame, nothing was accumulated
-		}
-
 		for(let k = 0; k < frame.width*frame.height; k ++){
 			let j = k * 4;
-			let value = totals[k]/weight;
-			output.data[j  ] = value * this.properties.red/255;
-			output.data[j+1] = value * this.properties.green/255;
-			output.data[j+2] = value * this.properties.blue/255;
-			output.data[j+3] = this.properties.opaque
-				? 255
-				: (this.properties.red + this.properties.green + this.properties.blue)/3;
+			//used == 0 means initialSize was wider than the frame and nothing was
+			//accumulated; the totals are all zero, so this writes opaque black
+			let value = used === 0 ? 0 : totals[k]/weight;
+			output.data[j  ] = value;
+			output.data[j+1] = value;
+			output.data[j+2] = value;
+			output.data[j+3] = 255;
 		}
 		return output;
 	}

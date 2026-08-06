@@ -105,12 +105,12 @@ for (const name of filterNames) {
 			assert.ok(!Number.isNaN(out.data[i]), `NaN at ${i}`);
 		}
 
-		// Cloud derives alpha from its colour options, so it is legitimately
-		// transparent with the defaults - see FEATURES.md #1.
-		if (name !== 'Cloud') {
-			for (let i = 3; i < out.data.length; i += 4) {
-				assert.equal(out.data[i], 255, `alpha not opaque at ${i}`);
-			}
+		// No exemptions. Cloud used to be one, because it derived alpha from its
+		// colour options and so was legitimately transparent with the defaults -
+		// see FEATURES.md #1. Those options are gone and it is opaque like
+		// everything else, which is the whole of what that exemption was hiding.
+		for (let i = 3; i < out.data.length; i += 4) {
+			assert.equal(out.data[i], 255, `alpha not opaque at ${i}`);
 		}
 	});
 }

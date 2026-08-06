@@ -12,8 +12,8 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
 | Filters clean | 31 of 41, 4 hard crashes | 51 of 51, each with a golden image, a GPU parity case and a generated docs entry |
-| GPU | none | every filter, 99/99 parity cases as shaders |
-| Tests | none | 620, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| GPU | none | every filter, 98/98 parity cases as shaders |
+| Tests | none | 618, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and eleven presets |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
@@ -33,7 +33,7 @@ Verified by running every filter headlessly over a synthetic frame with a stubbe
 Three notes on judgement calls made along the way:
 
 - **Posteriser's dead cache** was rewritten to match on *exact pixel equality* rather than the proximity test the original was reaching for. Proximity would have been faster but approximate — it can pick the wrong palette entry near a Voronoi boundary — and turning a dead branch into a lossy one isn't a bug fix. Equality still skips the palette search across flat regions, which is where the cost is.
-- **`Cloud` still emits alpha `(red+green+blue)/3`** rather than 255, so with default options it produces a fully transparent image. That looks deliberate (alpha tracking the requested colour, for the WebGL-Material texture use), so it was left alone — but it's worth a decision.
+- ~~**`Cloud` still emits alpha `(red+green+blue)/3`** rather than 255, so with default options it produces a fully transparent image. That looks deliberate (alpha tracking the requested colour, for the WebGL-Material texture use), so it was left alone — but it's worth a decision.~~ **Decided, much later: the colour options are gone and so is this.** See the Starters note in #9. It was the last exemption in the test that asserts every filter returns an opaque frame, and that test now has none.
 - **`Rotator`'s non-square cropping** is still approximate. The 90°/180°/270° mapping is now correct and the operator-precedence bug is fixed, but the offset/crop path for non-square frames applies its offset to both axes and needs a proper rewrite.
 
 **A second round of fixes came out of the contact sheet in #6** — which is the point of building it. Reading a filter is a poor way to find out whether it works; looking at 56 before/after pairs found five things in a minute that the headless smoke tests, the behavioural assertions and the golden suite had all passed clean:
@@ -327,7 +327,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** The suite has grown with everything since — **620 tests** and **99 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
+**Done.** The suite has grown with everything since — **618 tests** and **98 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
 - **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
@@ -676,6 +676,16 @@ The parity metric is the `banded` one rather than a tolerance, and the reason is
 | ~~**Voronoi**~~ ✓ | Fills the frame with cellular noise — stone, scales, cracked ground, caustics. | Done |
 
 **`Gradient` is done.** Grey rather than two colours on purpose: its job is to be a *mask*, and a coloured ramp is this multiplied by a `FillRGB` — one more stage, against six more properties nobody sets. The linear ramp normalises across the frame's extent *along the angle* rather than its width, so a diagonal reaches `end` in the corner instead of running out part way; the radial one normalises to the nearest edge, so a centred spotlight behaves as expected and the corners clamp. **`Voronoi` is done** — the sibling of the gradient noise in `Cloud`, reusing the same hashing so its feature points land identically on both backends, and wrapping at the frame edge so the result tiles. One difference from `Cloud` is deliberate: `Cloud` lays `grid × grid` cells over the frame whatever its shape, which stretches its noise. That is invisible in fog and glaring in cells, where a stretched Voronoi reads as a bug — so the row count is derived from the aspect in integer arithmetic and the cells stay square. Three modes off one distance field: `distance` (blobs), `borders` (the seams — cracked ground, stained glass) and `cells` (flat hashed values — stone, scales). `cells` uses the population GPU metric rather than a tolerance, because a near-tie between two feature points flips a whole cell at once, which no per-channel tolerance can describe.
+
+**Since, on `Cloud`'s colour — it is gone, and the filter is grey.** `Cloud` carried `red`, `green`, `blue` and `opaque`: **four of its ten properties spent on tinting**, and it was the only starter that did it. `Gradient` had already made the opposite call in writing — "a coloured ramp is this multiplied by a `FillRGB`, one more stage against six more properties nobody sets" — and `Voronoi` and the newly-logged `Woodgrain` both follow that rule, so `Cloud` was the odd one out rather than the precedent.
+
+The numbers are what settled it. Across 51 filters the median property count is **2** and the next-busiest filter has **5**; `Cloud` had 10, an outlier by a factor of two over anything else, and 40% of that was one concern. It is 6 now.
+
+Three things worth recording:
+
+- **The default output did not move, and that is checked rather than assumed.** The colours defaulted to white, which scaled the noise by 1, so the old default *was* this grey. Verified by rendering a fixed seed through both versions and diffing: byte-identical. Only the two golden cases that set a colour explicitly moved, and the `mask` case retired with the feature it existed to exercise.
+- **`opaque` went with the colour**, because deriving alpha from `(red+green+blue)/3` is meaningless once there is no colour to derive it from. That closes the "worth a decision" note left open in #1 since the very first sweep, and it removed **the last exemption** from the test asserting every filter returns an opaque frame — the exemption was hiding exactly one thing, and it was this.
+- **What is actually lost is smaller than it looks.** A tint is `value × colour/255`, which is a linear ramp from black to that colour, and `GradientMap` offers seven hand-authored multi-stop ramps that are richer than any flat tint. What is *not* reachable in a chain is an arbitrary tint colour, because that wants `Fill` + `Multiply` and the chain format still cannot spell a second input — the same gap that blocks the fog/water preset. Library callers keep it, since `Pipeline` takes a nested pipeline today.
 
 **Since, on randomness.** `Cloud`, `Voronoi` and `Noise` drew a fresh seed inside `doProcess`, so a single filter produced a different picture on *every call*. That was invisible for as long as a still image rendered once and stopped — and became a strobe the moment anything drove a frame loop, including an unrelated filter downstream, because an impure stage cannot be cached and so re-ran alongside it. A cloud under an animating wave was a new cloud sixty times a second.
 
@@ -1051,10 +1061,10 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 1 | Correctness sweep | Low | 4 crashing filters revived, 31→40 of 41 clean; 5 more found later by the contact sheet |
 | 2 | ESM + Vite + publishable package | Medium | TS classes, 3 bundles, types, `npm test`; the type system found 3 more bugs |
 | 7 | Licensing / replace GPL MCut | Low–Med | MIT throughout, and the replacement quantiser is 2–21× faster |
-| 6 | Golden-image test suite | Medium | 63 goldens then, 99 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
+| 6 | Golden-image test suite | Medium | 63 goldens then, 98 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
 | 8 | Declarative filter schemas | Medium | 717 lines out, DOM dependency gone, `setProperty` the one write path |
 | 4 | `Renderer` / `Pipeline` | Medium | Headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
-| 3 | GPU shader backend | High | Every filter has a shader; 99/99 parity cases on the GPU; 6 more bugs found |
+| 3 | GPU shader backend | High | Every filter has a shader; 98/98 parity cases on the GPU; 6 more bugs found |
 | 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
 | 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |

@@ -743,21 +743,17 @@ Fills the frame with tinted value-noise clouds.
 
 <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Cloud.png" width="192" alt="Cloud applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#blank/Cloud,green=200,blue=120,iterations=3)
+[Open in the playground →](https://clarity.clarklavery.com/#blank/Cloud,iterations=3)
 
 ```js
 import { Cloud } from '@calrk/clarity';
 
-new Cloud({ red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 });
+new Cloud({ iterations: 3, initialSize: 4 });
 ```
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
 | `seed` | int | 0–16777215, or empty for random | _random_ | Which cloud. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same result - which is what makes a link reproduce. |
-| `red` | int | 0–255 | `255` | Scales the noise into the red channel. All three at 255 gives grey cloud. |
-| `green` | int | 0–255 | `255` | Scales the noise into the green channel. |
-| `blue` | int | 0–255 | `255` | Scales the noise into the blue channel. |
-| `opaque` | bool | true / false | `true` | Off derives alpha from the colour, for use as a texture mask. |
 | `linear` | bool | true / false | `false` | Skip the fade curve on the cell blend. Cheaper, and it makes the lattice edges visible. |
 | `fold` | select | `none` · `ridged` · `billow` | `none` | Folds each octave about zero. Ridged gives sharp crests over broad basins - terrain rather than fog; billow gives puffy cells with dark seams. |
 | `persistence` | float | 0.1–0.9, or empty for Harmonic | `0.5` | How much quieter each octave is than the last. Lower is smoother; 0.5 is standard fBm. Harmonic is the original falloff, kept for compatibility - it also darkens the frame the more octaves you ask for. |

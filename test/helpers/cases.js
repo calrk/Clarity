@@ -182,12 +182,12 @@ export const cases = [
 	// a whole cell flips on a near-tie between two feature points, which a
 	// per-channel tolerance cannot describe - see the note at the top
 	{ filter: 'Voronoi', name: 'cells', input: 'photo', options: { cells: 6, mode: 'cells' }, seed: 5, gpu: BOUNDARY },
-	{ filter: 'Cloud', input: 'photo', options: { red: 255, green: 200, blue: 120, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
-	// alpha derived from the colour rather than opaque - the texture-mask mode,
-	// and the only case that exercises a non-255 alpha out of a starter
+	// Grey out, like every other starter. The `mask` case went with the colour
+	// options: it existed to exercise alpha derived from them, and Cloud is now
+	// opaque like everything else.
+	{ filter: 'Cloud', input: 'photo', options: { iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 	{ filter: 'Cloud', name: 'ridged', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'ridged' }, seed: 7, gpu: ACCUMULATING },
 	{ filter: 'Cloud', name: 'billow', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'billow' }, seed: 7, gpu: ACCUMULATING },
-	{ filter: 'Cloud', name: 'mask', input: 'photo', options: { red: 255, green: 200, blue: 120, opaque: false, iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 
 	// --- Dual input ------------------------------------------------------
 	{ filter: 'Blend', input: ['photo', 'second'], options: { ratio: 0.35 }, gpu: POINTWISE },
