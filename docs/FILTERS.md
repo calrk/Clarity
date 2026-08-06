@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-51 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+50 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -24,7 +24,7 @@ playground link to see one at a sensible size.
 
 **Height Map** — [Contourer](#contourer) · [NormalFlip](#normalflip) · [NormalGenerator](#normalgenerator) · [NormalIntensity](#normalintensity)
 
-**Starters** — [Cloud](#cloud) · [FillHSV](#fillhsv) · [FillRGB](#fillrgb) · [Gradient](#gradient) · [Voronoi](#voronoi)
+**Starters** — [Cloud](#cloud) · [Fill](#fill) · [Gradient](#gradient) · [Voronoi](#voronoi)
 
 **Dual Input** — [Add](#add) · [Subtract](#subtract) · [Difference](#difference) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply)
 
@@ -737,7 +737,7 @@ new NormalIntensity({ intensity: 1.5 });
 
 ### Cloud
 
-Fills the frame with tinted value-noise clouds.
+Fills the frame with fractal gradient noise, in grey - fog, terrain, or a mask for anything else.
 
 **Starter**
 
@@ -760,49 +760,25 @@ new Cloud({ iterations: 3, initialSize: 4 });
 | `iterations` | int | 1–10 | `4` | Octaves of value noise. |
 | `initialSize` | int | 1–16 | `4` | Grid size of the coarsest octave. |
 
-### FillHSV
+### Fill
 
-Fills the frame with one colour, specified in HSV.
+Fills the frame with one flat colour.
 
 **Starter**
 
-<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/FillHSV.png" width="192" alt="FillHSV applied to it">
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Fill.png" width="192" alt="Fill applied to it">
 
-[Open in the playground →](https://clarity.clarklavery.com/#blank/FillHSV,hue=200,saturation=0.8,value=0.9)
+[Open in the playground →](https://clarity.clarklavery.com/#blank/Fill,colour=c85028)
 
 ```js
-import { FillHSV } from '@calrk/clarity';
+import { Fill } from '@calrk/clarity';
 
-new FillHSV({ hue: 200, saturation: 0.8, value: 0.9 });
+new Fill({ colour: "c85028" });
 ```
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `hue` | float | 0–360 | `0` | Position on the colour wheel, in degrees. |
-| `saturation` | float | 0–1 | `0` | How much colour. 0 is grey. |
-| `value` | float | 0–1 | `0` | Brightness. 0 is black. |
-
-### FillRGB
-
-Fills the frame with one colour, specified in RGB.
-
-**Starter**
-
-<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/FillRGB.png" width="192" alt="FillRGB applied to it">
-
-[Open in the playground →](https://clarity.clarklavery.com/#blank/FillRGB,red=200,green=80,blue=40)
-
-```js
-import { FillRGB } from '@calrk/clarity';
-
-new FillRGB({ red: 200, green: 80, blue: 40 });
-```
-
-| Property | Type | Range | Default | |
-|---|---|---|---|---|
-| `red` | int | 0–255 | `0` | Red channel of the fill colour. |
-| `green` | int | 0–255 | `0` | Green channel of the fill colour. |
-| `blue` | int | 0–255 | `0` | Blue channel of the fill colour. |
+| `colour` | colour | undefined–undefined | `000000` | The colour to fill with, as six hex digits. A host app can render this as a colour picker. |
 
 ### Gradient
 

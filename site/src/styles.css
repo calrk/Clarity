@@ -517,6 +517,7 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 .control input[type='range'] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
 .control select { grid-column: 1 / -1; width: 100%; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); font-size: .78rem; }
 .control input[type='checkbox'] { accent-color: var(--accent); justify-self: end; }
+.control input[type='color'] { justify-self: end; width: 2.4rem; height: 1.5rem; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); cursor: pointer; }
 .control.inline { grid-template-columns: 1fr auto; }
 .no-options { font-size: .74rem; color: var(--muted); font-style: italic; }
 

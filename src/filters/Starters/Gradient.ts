@@ -20,7 +20,7 @@ export interface GradientOptions extends FilterOptions {
  * Grey rather than two colours because the point of it is to be a *mask*: the
  * thing you hand `Mask` or `Blend` to make anything fade, which is the
  * compositing primitive the library was missing. A coloured ramp is this
- * multiplied by a `FillRGB`, which is one more stage and keeps this filter from
+ * multiplied by a `Fill`, which is one more stage and keeps this filter from
  * growing six more properties nobody sets.
  *
  * The linear ramp is normalised across the frame's extent *along the angle*,

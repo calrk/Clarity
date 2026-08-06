@@ -81,6 +81,24 @@ function field(filter, key, spec, onChange) {
 		return row;
 	}
 
+	if (spec.type === 'colour') {
+		row.classList.add('inline');
+		row.appendChild(label(spec.label, spec.description));
+
+		// The schema stores six hex digits with no hash; `<input type="color">`
+		// insists on the hash in both directions, so it is added on the way in and
+		// stripped on the way out rather than stored either way.
+		const picker = document.createElement('input');
+		picker.type = 'color';
+		picker.value = `#${filter.getProperty(key)}`;
+		picker.addEventListener('input', () => {
+			filter.setProperty(key, picker.value.replace('#', ''));
+			onChange();
+		});
+		row.appendChild(picker);
+		return row;
+	}
+
 	// int and float differ only in step, which the schema already carries
 	const name = label(spec.label, spec.description);
 	const readout = document.createElement('span');

@@ -172,8 +172,10 @@ export const cases = [
 	{ filter: 'Wave', name: 'both', input: 'photo', options: { axis: 'both', amplitude: 4 }, now: 250, gpu: { mode: 'population', maxDifferentRatio: 0.05 } },
 
 	// --- Starters --------------------------------------------------------
-	{ filter: 'FillRGB', input: 'photo', options: { red: 200, green: 80, blue: 40 }, gpu: POINTWISE },
-	{ filter: 'FillHSV', input: 'photo', options: { hue: 200, saturation: 0.8, value: 0.9 }, gpu: POINTWISE },
+	{ filter: 'Fill', input: 'photo', options: { colour: 'c85028' }, gpu: POINTWISE },
+	// the same filter reached through the other two spellings, which must land on
+	// the identical frame - that equivalence is the whole argument for one filter
+	{ filter: 'Fill', name: 'hsv', input: 'photo', options: { hsv: [200, 0.8, 0.9] }, gpu: POINTWISE },
 	{ filter: 'Gradient', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Gradient', name: 'angled', input: 'photo', options: { angle: 35 }, gpu: POINTWISE },
 	{ filter: 'Gradient', name: 'radial', input: 'photo', options: { shape: 'radial', start: 255, end: 0 }, gpu: POINTWISE },

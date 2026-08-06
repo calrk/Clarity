@@ -11,9 +11,9 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 51 of 51, each with a golden image, a GPU parity case and a generated docs entry |
+| Filters clean | 31 of 41, 4 hard crashes | 50 of 50, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 98/98 parity cases as shaders |
-| Tests | none | 618, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Tests | none | 614, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and eleven presets |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
@@ -327,7 +327,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** The suite has grown with everything since — **618 tests** and **98 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
+**Done.** The suite has grown with everything since — **614 tests** and **98 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
 - **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
@@ -529,7 +529,7 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, three deleted, 41 to 51** — and what is left is the eight below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, five deleted, 41 to 50** — and what is left is the eight below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
@@ -686,6 +686,27 @@ Three things worth recording:
 - **The default output did not move, and that is checked rather than assumed.** The colours defaulted to white, which scaled the noise by 1, so the old default *was* this grey. Verified by rendering a fixed seed through both versions and diffing: byte-identical. Only the two golden cases that set a colour explicitly moved, and the `mask` case retired with the feature it existed to exercise.
 - **`opaque` went with the colour**, because deriving alpha from `(red+green+blue)/3` is meaningless once there is no colour to derive it from. That closes the "worth a decision" note left open in #1 since the very first sweep, and it removed **the last exemption** from the test asserting every filter returns an opaque frame — the exemption was hiding exactly one thing, and it was this.
 - **What is actually lost is smaller than it looks.** A tint is `value × colour/255`, which is a linear ramp from black to that colour, and `GradientMap` offers seven hand-authored multi-stop ramps that are richer than any flat tint. What is *not* reachable in a chain is an arbitrary tint colour, because that wants `Fill` + `Multiply` and the chain format still cannot spell a second input — the same gap that blocks the fog/water preset. Library callers keep it, since `Pipeline` takes a nested pipeline today.
+
+**Since, on `Fill` — it ate `FillRGB` and `FillHSV`.** Those were the same filter twice with a different way of typing the colour in, which is a property of the *control* rather than of the filter — the distinction #8 drew when it deleted every `doCreateControls` and kept the schema. Two filters and six properties became one and one.
+
+The tension worth recording is Clark's: one `Fill` is obviously better in a panel, but an API that only speaks hex is worse than one that speaks RGB and HSV too. **Both, and the resolution is that options are not properties.** The schema test compares `schema` against `instance.properties` and never looks at the constructor's options, so the options bag can be as wide as it likes while the filter carries one thing — a mechanism `FillHSV` was already using, since it accepted `lightness` as an alias for `value` and never declared it.
+
+```js
+new Fill({ colour: 'ff8844' })  //  or { rgb: [255, 136, 68] }, or { hsv: [20, 0.73, 1] }
+```
+
+All of them collapse in the constructor. The panel shows one swatch, the chain says `Fill,colour=ff8844`, the shader binds one `vec3`.
+
+**A `model` *property* would have been a mode** — carried by the filter, rendered by every host app, spelled in every link, branched on by everything that reads a chain. Alternative constructor keys are not a mode, because they do not survive construction. That is the whole reason this costs the UI nothing.
+
+Four notes:
+
+- **Hex, not a CSS colour string**, and that is a format decision rather than a taste one: `PROPERTY_SEPARATOR` in `chain.ts` is `,`, so `colour=rgb(255, 0, 0)` would parse as three properties and silently lose two. Full CSS would also mean shipping a parser for 148 named colours and several syntaxes, in a library whose pitch is no dependencies — and it could not borrow the browser's, because #2 and #8 went to real trouble to make this importable without a DOM.
+- **`type: 'colour'` is a new schema field**, and it cost almost nothing downstream: `setUniform` already bound a three-element array as a `vec3`, so the encoder returns `[r, g, b]` and no GPU plumbing changed. The control renderer gained one branch, and `<input type="color">` speaks hex natively — the `#` is added on the way in and stripped on the way out rather than stored either way.
+- **Three-digit shorthand is expanded at the boundary.** `#F84` and `ff8844` are one colour and must not be two property values, or two chains that mean the same thing would compare unequal and a golden could move on a re-spelling.
+- **Two spellings at once throws.** That is a caller bug rather than user input, which is the split `setProperty` already makes between an unknown key (throw) and an out-of-range value (clamp). A malformed *string* still falls back to the default, because it may have come from a hand-edited link.
+
+The equivalence is asserted rather than assumed: `Fill` and `Fill-hsv` are the same colour reached two ways and must produce identical frames, which is the entire argument for one filter instead of one per colour model.
 
 **Since, on randomness.** `Cloud`, `Voronoi` and `Noise` drew a fresh seed inside `doProcess`, so a single filter produced a different picture on *every call*. That was invisible for as long as a still image rendered once and stopped — and became a strobe the moment anything drove a frame loop, including an unrelated filter downstream, because an impure stage cannot be cached and so re-ran alongside it. A cloud under an animating wave was a new cloud sixty times a second.
 

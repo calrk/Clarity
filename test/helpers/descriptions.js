@@ -99,13 +99,11 @@ export const descriptions = {
 
 	// --- Starters ---
 	Cloud: {
-		look: 'Soft organic blotches, not a uniform fill and not white static. Opaque by default; the mask variant derives alpha from the colour instead, so it reads as a texture mask.'
+		look: 'Soft organic blotches in grey, not a uniform fill and not white static. Opaque, like every other starter.'
 	},
-	FillHSV: {
-		look: 'Completely flat colour. Any structure left over means the fill is not covering.'
-	},
-	FillRGB: {
-		look: 'Completely flat colour, matching the requested RGB exactly.'
+	Fill: {
+		look: 'Completely flat colour, matching the one asked for exactly. Any structure left over means the fill is not covering.',
+		note: 'The hex and hsv cases are the same colour reached two ways and must come out identical - that equivalence is the whole argument for one Fill rather than a filter per colour model.'
 	},
 
 	// --- Thresholders ---

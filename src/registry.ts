@@ -32,8 +32,7 @@ import { MotionDetector } from './filters/Salience/MotionDetector.js';
 import { ShotDetector } from './filters/Salience/ShotDetector.js';
 import { SkinDetector } from './filters/Salience/SkinDetector.js';
 import { Cloud } from './filters/Starters/Cloud.js';
-import { FillHSV } from './filters/Starters/FillHSV.js';
-import { FillRGB } from './filters/Starters/FillRGB.js';
+import { Fill } from './filters/Starters/Fill.js';
 import { Gradient } from './filters/Starters/Gradient.js';
 import { Voronoi } from './filters/Starters/Voronoi.js';
 import { GradientThreshold } from './filters/Thresholders/GradientThreshold.js';
@@ -97,8 +96,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	ShotDetector,
 	SkinDetector,
 	Cloud,
-	FillHSV,
-	FillRGB,
+	Fill,
 	Gradient,
 	Voronoi,
 	GradientThreshold,

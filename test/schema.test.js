@@ -105,6 +105,15 @@ for (const name of filterNames) {
 					field.options.some((o) => o.value === field.default),
 					`${where}: default is not one of the options`
 				);
+			} else if (field.type === 'colour') {
+				// Six lower-case digits and no `#`: the canonical form the chain
+				// format carries, so a default that needed normalising would be a
+				// property value the filter could never round-trip back to.
+				assert.match(
+					String(field.default),
+					/^[0-9a-f]{6}$/,
+					`${where}: colour default must be six lower-case hex digits, no #`
+				);
 			} else {
 				assert.fail(`${where}: unknown field type ${field.type}`);
 			}

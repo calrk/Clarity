@@ -1,3 +1,5 @@
+import { normaliseHex } from '../core/schema.js';
+
 export interface YUV {
 	y: number;
 	u: number;
@@ -124,5 +126,30 @@ export const Operations = {
 	/** Spelling alias for {@link Operations.colourDistance}. */
 	colorDistance(from: number[], to: number[]): number {
 		return Operations.colourDistance(from, to);
+	},
+
+	/**
+	 * Six hex digits to 0-255 RGB. Tolerates a leading `#` and three-digit
+	 * shorthand, since both turn up in hand-written chains and `<input
+	 * type="color">` always sends the `#`.
+	 */
+	hexToRGB(hex: string): [number, number, number] {
+		const digits = normaliseHex(hex, '000000');
+		return [
+			parseInt(digits.slice(0, 2), 16),
+			parseInt(digits.slice(2, 4), 16),
+			parseInt(digits.slice(4, 6), 16)
+		];
+	},
+
+	/** Back the other way, rounded and clamped into six lower-case digits. */
+	rgbToHex(rgb: [number, number, number] | number[]): string {
+		return rgb
+			.slice(0, 3)
+			.map((channel) => {
+				const byte = Operations.clamp(Math.round(channel), 0, 255);
+				return byte.toString(16).padStart(2, '0');
+			})
+			.join('');
 	}
 };

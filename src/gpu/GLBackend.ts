@@ -1,6 +1,7 @@
 import { PRELUDE, PRELUDE_LINES, VERTEX_SHADER } from './glsl.js';
 import { createImageData } from '../core/imagedata.js';
 import { sampleSize } from '../helpers/sample.js';
+import { Operations } from '../helpers/Operations.js';
 import type { Filter } from '../core/Filter.js';
 import type { SchemaField } from '../core/schema.js';
 
@@ -726,7 +727,7 @@ export function uniformsFor(filter: Filter): Record<string, number | number[]> {
 		uniforms[`u_${key}`] = encode(field, value);
 		//`null` is meaningful for a nullable field - a separate flag rather than a
 		//sentinel value, so a shader can branch on it without guessing
-		if (field.type !== 'bool' && field.type !== 'select' && field.nullable) {
+		if ((field.type === 'int' || field.type === 'float') && field.nullable) {
 			uniforms[`u_${key}_auto`] = value === null ? 1 : 0;
 		}
 	}
@@ -734,7 +735,7 @@ export function uniformsFor(filter: Filter): Record<string, number | number[]> {
 	return uniforms;
 }
 
-function encode(field: SchemaField, value: unknown): number {
+function encode(field: SchemaField, value: unknown): number | number[] {
 	if (field.type === 'bool') {
 		return value ? 1 : 0;
 	}
@@ -742,6 +743,11 @@ function encode(field: SchemaField, value: unknown): number {
 		//index into the declared options, so a shader compares against a number
 		const index = field.options.findIndex((option) => option.value === value);
 		return index < 0 ? 0 : index;
+	}
+	if (field.type === 'colour') {
+		//three floats in 0-255, which setUniform binds as a vec3 - the same space
+		//the CPU implementations and the rest of the prelude work in
+		return Operations.hexToRGB(typeof value === 'string' ? value : field.default);
 	}
 	return typeof value === 'number' ? value : 0;
 }

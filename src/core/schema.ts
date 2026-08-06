@@ -65,7 +65,27 @@ export interface SelectField extends FieldBase {
 	default: string;
 }
 
-export type SchemaField = NumberField | BoolField | SelectField;
+/**
+ * A colour, held as six lower-case hex digits with no leading `#`.
+ *
+ * Hex rather than a CSS colour string, and that is a format decision rather
+ * than a taste one: the chain format separates properties with `,` (see
+ * `PROPERTY_SEPARATOR` in `chain.ts`), so `colour=rgb(255, 0, 0)` would parse
+ * as three properties and quietly lose two of them. Hex is comma-free, survives
+ * `formatChain` unchanged, and is exactly what `<input type="color">` speaks, so
+ * a host app gets a real colour picker for nothing.
+ *
+ * A filter is free to accept other spellings in its *constructor* - `Fill` takes
+ * `rgb` and `hsv` triplets - because options are not properties. Only what the
+ * filter carries has to be one thing.
+ */
+export interface ColourField extends FieldBase {
+	type: 'colour';
+	/** Six hex digits, no `#`. */
+	default: string;
+}
+
+export type SchemaField = NumberField | BoolField | SelectField | ColourField;
 
 /** Keyed by property name, matching the filter's `properties`. */
 export type FilterSchema = Readonly<Record<string, SchemaField>>;
@@ -87,6 +107,26 @@ export const CHANNEL_FIELD: SelectField = {
 		{ value: 'blue', label: 'Blue' }
 	]
 };
+
+/** Three or six hex digits, with or without the `#` a colour input sends. */
+const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/**
+ * Anything hex-shaped to six lower-case digits, or the field's default.
+ *
+ * Shorthand is expanded here rather than downstream so that everything past
+ * this point - the shader encoder, the chain string, a comparison between two
+ * filters - only ever sees one length and one case. `#F84` and `ff8844` are the
+ * same colour and should not be two different property values.
+ */
+export function normaliseHex(value: unknown, fallback: string): string {
+	const match = HEX.exec(String(value).trim());
+	if (!match) {
+		return fallback;
+	}
+	const digits = match[1].toLowerCase();
+	return digits.length === 3 ? digits.replace(/./g, (digit) => digit + digit) : digits;
+}
 
 function toBoolean(value: unknown): boolean {
 	if (typeof value === 'boolean') {
@@ -114,6 +154,10 @@ function toBoolean(value: unknown): boolean {
 export function coerceValue(field: SchemaField, value: unknown): PropertyValue {
 	if (field.type === 'bool') {
 		return toBoolean(value);
+	}
+
+	if (field.type === 'colour') {
+		return normaliseHex(value, field.default);
 	}
 
 	if (field.type === 'select') {

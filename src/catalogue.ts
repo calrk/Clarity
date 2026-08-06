@@ -137,9 +137,8 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	NormalIntensity: { category: 'Height Map', summary: "Strengthens or weakens the X/Y tilt of an existing normal map.", traits: ['normalmap-in'] },
 
 	// --- Starters ---
-	Cloud: { category: 'Starters', summary: "Fills the frame with tinted value-noise clouds.", traits: ['starter'] },
-	FillHSV: { category: 'Starters', summary: "Fills the frame with one colour, specified in HSV.", traits: ['starter'] },
-	FillRGB: { category: 'Starters', summary: "Fills the frame with one colour, specified in RGB.", traits: ['starter'] },
+	Cloud: { category: 'Starters', summary: "Fills the frame with fractal gradient noise, in grey - fog, terrain, or a mask for anything else.", traits: ['starter'] },
+	Fill: { category: 'Starters', summary: "Fills the frame with one flat colour.", traits: ['starter'] },
 	Gradient: { category: 'Starters', summary: "Fills the frame with a linear or radial grey ramp - the mask primitive for fading anything.", traits: ['starter'] },
 	Voronoi: { category: 'Starters', summary: "Fills the frame with cellular noise - blobs, cracked seams, or flat stone cells.", traits: ['starter'] },
 

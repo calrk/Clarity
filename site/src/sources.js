@@ -60,7 +60,7 @@ export const SOURCES = [
 	// DifferenceDetector compares every frame against the first one it saw, which
 	// only means anything if the background stays put.
 	{ id: 'box', label: 'Box', kind: 'video', url: box, thumb: boxThumb, glyph: '▶' },
-	// The starters - Cloud, FillRGB, FillHSV - ignore their input and generate a
+	// The starters - Cloud, Fill, Gradient, Voronoi - ignore their input and generate a
 	// frame from nothing, so they need something to be handed. This is that
 	// something: an empty frame of a sensible size.
 	{ id: 'blank', label: 'Blank', kind: 'blank', glyph: '▦', width: 960, height: 720 },

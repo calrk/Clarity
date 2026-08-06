@@ -758,3 +758,37 @@ test('Halftone leaves a blown-out area completely clean', () => {
 		assert.equal(out.data[i], 255, `stippled a pure white frame at ${i}`);
 	}
 });
+
+test('Fill takes three spellings of a colour and keeps one', () => {
+	// The argument for one Fill rather than a filter per colour model is that the
+	// model is a property of how you *type* the colour, not of the filter - so all
+	// three spellings must collapse to the same property and the same pixels.
+	// `#F84` is shorthand for `ff8844`, and expanding it on the way in is what
+	// keeps two spellings of one colour from being two property values.
+	const hex = new CLARITY.Fill({ colour: 'ff8844' });
+	const hash = new CLARITY.Fill({ colour: '#FF8844' });
+	const short = new CLARITY.Fill({ colour: '#F84' });
+	const rgb = new CLARITY.Fill({ rgb: [255, 136, 68] });
+
+	for (const [name, filter] of [['hash', hash], ['shorthand', short], ['rgb', rgb]]) {
+		assert.equal(filter.properties.colour, 'ff8844', `${name} did not normalise`);
+		assert.deepEqual(
+			[...filter.process(makeFrame()).data],
+			[...hex.process(makeFrame()).data],
+			`${name} produced different pixels from the hex spelling`
+		);
+	}
+
+	// HSV goes through a conversion, so it is checked as a colour rather than by
+	// string equality: pure red is hue 0, full saturation, full value.
+	const hsv = new CLARITY.Fill({ hsv: [0, 1, 1] });
+	assert.equal(hsv.properties.colour, 'ff0000');
+
+	// Two spellings at once is a caller bug, not user input, so it throws - the
+	// same split setProperty makes between a bad key and a bad value.
+	assert.throws(() => new CLARITY.Fill({ colour: 'ff0000', rgb: [0, 0, 255] }), /one of colour, rgb or hsv/);
+
+	// A malformed string is not a caller bug in the same way - it may have come
+	// from a hand-edited link - so it falls back rather than throwing.
+	assert.equal(new CLARITY.Fill({ colour: 'nonsense' }).properties.colour, '000000');
+});

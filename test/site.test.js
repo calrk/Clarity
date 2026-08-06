@@ -493,14 +493,14 @@ if (!existsSync(join(dist, 'index.html'))) {
 	test('a starter fills the blank source', async () => {
 		// The starters ignore their input, so without something to hand them they
 		// have nothing to run against at all
-		await open('#blank/FillRGB,red=200,green=40,blue=90');
+		await open('#blank/Fill,colour=c8285a');
 		await page.waitForFunction(() => document.querySelectorAll('#chain li').length === 1);
 
 		const corner = await page.evaluate(() => {
 			const canvas = document.getElementById('canvas');
 			return [...canvas.getContext('2d').getImageData(4, 4, 1, 1).data];
 		});
-		assert.deepEqual(corner, [200, 40, 90, 255]);
+		assert.deepEqual(corner, [200, 40, 90, 255]);	// c8285a
 	});
 
 	test('a chosen file joins the source list for the session', async () => {

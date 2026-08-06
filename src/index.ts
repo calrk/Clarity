@@ -35,6 +35,7 @@ export type {
 	BoolField,
 	SelectField,
 	SelectOption,
+	ColourField,
 	PropertyValue
 } from './core/schema.js';
 export { medianCut, nearestColourIndex } from './helpers/quantise.js';
@@ -113,10 +114,8 @@ export type { SkinDetectorOptions } from './filters/Salience/SkinDetector.js';
 // Starters
 export { Cloud } from './filters/Starters/Cloud.js';
 export type { CloudOptions, CloudFold } from './filters/Starters/Cloud.js';
-export { FillHSV } from './filters/Starters/FillHSV.js';
-export type { FillHSVOptions } from './filters/Starters/FillHSV.js';
-export { FillRGB } from './filters/Starters/FillRGB.js';
-export type { FillRGBOptions } from './filters/Starters/FillRGB.js';
+export { Fill } from './filters/Starters/Fill.js';
+export type { FillOptions } from './filters/Starters/Fill.js';
 export { Gradient } from './filters/Starters/Gradient.js';
 export type { GradientOptions, GradientShape } from './filters/Starters/Gradient.js';
 export { Voronoi } from './filters/Starters/Voronoi.js';
