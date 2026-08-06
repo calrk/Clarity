@@ -12,9 +12,9 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
 | Filters clean | 31 of 41, 4 hard crashes | 50 of 50, each with a golden image, a GPU parity case and a generated docs entry |
-| GPU | none | every filter, 98/98 parity cases as shaders |
-| Tests | none | 614, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
-| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and eleven presets |
+| GPU | none | every filter, 100/100 parity cases as shaders |
+| Tests | none | 620, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and twelve presets |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
 
@@ -327,7 +327,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** The suite has grown with everything since — **614 tests** and **98 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
+**Done.** The suite has grown with everything since — **620 tests** and **100 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
 - **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
@@ -529,7 +529,7 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, five deleted, 41 to 50** — and what is left is the eight below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, five deleted, 41 to 50** — and what is left is the seven below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
@@ -539,7 +539,6 @@ The README's "Filters to be made" list had been sitting there since 2014. Most o
 | **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
 | **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
 | **Woodgrain** | Fills the frame with growth rings and grain — a *starter*, like `Cloud` and `Voronoi`. | Low–Medium |
-| **Halftone, per channel** | One screen per ink instead of one for the picture: CMYK for print, RGB for a screen. | Low–Medium |
 | **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
 | **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
 | **Crackulate** | Draws procedural cracks across the frame. | Medium |
@@ -554,15 +553,22 @@ Roughly ordered by effort, which is also the order to do them in — the cheap o
 
 It is also the honest partner to the shipped `Halftone`: both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one, so they answer different questions and neither absorbs the other.
 
-**`Halftone` per channel is Clark's, and the CMYK half is the strongest idea anyone has had about this filter.** The shipped version screens the *picture* once; real print screens each *ink* separately, at a different angle, and lets them mix on the paper. That is not a variant of the effect, it is the authentic version of it — and it is exactly what a comic book is, because Ben-Day dots are CMYK halftone.
+### ~~Halftone, per channel~~ ✓
 
-The rosette is the whole point and it comes free from the angles: C 15°, M 75°, Y 0°, K 45°, spaced 30° apart so the four screens interfere into a rosette instead of a moiré. Yellow sits closest to the others because it is the least visible. It is a fixed table, not something to tune.
+**Done, and it was Clark's idea.** `colour` stopped being a two-way switch and became the colour *model* — `sampled | ink | cmyk | rgb`, at one, one, four and three screens, all over the cell machinery that already existed. Appended rather than inserted, so every older link still means what it said. It ships with the `comic` preset.
 
-**The one thing that decides whether this looks like print or like mud is the black.** Naive `C = 1 − R, M = 1 − G, Y = 1 − B` puts three full-coverage dots on top of each other everywhere the picture is dark, and every black comes out muddy brown with no contrast. Pulling `K = min(C, M, Y)` out first — grey component replacement — is what makes blacks black. Skip it and the honest conclusion would be that the idea does not work, when it was one line.
+**CMYK is the authentic version of the filter rather than a variant of it.** The single-screen mode screens the *picture*; print screens each *ink* separately at its own angle and lets them mix on the paper, and Ben-Day dots are exactly that, which is why it reads as comic book. The rosette comes free from the angles — 30° apart so the four screens interfere into a rosette instead of a moiré, with yellow closest because it is least visible. At the default `angle` they fall out as the classic C 15, M 75, Y 0, K 45.
 
-**RGB is the same machinery and a different argument.** Three dots per cell on a black ground, mixing additively, which is what a screen is. The risk is specific and worth stating: at any fine spacing an RGB triad *reconstructs the original slightly darker*, because that is precisely a screen's job, and it only reads as an effect once the cells are coarse enough to see — by which point the picture is gone. There is a narrow band where it works. Where it clearly earns its place is the CRT chain, which fakes scanlines through `HanoverBars` and currently has nothing at all for the phosphor mask.
+**The black decides whether it looks like print or like mud**, and this is the one that would have been discovered the hard way. `K = min(C, M, Y)` is pulled out before anything prints, so a dark area lays one black dot instead of stacking three full-coverage coloured ones. There is a test for it that a photograph would never have caught: a neutral grey must print with **zero** colour cast, since all of its ink is grey component. With the replacement removed it prints a cast of **255**.
 
-Both fit without a new filter: `colour` stops being a two-way switch and becomes the colour *model* — `sampled | ink | cmyk | rgb`, at one, one, four and three screens, all sharing the cell machinery that already exists. `angle` stays a single control as the base, with the per-channel offsets added from the fixed table. Cost is 4 × the nine-cell neighbourhood, so 36 fetches in one pass, still a pure gather — about what `Morphology` does at radius 4.
+That test is deliberately the second of two, because the first does not cover it. Printing the primaries and both extremes exactly — red, green, blue, black, white — passes *with or without* the K, since `K` is zero at every one of them. The interesting failure lives strictly in between.
+
+**RGB is the same machinery and behaves as predicted.** Three dots to a cell, added on black. The caveat written down before building it turned out to be the accurate one: it is much dimmer than the picture it came from, and inherently so — three dots share one cell, so each lights at most a ninth of it at `scale` 1. That is not a bug, it is what a screen looks like close enough to see its subpixels. It wants roughly double the `scale` the other modes do, and the schema's range covers that, so the fix was a sentence in the description rather than a change to the geometry.
+
+Two measurements worth keeping:
+
+- **A dot inks `π/4 × scale² × coverage` of its cell**, so at `scale` 1 — where the dots just touch — the result prints about a fifth lighter than the source. `1.13` is where inked area matches tone exactly and `1.41` is where the dots reach the corners. All three are now in the `scale` description, because "dot size" is a geometric control and the tonal consequence is not guessable from it.
+- **The GPU disagreement has a different shape in CMYK, and the reason is not the one the single-screen mode has.** `rgb` at 0° is **byte-identical** — no rotation means no irrational trig and no ambiguity anywhere. `cmyk` differs on 38 pixels of 3072, worst 49, against 2268 exactly equal. That is the sample-point `floor` — the same hazard `FishEye` carries — and CMYK is more exposed for two compounding reasons: four screens rather than one, and a flip changes an ink's *coverage*, which is then multiplied by the other three rather than merely nudging one dot's edge. It gets its own budget with the numbers written next to it.
 
 **`Woodgrain` is the third starter**, and it is cheap for the same reason `Voronoi` was: `Cloud`'s hashed gradient noise already exists and already agrees exactly on both backends, so this is a coordinate function wrapped around a solved problem rather than a new one.
 
@@ -1004,7 +1010,7 @@ Once it is live, two small additions to `site/seo.js` become possible and are wo
 
 ## ~~16. Presets — the README's Example Chains, Inside the Playground~~ ✓
 
-**Done.** **Eleven presets** as chips in the Pipeline panel, in `site/src/presets.js`, four shown and the rest behind a `+N more` toggle. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
+**Done.** **Twelve presets** as chips in the Pipeline panel, in `site/src/presets.js`, four shown and the rest behind a `+N more` toggle. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
 
 Six things worth recording:
 
@@ -1082,23 +1088,23 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 1 | Correctness sweep | Low | 4 crashing filters revived, 31→40 of 41 clean; 5 more found later by the contact sheet |
 | 2 | ESM + Vite + publishable package | Medium | TS classes, 3 bundles, types, `npm test`; the type system found 3 more bugs |
 | 7 | Licensing / replace GPL MCut | Low–Med | MIT throughout, and the replacement quantiser is 2–21× faster |
-| 6 | Golden-image test suite | Medium | 63 goldens then, 98 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
+| 6 | Golden-image test suite | Medium | 63 goldens then, 100 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
 | 8 | Declarative filter schemas | Medium | 717 lines out, DOM dependency gone, `setProperty` the one write path |
 | 4 | `Renderer` / `Pipeline` | Medium | Headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
-| 3 | GPU shader backend | High | Every filter has a shader; 98/98 parity cases on the GPU; 6 more bugs found |
+| 3 | GPU shader backend | High | Every filter has a shader; 100/100 parity cases on the GPU; 6 more bugs found |
 | 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
 | 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
-| 16 | Presets in the playground | Low | Eleven chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
+| 16 | Presets in the playground | Low | Twelve chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 13 of 20 | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Seven left, plus a Halftone mode — still open below** |
+| 9 | Filter wishlist — 13 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Seven left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last seven filters, and a Halftone mode | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Woodgrain`, `Bilateral`, `Skeletiser`, `Crackulate`, plus per-channel `Halftone`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last seven filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Woodgrain`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 

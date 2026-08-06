@@ -193,9 +193,9 @@ new Halftone({ spacing: 6 });
 |---|---|---|---|---|
 | `spacing` | int | 2–64 | `8` | Distance between dot centres, in pixels. This is the resolution of the screen, so smaller keeps more of the picture. |
 | `angle` | float | 0–90 | `45` | Rotation of the dot grid. 45 is the classic screen angle; 0 lines the dots up with the frame, which reads as a grid laid over the picture rather than as tone. |
-| `scale` | float | 0–2 | `1` | How much of a cell a full-strength dot fills. At 1 the dots just touch; above about 1.4 they meet at the corners and solid areas go solid. |
-| `colour` | select | `sampled` · `ink` | `sampled` | Sampled takes each dot from the picture, for coloured dots on a flat ground. Ink fixes them to the opposite of the background, which is newsprint. |
-| `background` | select | `white` · `black` | `white` | The ground the dots are drawn on. White gives paper, and the dark parts of the picture get the big dots; black swaps that over. |
+| `scale` | float | 0–2 | `1` | How much of a cell a full-strength dot fills. At 1 the dots just touch, which prints about a fifth lighter than the source; 1.13 matches inked area to tone exactly, and past 1.41 the dots reach the corners so solid areas go solid. RGB wants roughly double, since its three dots share one cell. |
+| `colour` | select | `sampled` · `ink` · `cmyk` · `rgb` | `sampled` | How the dots carry colour. Sampled and ink use one screen; CMYK uses four at different angles and mixes them like print; RGB puts three dots in every cell and adds them like a screen. |
+| `background` | select | `white` · `black` | `white` | The ground the dots are drawn on. White gives paper, and the dark parts of the picture get the big dots; black swaps that over. Ignored by CMYK and RGB, which are paper and screen respectively and cannot be otherwise. |
 
 ### HanoverBars
 

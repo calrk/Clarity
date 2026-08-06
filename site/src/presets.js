@@ -48,6 +48,17 @@ export const PRESETS = [
 		chain: 'landscape/hsvShifter,saturation=1.5/Halftone,spacing=12,scale=1.3'
 	},
 	{
+		id: 'comic',
+		label: 'Comic book',
+		note: 'Four ink screens at four angles, the way a comic is actually printed',
+		//Ben-Day dots are CMYK halftone, so this is the authentic thing rather
+		//than an impression of it. `Posteriser` goes first because a comic is
+		//drawn in flat colour before it is ever screened - without it the dots
+		//faithfully reproduce a photograph's continuous tone, which is a
+		//newspaper rather than a comic.
+		chain: 'face/Posteriser,colours=8/Halftone,spacing=6,colour=cmyk'
+	},
+	{
 		id: 'composite',
 		label: 'Composite video',
 		note: 'Colour bleeding off its edges, fringing, and the dots that crawl along them',

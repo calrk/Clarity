@@ -792,3 +792,65 @@ test('Fill takes three spellings of a colour and keeps one', () => {
 	// from a hand-edited link - so it falls back rather than throwing.
 	assert.equal(new CLARITY.Fill({ colour: 'nonsense' }).properties.colour, '000000');
 });
+
+test('Halftone CMYK reproduces a colour it can print exactly', () => {
+	// Four screens mixing subtractively should land back on the colour they came
+	// from wherever the dots reach full coverage. Checked at the primaries and at
+	// the two ends, because those are the places the maths can be wrong in a way
+	// that a photograph hides: pure red is magenta plus yellow with no cyan and
+	// no black, and if the grey-component replacement is wrong it prints muddy.
+	const flatFrame = (r, g, b) => {
+		const f = new NodeImageData(48, 48);
+		for (let i = 0; i < f.data.length; i += 4) {
+			f.data[i] = r; f.data[i + 1] = g; f.data[i + 2] = b; f.data[i + 3] = 255;
+		}
+		return f;
+	};
+
+	// scale 1.5 so a full-coverage dot reaches its cell's corners; below sqrt(2)
+	// the paper still shows through and nothing can print solid.
+	const at = (r, g, b) => {
+		const out = new CLARITY.Halftone({ spacing: 6, scale: 1.5, colour: 'cmyk' })
+			.process(flatFrame(r, g, b));
+		const i = (24 * 48 + 24) * 4;
+		return [out.data[i], out.data[i + 1], out.data[i + 2]];
+	};
+
+	for (const [name, colour] of [
+		['white', [255, 255, 255]],
+		['black', [0, 0, 0]],
+		['red', [255, 0, 0]],
+		['green', [0, 255, 0]],
+		['blue', [0, 0, 255]]
+	]) {
+		const got = at(...colour);
+		for (let k = 0; k < 3; k++) {
+			assert.ok(
+				Math.abs(got[k] - colour[k]) <= 2,
+				`${name}: printed [${got}] for [${colour}]`
+			);
+		}
+	}
+});
+
+test('Halftone CMYK pulls the black out rather than stacking three inks', () => {
+	// Grey-component replacement is the whole difference between print and mud.
+	// A neutral grey has equal C, M and Y, so all of it should become K and none
+	// of it should print as colour - which shows up as the result staying neutral.
+	// Without the K it would be three overlapping coloured dots and come back
+	// with a cast.
+	const grey = new NodeImageData(48, 48);
+	for (let i = 0; i < grey.data.length; i += 4) {
+		grey.data[i] = grey.data[i + 1] = grey.data[i + 2] = 128;
+		grey.data[i + 3] = 255;
+	}
+
+	const out = new CLARITY.Halftone({ spacing: 6, scale: 1.5, colour: 'cmyk' }).process(grey);
+
+	let worstCast = 0;
+	for (let i = 0; i < out.data.length; i += 4) {
+		const [r, g, b] = [out.data[i], out.data[i + 1], out.data[i + 2]];
+		worstCast = Math.max(worstCast, Math.max(r, g, b) - Math.min(r, g, b));
+	}
+	assert.equal(worstCast, 0, `neutral grey printed with a colour cast of ${worstCast}`);
+});

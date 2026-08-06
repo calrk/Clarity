@@ -50,10 +50,6 @@ export const descriptions = {
 	Desaturate: {
 		look: 'Fully grey at amount 1; the partial variant keeps some colour but less of it. The sky/ground split stays legible either way.'
 	},
-	DotRemover: {
-		look: 'The scattered specks should be gone; the solid block, disc and line survive intact.',
-		note: 'Likely superseded by proper morphological bloat/erode (FEATURES.md #9), which generalises past binary images.'
-	},
 	Glow: {
 		look: 'Bright areas bloom outwards; edges stay roughly in place.'
 	},
@@ -75,12 +71,6 @@ export const descriptions = {
 	},
 	Posteriser: {
 		look: 'Flat bands of colour with no gradient inside them. Exactly 6 distinct colours here.'
-	},
-	Sharpen: {
-		look: 'Edges crisper, grain more pronounced. Subtle at intensity 0.6.'
-	},
-	Smoother: {
-		look: 'Gentle softening, less aggressive than Blur. Two passes compound.'
 	},
 	hsvShifter: {
 		look: 'A 120 degree hue rotation: blue sky becomes red-ish, green ground becomes blue-ish.'

@@ -54,6 +54,22 @@ const BANDED = { mode: 'banded', tolerance: 1, maxFlippedRatio: 0.01 };
  * boundary - so it uses the same mode rather than a fourth one.
  */
 const DOTS = { mode: 'banded', tolerance: 2, maxFlippedRatio: 0.005 };
+/**
+ * The same thing, with four screens instead of one.
+ *
+ * Each screen samples its cell's colour at a computed centre, and that goes
+ * through a `floor`, so a centre landing near a pixel boundary reads one source
+ * pixel on the CPU and its neighbour on the GPU - the hazard `FishEye` already
+ * carries. CMYK is more exposed to it than the single-screen modes for two
+ * reasons that compound: there are four screens rather than one, and what the
+ * flip changes is an ink's *coverage*, which is then multiplied by the other
+ * three rather than merely nudging a dot's edge.
+ *
+ * Measured on the photo fixture: 2268 pixels of 3072 agree exactly, 766 are
+ * within 2, and 38 differ by more - worst 49. Structureless, which is what says
+ * this is the boundary and not a disagreement about the arithmetic.
+ */
+const DOTS_MULTI = { mode: 'banded', tolerance: 2, maxFlippedRatio: 0.02 };
 
 /** NormalIntensity and NormalFlip take a normal map, not a height map. */
 const NORMAL = [{ filter: 'NormalGenerator', options: { intensity: 1 } }];
@@ -104,6 +120,10 @@ export const cases = [
 	{ filter: 'Halftone', name: 'wide', input: 'photo', options: { spacing: 10, scale: 1.5, background: 'black' }, gpu: DOTS },
 	// odd dimensions, for the same reason Pixelate has the case
 	{ filter: 'Halftone', name: 'odd', input: 'odd', options: { spacing: 5 }, gpu: DOTS },
+	// four screens 30 degrees apart, mixing subtractively - the print rosette
+	{ filter: 'Halftone', name: 'cmyk', input: 'photo', options: { spacing: 8, colour: 'cmyk' }, gpu: DOTS_MULTI },
+	// three dots to a cell, added on black - a screen rather than a page
+	{ filter: 'Halftone', name: 'rgb', input: 'photo', options: { spacing: 9, angle: 0, scale: 2, colour: 'rgb' }, gpu: DOTS },
 	{ filter: 'Posteriser', input: 'photo', options: { colours: 6 }, gpu: BOUNDARY },
 	// The fast method lands on band centres like 21.5, and the two paths break
 	// that tie in opposite directions - Uint8ClampedArray rounds half to even,
