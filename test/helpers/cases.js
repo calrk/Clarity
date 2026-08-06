@@ -124,6 +124,12 @@ export const cases = [
 	{ filter: 'Halftone', name: 'cmyk', input: 'photo', options: { spacing: 8, colour: 'cmyk' }, gpu: DOTS_MULTI },
 	// three dots to a cell, added on black - a screen rather than a page
 	{ filter: 'Halftone', name: 'rgb', input: 'photo', options: { spacing: 9, angle: 0, scale: 2, colour: 'rgb' }, gpu: DOTS },
+	{ filter: 'Dither', input: 'photo', options: {}, gpu: BOUNDARY },
+	{ filter: 'Dither', name: 'mono', input: 'photo', options: { monochrome: true, matrix: '4' }, gpu: BOUNDARY },
+	{ filter: 'Dither', name: 'levels', input: 'photo', options: { levels: 4, matrix: '2' }, gpu: BOUNDARY },
+	// Floyd-Steinberg: sequential, so supportsGPU keeps it off the GPU and the
+	// harness records it as CPU-only rather than the case quietly disappearing
+	{ filter: 'Dither', name: 'diffusion', input: 'photo', options: { mode: 'diffusion' }, gpu: BOUNDARY },
 	{ filter: 'Posteriser', input: 'photo', options: { colours: 6 }, gpu: BOUNDARY },
 	// The fast method lands on band centres like 21.5, and the two paths break
 	// that tie in opposite directions - Uint8ClampedArray rounds half to even,

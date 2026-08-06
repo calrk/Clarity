@@ -50,6 +50,10 @@ export const descriptions = {
 	Desaturate: {
 		look: 'Fully grey at amount 1; the partial variant keeps some colour but less of it. The sky/ground split stays legible either way.'
 	},
+	Dither: {
+		look: 'A gradient that would band comes out stippled instead. Ordered leaves a visible crosshatch and diffusion leaves no pattern at all; monochrome is the one-bit newsprint end of it.',
+		note: 'The one honest use of supportsGPU: Bayer is a pure gather and runs as a shader, Floyd-Steinberg pushes error into pixels it has not visited yet and cannot.'
+	},
 	Glow: {
 		look: 'Bright areas bloom outwards; edges stay roughly in place.'
 	},

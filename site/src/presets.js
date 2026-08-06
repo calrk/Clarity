@@ -59,6 +59,18 @@ export const PRESETS = [
 		chain: 'face/Posteriser,colours=8/Halftone,spacing=6,colour=cmyk'
 	},
 	{
+		id: 'eightbit',
+		label: '8-bit',
+		note: 'Three shades a channel, with the banding spent on a dither pattern instead',
+		//The companion to the pixel-art preset rather than a repeat of it. That
+		//one uses Posteriser, which picks the best few colours per frame and
+		//accepts flat bands; this keeps a fixed ladder and hides the error in an
+		//ordered pattern, which is what a machine with a hardwired palette and no
+		//memory actually did. Pixelate first, so the dither lands on chunky
+		//pixels rather than being lost at full resolution.
+		chain: 'landscape/Pixelate,size=4/Dither,levels=3/hsvShifter,saturation=1.3'
+	},
+	{
 		id: 'composite',
 		label: 'Composite video',
 		note: 'Colour bleeding off its edges, fringing, and the dots that crawl along them',

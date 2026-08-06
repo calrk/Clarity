@@ -11,10 +11,10 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 51 of 51, each with a golden image, a GPU parity case and a generated docs entry |
-| GPU | none | every filter, 102/102 parity cases as shaders |
-| Tests | none | 633, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
-| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and thirteen presets |
+| Filters clean | 31 of 41, 4 hard crashes | 52 of 52, each with a golden image, a GPU parity case and a generated docs entry |
+| GPU | none | every filter, 105/106 parity cases as shaders - the sequential half of `Dither` is CPU-only by design |
+| Tests | none | 649, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and fourteen presets |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
 
@@ -327,7 +327,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** The suite has grown with everything since — **633 tests** and **102 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
+**Done.** The suite has grown with everything since — **649 tests** and **106 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
 - **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
@@ -529,7 +529,7 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **fourteen filters added, five deleted, 41 to 51** — and what is left is the six below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **fifteen filters added, five deleted, 41 to 52** — and what is left is the five below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
@@ -537,7 +537,6 @@ The README's "Filters to be made" list had been sitting there since 2014. Most o
 |---|---|---|
 | **ChromaKey** | Makes one colour transparent, with tolerance and edge softening. | Low |
 | **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
-| **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
 | **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
 | **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
 | **Crackulate** | Draws procedural cracks across the frame. | Medium |
@@ -548,9 +547,17 @@ Roughly ordered by effort, which is also the order to do them in — the cheap o
 
 **`Histogram` wants `samples` + `prepare`** — the shape that already exists for `Posteriser`'s palette: a thumbnail read back, the statistic derived on the CPU, the result handed to the shader through `data()`. `ShotDetector` is the closer model, since it uses that path for *state* rather than for a one-off statistic. The open question is whether it draws over the frame or replaces it, and the answer is probably an `overlay` bool, because both are wanted and neither is obviously the default.
 
-**`Dither` is the one honest use of `supportsGPU`.** Bayer is an ordered threshold and runs as a shader; Floyd–Steinberg diffuses error into pixels it has not visited yet and is inherently sequential, so it stays CPU-only. That flag exists precisely so one filter can say which half of itself the GPU can take.
+### ~~Dither~~ ✓
 
-It is also the honest partner to the shipped `Halftone`: both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one, so they answer different questions and neither absorbs the other.
+**Done, and it is the one honest use of `supportsGPU` in the library.** Bayer is an ordered threshold that needs nothing but its own coordinates, so it runs as a shader; Floyd–Steinberg pushes each pixel's error into neighbours it has *not visited yet*, so pixel N+1 cannot start until N is finished. That flag exists precisely so a filter can say which half of itself the GPU can take, and nothing had used it for that before. The parity harness now prints `CPU only: Dither-diffusion` in its summary, which is the mechanism working out loud rather than a mode quietly going missing.
+
+It is the honest partner to `Halftone` — both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one — and the companion to `Posteriser`, which answers the same question the other way: that picks the best few colours per frame and accepts flat bands, this keeps a fixed ladder and spends the error on texture. The `8-bit` preset is the second of those, next to `Pixel art` which is the first.
+
+Three things worth keeping:
+
+- **The test is the definition, not the output.** Quantising to two levels can only write 0 or 255, so the only way a mid-grey survives is as a mixture in the right proportion — and getting that proportion right is the entire difference between a dither and a threshold. Measured across five greys and both modes, the mean lands within 1.5 of the input while nothing but 0 and 255 is ever written.
+- **The Bayer matrix needs no table.** Interleaving the bits of `x ^ y` and `y` and shifting outward reproduces the recursive construction exactly, so both paths compute it and neither stores it. Checked against the classic 2×2 — 0, 2, 3, 1.
+- **A claim I had to withdraw.** The obvious companion to "ordered tiles" is "diffusion never repeats", and it is false: on a perfectly flat field Floyd–Steinberg settles into a periodic pattern of its own, which is the classic worm artifact. The test asserts what is actually true instead — that the two modes are two algorithms rather than one written twice.
 
 ### ~~Halftone, per channel~~ ✓
 
@@ -1031,7 +1038,7 @@ Once it is live, two small additions to `site/seo.js` become possible and are wo
 
 ## ~~16. Presets — the README's Example Chains, Inside the Playground~~ ✓
 
-**Done.** **Thirteen presets** as chips in the Pipeline panel, in `site/src/presets.js`, four shown and the rest behind a `+N more` toggle. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
+**Done.** **Fourteen presets** as chips in the Pipeline panel, in `site/src/presets.js`, four shown and the rest behind a `+N more` toggle. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
 
 Six things worth recording:
 
@@ -1109,23 +1116,23 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 1 | Correctness sweep | Low | 4 crashing filters revived, 31→40 of 41 clean; 5 more found later by the contact sheet |
 | 2 | ESM + Vite + publishable package | Medium | TS classes, 3 bundles, types, `npm test`; the type system found 3 more bugs |
 | 7 | Licensing / replace GPL MCut | Low–Med | MIT throughout, and the replacement quantiser is 2–21× faster |
-| 6 | Golden-image test suite | Medium | 63 goldens then, 102 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
+| 6 | Golden-image test suite | Medium | 63 goldens then, 106 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
 | 8 | Declarative filter schemas | Medium | 717 lines out, DOM dependency gone, `setProperty` the one write path |
 | 4 | `Renderer` / `Pipeline` | Medium | Headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
-| 3 | GPU shader backend | High | Every filter has a shader; 102/102 parity cases on the GPU; 6 more bugs found |
+| 3 | GPU shader backend | High | Every filter has a shader; 105/106 parity cases on the GPU; 6 more bugs found |
 | 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
 | 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
-| 16 | Presets in the playground | Low | Thirteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
+| 16 | Presets in the playground | Low | Fourteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 14 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Six left — still open below** |
+| 9 | Filter wishlist — 15 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Five left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last six filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last five filters | Low each | Medium — `ChromaKey`, `Histogram`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 

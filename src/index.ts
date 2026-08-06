@@ -72,6 +72,8 @@ export { Blur } from './filters/Process/Blur.js';
 export type { BlurOptions } from './filters/Process/Blur.js';
 export { Desaturate } from './filters/Process/Desaturate.js';
 export type { DesaturateOptions } from './filters/Process/Desaturate.js';
+export { Dither } from './filters/Process/Dither.js';
+export type { DitherOptions, DitherMode, DitherMatrix } from './filters/Process/Dither.js';
 export { DotCrawl } from './filters/Process/DotCrawl.js';
 export type { DotCrawlOptions } from './filters/Process/DotCrawl.js';
 export { Morphology } from './filters/Process/Morphology.js';

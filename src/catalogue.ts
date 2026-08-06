@@ -96,6 +96,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Blur: { category: 'Process', summary: "Stack blur - a fast Gaussian approximation." },
 	Convolver: { category: 'Process', summary: "Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace." },
 	Desaturate: { category: 'Process', summary: "Pulls colour towards grey, by an amount, keeping luminance." },
+	Dither: { category: 'Process', summary: "Quantises to a few levels and hides the banding in a pattern - ordered, or error diffusion." },
 	DotCrawl: { category: 'Process', summary: "The crawling dot pattern composite video leaves along colour edges." },
 	GradientMap: { category: 'Process', summary: "Recolours the frame by brightness through a named ramp - fire, ice, thermal - and can cycle it." },
 	Glow: { category: 'Process', summary: "Blurs the image and blends the blur back over the original." },

@@ -940,3 +940,78 @@ test('Woodgrain ring edges are continuous, not steps', () => {
 			'which is what a discontinuity looks like'
 	);
 });
+
+test('Dither keeps the tone it throws the levels away from', () => {
+	// The whole point. Quantising to two levels can only write 0 or 255, so the
+	// only way a mid-grey survives is as a mixture in the right proportion - and
+	// getting that proportion right is what separates a dither from a threshold.
+	// `Posteriser` at two colours would flatten each of these to one value.
+	const S = 64;
+	const flat = (v) => {
+		const f = new NodeImageData(S, S);
+		for (let i = 0; i < f.data.length; i += 4) {
+			f.data[i] = f.data[i + 1] = f.data[i + 2] = v;
+			f.data[i + 3] = 255;
+		}
+		return f;
+	};
+	const mean = (img) => {
+		let sum = 0;
+		for (let i = 0; i < img.data.length; i += 4) sum += img.data[i];
+		return sum / (img.data.length / 4);
+	};
+
+	for (const mode of ['bayer', 'diffusion']) {
+		for (const grey of [40, 96, 128, 190, 220]) {
+			const out = new CLARITY.Dither({ mode, monochrome: true, levels: 2 }).process(flat(grey));
+
+			// nothing but the two levels came out
+			for (let i = 0; i < out.data.length; i += 4) {
+				assert.ok(out.data[i] === 0 || out.data[i] === 255, `${mode} wrote ${out.data[i]}, not a level`);
+			}
+
+			assert.ok(
+				Math.abs(mean(out) - grey) < 3,
+				`${mode} at grey ${grey} averaged ${mean(out).toFixed(1)}`
+			);
+		}
+	}
+});
+
+test('Dither sends only the sequential half to the CPU', () => {
+	// The one honest use of supportsGPU in the library, so it is asserted rather
+	// than left to the GPU harness's summary line. Ordered needs nothing but its
+	// own coordinates; Floyd-Steinberg reads pixels it has not written yet.
+	assert.equal(CLARITY.Dither.supportsGPU(new CLARITY.Dither({})), true);
+	assert.equal(CLARITY.Dither.supportsGPU(new CLARITY.Dither({ mode: 'bayer' })), true);
+	assert.equal(CLARITY.Dither.supportsGPU(new CLARITY.Dither({ mode: 'diffusion' })), false);
+});
+
+test('Dither ordered mode tiles, and the two modes are really different', () => {
+	// An ordered matrix repeats every `matrix` pixels, so a flat field comes out
+	// seamlessly tileable and holds still between frames. That is a real reason
+	// to keep the mode rather than only a look.
+	const S = 32;
+	const flat = new NodeImageData(S, S);
+	for (let i = 0; i < flat.data.length; i += 4) {
+		flat.data[i] = flat.data[i + 1] = flat.data[i + 2] = 128;
+		flat.data[i + 3] = 255;
+	}
+	const at = (img, x, y) => img.data[(y * S + x) * 4];
+
+	const ordered = new CLARITY.Dither({ monochrome: true, matrix: '8' }).process(flat);
+	for (let y = 0; y < 8; y++) {
+		for (let x = 0; x < 8; x++) {
+			assert.equal(at(ordered, x, y), at(ordered, x + 8, y + 8), `the 8x8 matrix did not repeat at ${x},${y}`);
+		}
+	}
+
+	// The obvious companion claim - that diffusion never repeats - is false, and
+	// worth recording rather than asserting: on a perfectly flat field
+	// Floyd-Steinberg settles into a periodic pattern of its own, which is the
+	// classic worm artifact. So what is asserted is the thing that is actually
+	// true, that these are two algorithms rather than one written twice.
+	const diffused = new CLARITY.Dither({ mode: 'diffusion', monochrome: true }).process(makeFrame());
+	const same = new CLARITY.Dither({ mode: 'bayer', monochrome: true }).process(makeFrame());
+	assert.notDeepEqual([...diffused.data], [...same.data], 'the two modes produced identical frames');
+});

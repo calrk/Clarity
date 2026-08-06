@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-51 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+52 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Dither](#dither) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -116,6 +116,27 @@ new Desaturate();
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
 | `amount` | float | 0–1 | `1` | How far towards grey. 1 removes colour entirely. |
+
+### Dither
+
+Quantises to a few levels and hides the banding in a pattern - ordered, or error diffusion.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Dither.png" width="192" alt="Dither applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Dither)
+
+```js
+import { Dither } from '@calrk/clarity';
+
+new Dither();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `mode` | select | `bayer` · `diffusion` | `bayer` | Ordered compares each pixel against a fixed matrix and leaves a visible crosshatch. Diffusion pushes the error into neighbouring pixels and leaves no pattern, but is sequential, so it always runs on the CPU. |
+| `levels` | int | 2–16 | `2` | Shades kept per channel. 2 is one bit each, which is eight colours - the classic. In monochrome it is the number of greys. |
+| `matrix` | select | `2` · `4` · `8` | `8` | Side of the ordered matrix. Bigger carries more shades and a finer pattern; 2 is four thresholds and very coarse. Ignored by diffusion, which has no matrix. |
+| `monochrome` | bool | true / false | `false` | Dither brightness to greys rather than each channel separately. At 2 levels this is the one-bit newsprint look. |
 
 ### DotCrawl
 
