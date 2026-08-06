@@ -108,6 +108,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Glow: { category: 'Process', summary: "Blurs the image and blends the blur back over the original." },
 	Halftone: { category: 'Process', summary: "Redraws the frame as a grid of dots on a flat ground, sized by how strong each cell is." },
 	HanoverBars: { category: 'Process', summary: "Rotates the chroma of every other bar of lines, or darkens them." },
+	Histogram: { category: 'Process', summary: "Draws the frame's tonal distribution across the bottom of it - the one filter that measures the picture rather than changing it." },
 	Invert: { category: 'Process', summary: "Inverts colour. In dynamic mode it reflects within the image's own range." },
 	Levels: { category: 'Process', summary: "Remaps the black point, white point and gamma - the everyday contrast control." },
 	Morphology: { category: 'Process', summary: "Grows or shrinks light regions; open and close remove speckle without moving the edges that remain." },

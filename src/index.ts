@@ -90,6 +90,8 @@ export { Halftone } from './filters/Process/Halftone.js';
 export type { HalftoneOptions, HalftoneColour, HalftoneGround } from './filters/Process/Halftone.js';
 export { HanoverBars } from './filters/Process/HanoverBars.js';
 export type { HanoverBarsOptions } from './filters/Process/HanoverBars.js';
+export { Histogram } from './filters/Process/Histogram.js';
+export type { HistogramOptions, HistogramMode } from './filters/Process/Histogram.js';
 export { Invert } from './filters/Process/Invert.js';
 export type { InvertOptions } from './filters/Process/Invert.js';
 export { Levels } from './filters/Process/Levels.js';

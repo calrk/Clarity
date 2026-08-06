@@ -529,20 +529,34 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **sixteen filters added, five deleted, 41 to 53** — and what is left is the four below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **seventeen filters added, five deleted, 41 to 54** — and what is left is the three below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
 | Filter | Summary | Effort |
 |---|---|---|
-| **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
 | **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
 | **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
 | **Crackulate** | Draws procedural cracks across the frame. | Medium |
 
 Roughly ordered by effort, which is also the order to do them in — the cheap ones reuse machinery that already exists.
 
-**`Histogram` wants `samples` + `prepare`** — the shape that already exists for `Posteriser`'s palette: a thumbnail read back, the statistic derived on the CPU, the result handed to the shader through `data()`. `ShotDetector` is the closer model, since it uses that path for *state* rather than for a one-off statistic. The open question is whether it draws over the frame or replaces it, and the answer is probably an `overlay` bool, because both are wanted and neither is obviously the default.
+### ~~Histogram~~ ✓
+
+**Done.** `src/filters/Process/Histogram.ts` — the only filter in the library that *measures* the picture rather than changing it, and the first use of `samples` + `prepare` for a one-off statistic rather than for state.
+
+- **The counting happens in `prepare` on both backends**, so the two cannot disagree about the numbers — a fragment cannot count how many pixels are darker than it, and the ping-pong pair has nowhere to put a reduction. The GPU only ever *draws* a graph somebody else measured. Three channels go into one texel's R, G and B, so the data texture is `bins` wide and one tall in both modes, and `luma` costs exactly what `rgb` does.
+- **`samples` is 256, not `Posteriser`'s 48.** A palette is a handful of clusters and a thumbnail settles it; a histogram divides its pixels into up to 256 buckets, and 48 gives about nine pixels a bucket — a graph made mostly of sampling noise.
+- **The `log` option was measured into existence, not assumed.** Linear normalisation is fine until one bin holds most of the frame and then falls off a cliff: at 50% and 70% of a test frame every occupied bin still renders, and at 90% *61 of the 63 survivors round to zero*. It is a cliff rather than a slope, so it stays off by default. The `face` sample is a real instance — a large flat backdrop flattens the whole tonal range onto the floor, and `log=true` restores it. It costs one property and no shader change at all, because every scale decision happens in `prepare`.
+
+Two things the tests had to be rebuilt around, both found by sabotaging:
+
+- **The obvious bin test cannot see the obvious bin bug.** Dividing by 255 rather than 256 is *identical* — every value, clamp included — for every power-of-two bin count, so a flat-frame test at 8, 64 or 256 bins passes either way. It only diverges where the bins do not divide the range, so the mapping is now asserted at 100 and 17 bins as well.
+- **A build failure behind a discarded exit code made a sabotage look like a passing test** — the same trap as the `Woodgrain` work. The sabotage harness now checks that the file actually changed *and* that `tsc` succeeded before believing a green run.
+
+Parity is `POINTWISE`, measured rather than assumed: the largest channel delta across all four cases is 1, so no bar edge moves on the GPU at all and every difference is the blend rounding into a byte. The population metric was the wrong instrument — it counts a pixel differing by 1 the same as one differing by 255, and failed these at 2.15% and 6.30%.
+
+Not done, deliberately: **no preset.** Presets are chains worth starting from, and this is a measuring instrument rather than a look. `Levels` into `Histogram` was tried — the comb of gaps a contrast stretch opens up is genuinely visible — but the black-clipping spike sets the scale and squashes it to a thin band along the bottom.
 
 ### ~~ChromaKey~~ ✓
 
@@ -1137,18 +1151,18 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
 | 16 | Presets in the playground | Low | Fourteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 16 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Four left — still open below** |
+| 9 | Filter wishlist — 17 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Three left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last four filters | Low each | Medium — `Histogram`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last three filters | Low each | Medium — `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`Histogram` next** — it reuses machinery that exists, and it is the only one of the four that tells you something about a picture rather than changing it.
+**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`Bilateral` next** — the last three are all real algorithms rather than assemblies of things that already exist, so the cheap half of #9 is finished and what remains is genuine work.
 
 Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 

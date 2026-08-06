@@ -130,6 +130,27 @@ export const cases = [
 	// Floyd-Steinberg: sequential, so supportsGPU keeps it off the GPU and the
 	// harness records it as CPU-only rather than the case quietly disappearing
 	{ filter: 'Dither', name: 'diffusion', input: 'photo', options: { mode: 'diffusion' }, gpu: BOUNDARY },
+	// Histogram counts in `prepare` on both backends and the shader only draws
+	// the bars, so the numbers cannot disagree - the only thing that could is
+	// which pixel a bar's edge lands on, and that would be a hard flip wanting
+	// the population metric.
+	//
+	// It does not happen. Measured, the largest channel delta across all four
+	// cases is 1, so no edge moves anywhere and every difference is the blend
+	// rounding into a byte - Uint8ClampedArray rounds half to even, the
+	// framebuffer conversion rounds half up. Exactly Posteriser-fast's hazard,
+	// and a tolerance question rather than a boundary one. The population metric
+	// counts a pixel that differs by 1 the same as one that differs by 255, so
+	// it was the wrong instrument here and failed these at 2.15% and 6.30%.
+	{ filter: 'Histogram', input: 'photo', options: {}, gpu: POINTWISE },
+	// the readable version: one curve, on black, filling the frame
+	{ filter: 'Histogram', name: 'luma', input: 'photo', options: { mode: 'luma', bins: 128, height: 1, overlay: false }, gpu: POINTWISE },
+	// `heightmap` is mostly its flat black background, which is the shape the log
+	// scale exists for - see the measurements in the filter's note
+	{ filter: 'Histogram', name: 'log', input: 'heightmap', options: { log: true, height: 1, overlay: false }, gpu: POINTWISE },
+	// odd dimensions, and 16 bins across 33 columns - the bins do not divide the
+	// width, so each bar is a different number of pixels wide
+	{ filter: 'Histogram', name: 'odd', input: 'odd', options: { bins: 16, height: 0.5 }, gpu: POINTWISE },
 	{ filter: 'Posteriser', input: 'photo', options: { colours: 6 }, gpu: BOUNDARY },
 	// The fast method lands on band centres like 21.5, and the two paths break
 	// that tie in opposite directions - Uint8ClampedArray rounds half to even,

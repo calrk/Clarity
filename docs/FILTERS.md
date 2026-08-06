@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-53 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+54 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [ChromaKey](#chromakey) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Dither](#dither) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [ChromaKey](#chromakey) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Dither](#dither) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Histogram](#histogram) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -261,6 +261,29 @@ new HanoverBars();
 | `mode` | select | `hanover` · `scanlines` | `hanover` | Hanover rotates the chroma of alternate line pairs; scan lines darkens them. |
 | `width` | int | 1–32 | `2` | Lines per bar. The pattern repeats every twice this. |
 | `vertical` | bool | true / false | `false` | Bars down the frame rather than across it. |
+
+### Histogram
+
+Draws the frame's tonal distribution across the bottom of it - the one filter that measures the picture rather than changing it.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Histogram.png" width="192" alt="Histogram applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Histogram)
+
+```js
+import { Histogram } from '@calrk/clarity';
+
+new Histogram();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `mode` | select | `rgb` · `luma` | `rgb` | Three curves for the colour channels, drawn over each other so the overlaps add, or one for brightness. |
+| `bins` | int | 8–256 | `64` | How many buckets the tonal range is divided into. 256 is one per value and shows every gap and spike; fewer is smoother and easier to read at a glance. |
+| `height` | float | 0.05–1 | `0.3` | How much of the frame the graph stands in, from the bottom up. 1 fills it. |
+| `overlay` | bool | true / false | `true` | Draw over the picture. Switch it off for the graph on black, which is the readable version. |
+| `opacity` | float | 0–1 | `0.75` | How solid the bars are over the picture. Ignored where there is no bar, so the empty part of the graph never veils what is behind it. |
+| `log` | bool | true / false | `false` | Compress the tall bars so the short ones stay visible. Worth switching on when one tone dominates the frame - a logo on flat black, a night shot - and everything else has been flattened to nothing. |
 
 ### Invert
 

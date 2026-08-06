@@ -1135,3 +1135,203 @@ test('ChromaKey spill takes colour off the key axis and leaves the rest alone', 
 	const half = run([0, 177, 64], 0.5);
 	assert.ok(half[1] < 177 && half[1] > g, `half suppression gave green ${half[1]}, not between 177 and ${g}`);
 });
+
+test('Histogram counts what is actually in the frame', () => {
+	// The graph is only worth drawing if the numbers behind it are right, and a
+	// golden image cannot tell a correct histogram from a plausible-looking one.
+	// So this reads the bars `prepare` produced rather than the pixels it drew.
+	const S = 64;
+	const flat = (v) => {
+		const f = new NodeImageData(S, S);
+		for (let i = 0; i < f.data.length; i += 4) {
+			f.data[i] = f.data[i + 1] = f.data[i + 2] = v;
+			f.data[i + 3] = 255;
+		}
+		return f;
+	};
+	const heights = (filter) => [...filter.bars].filter((_, i) => i % 4 === 0);
+
+	// One tone means one occupied bin, at the index that tone falls in, and
+	// nothing anywhere else.
+	for (const [value, bins] of [[0, 64], [128, 64], [255, 64], [64, 16]]) {
+		const filter = new CLARITY.Histogram({ bins, mode: 'luma' });
+		filter.process(flat(value));
+		const expected = Math.min(bins - 1, Math.floor((value / 256) * bins));
+		const occupied = heights(filter).map((h, i) => (h > 0 ? i : -1)).filter((i) => i >= 0);
+		assert.deepEqual(occupied, [expected], `a flat ${value} at ${bins} bins landed in the wrong bin`);
+		assert.equal(heights(filter)[expected], 255, 'the only occupied bin was not full height');
+	}
+
+	// Every value 0-255 exactly once has to come back as a perfectly flat
+	// histogram, because 256 values divided into 64 bins is four values a bin
+	// with nothing left over.
+	//
+	const ramp = new NodeImageData(16, 16);
+	for (let v = 0; v < 256; v++) {
+		ramp.data[v * 4] = ramp.data[v * 4 + 1] = ramp.data[v * 4 + 2] = v;
+		ramp.data[v * 4 + 3] = 255;
+	}
+	for (const bins of [8, 64, 100, 256]) {
+		const flatFilter = new CLARITY.Histogram({ bins, mode: 'luma' });
+		flatFilter.process(ramp);
+		const spread = [...new Set(heights(flatFilter))];
+		// 100 does not divide 256, so those bins hold two values or three and the
+		// graph is legitimately ragged - what has to hold everywhere is that no
+		// bin is empty and none is more than one value taller than another
+		const expected = 256 % bins === 0 ? [255] : [Math.round((2 / 3) * 255), 255];
+		assert.deepEqual(spread.sort((a, b) => a - b), expected, `every value once, ${bins} bins`);
+	}
+
+	// The same frame pins the *boundaries* as well as the heights, which
+	// flatness cannot: the 0-255 range is divided into `bins` equal parts, so
+	// value v belongs to bin floor(v * bins / 256).
+	//
+	// Worth stating separately because the obvious off-by-one here - dividing by
+	// 255 rather than 256 - is not merely hard to see, it is genuinely
+	// *identical* for every power-of-two bin count, clamp included. It only
+	// diverges where the bins do not divide the range, which is why this checks
+	// at 100 bins and the flatness above cannot catch it at any of the others.
+	const single = (v) => {
+		const f = new NodeImageData(1, 1);
+		f.data.set([v, v, v, 255]);
+		return f;
+	};
+	for (const bins of [100, 17]) {
+		for (let v = 0; v < 256; v++) {
+			const filter = new CLARITY.Histogram({ bins, mode: 'luma' });
+			filter.process(single(v));
+			const landed = heights(filter).findIndex((h) => h > 0);
+			assert.equal(landed, Math.floor((v * bins) / 256), `value ${v} at ${bins} bins`);
+		}
+	}
+
+	// Half the frame at one tone and half at another is two bins of equal
+	// height - which is the assertion that the counting is proportional rather
+	// than merely non-zero in the right places.
+	const split = new NodeImageData(S, S);
+	for (let y = 0; y < S; y++) {
+		for (let x = 0; x < S; x++) {
+			const i = (y * S + x) * 4;
+			const v = y < S / 2 ? 32 : 200;
+			split.data[i] = split.data[i + 1] = split.data[i + 2] = v;
+			split.data[i + 3] = 255;
+		}
+	}
+	const even = new CLARITY.Histogram({ bins: 64, mode: 'luma' });
+	even.process(split);
+	assert.deepEqual(
+		heights(even).map((h, i) => (h > 0 ? [i, h] : null)).filter(Boolean),
+		[[8, 255], [50, 255]],
+		'an even split did not give two bins of equal height'
+	);
+
+	// The three curves share one scale, so a channel that is genuinely flat
+	// reads as flat rather than being stretched up to match the others.
+	const skewed = new NodeImageData(S, S);
+	for (let y = 0; y < S; y++) {
+		for (let x = 0; x < S; x++) {
+			const i = (y * S + x) * 4;
+			skewed.data[i] = (x * 4) % 256;   // red spread across every bin
+			skewed.data[i + 1] = 100;          // green all in one
+			skewed.data[i + 2] = 100;
+			skewed.data[i + 3] = 255;
+		}
+	}
+	const rgb = new CLARITY.Histogram({ bins: 64 });
+	rgb.process(skewed);
+	const green = [...rgb.bars].filter((_, i) => i % 4 === 1);
+	assert.equal(Math.max(...green), 255, "green's single bin should be the tallest thing in the frame");
+	assert.ok(
+		Math.max(...heights(rgb)) < 40,
+		`red spread over every bin should be dwarfed by it, but reached ${Math.max(...heights(rgb))}`
+	);
+});
+
+test('Histogram log scale rescues a frame one tone dominates', () => {
+	// The measurement that put the option there, kept as a test so it stays
+	// true. Linear normalisation is fine until one bin holds most of the frame
+	// and then falls off a cliff - so both halves are asserted, because an
+	// always-on log scale would pass the second half and be the wrong filter.
+	const W = 64;
+	const H = 48;
+	const dominated = (share) => {
+		const f = new NodeImageData(W, H);
+		const cut = Math.round(H * share);
+		for (let y = 0; y < H; y++) {
+			for (let x = 0; x < W; x++) {
+				const i = (y * W + x) * 4;
+				const v = y < cut ? 0 : Math.round((x / W) * 255);
+				f.data[i] = f.data[i + 1] = f.data[i + 2] = v;
+				f.data[i + 3] = 255;
+			}
+		}
+		return f;
+	};
+	// bins that hold pixels but render at zero height
+	const vanished = (frame, log) => {
+		const filter = new CLARITY.Histogram({ bins: 64, mode: 'luma', log });
+		filter.process(frame);
+		const counts = new Array(64).fill(0);
+		for (let i = 0; i < frame.data.length; i += 4) {
+			counts[Math.min(63, Math.floor((filter.getColourValue(frame, i, 'grey') / 256) * 64))]++;
+		}
+		return counts.filter((count, bin) => count > 0 && filter.bars[bin * 4] === 0).length;
+	};
+
+	assert.equal(vanished(dominated(0.7), false), 0, 'linear lost bins at 70%, which is inside the range it handles');
+	assert.ok(vanished(dominated(0.9), false) > 50, 'linear survived 90% dominance, so the log option has no reason to exist');
+	assert.equal(vanished(dominated(0.9), true), 0, 'the log scale did not rescue the flattened bins');
+	assert.equal(vanished(dominated(0.97), true), 0, 'the log scale did not rescue 97% dominance');
+
+	// Both scales have to agree at the ends, so switching it on rescales the
+	// middle rather than moving the graph.
+	for (const log of [false, true]) {
+		const filter = new CLARITY.Histogram({ bins: 64, mode: 'luma', log });
+		filter.process(dominated(0.9));
+		const bars = [...filter.bars].filter((_, i) => i % 4 === 0);
+		assert.equal(Math.max(...bars), 255, `${log ? 'log' : 'linear'} did not send the tallest bin to full height`);
+		assert.equal(bars[63], 0, `${log ? 'log' : 'linear'} gave an empty bin a height`);
+	}
+});
+
+test('Histogram draws only where it says it will', () => {
+	// `height` is a promise about which rows are touched, and `opacity` a
+	// promise that the empty part of the graph is not a translucent box over the
+	// picture. Both are easy to get subtly wrong and invisible in a thumbnail.
+	const source = makeFrame();
+	const filter = new CLARITY.Histogram({ height: 0.25 });
+	const out = filter.process(source);
+
+	const rowChanged = (y) => {
+		for (let x = 0; x < source.width; x++) {
+			const i = (y * source.width + x) * 4;
+			if (out.data[i] !== source.data[i] || out.data[i + 1] !== source.data[i + 1] || out.data[i + 2] !== source.data[i + 2]) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	const firstRow = source.height - source.height * 0.25;
+	for (let y = 0; y < Math.floor(firstRow); y++) {
+		assert.ok(!rowChanged(y), `row ${y} was touched, above the graph's top at ${firstRow}`);
+	}
+	let touched = 0;
+	for (let y = Math.ceil(firstRow); y < source.height; y++) {
+		if (rowChanged(y)) touched++;
+	}
+	assert.ok(touched > 0, 'the graph drew nothing at all');
+
+	// A bin with no pixels in it leaves its column alone all the way down,
+	// including the bottom row - that is the opacity promise.
+	const bars = [...filter.bars].filter((_, i) => i % 4 === 0);
+	const emptyBin = bars.findIndex((h) => h === 0);
+	assert.ok(emptyBin >= 0, 'the fixture filled every bin, so the empty-column claim is untested');
+	const column = Math.floor(((emptyBin + 0.5) / filter.properties.bins) * source.width);
+	const bottom = (source.height - 1) * source.width * 4 + column * 4;
+	assert.deepEqual(
+		[out.data[bottom], out.data[bottom + 1], out.data[bottom + 2]],
+		[source.data[bottom], source.data[bottom + 1], source.data[bottom + 2]],
+		'an empty bin veiled the picture behind it'
+	);
+});
