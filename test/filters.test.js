@@ -900,3 +900,43 @@ test('Woodgrain stretch draws the grain out along the board', () => {
 		);
 	}
 });
+
+test('Woodgrain ring edges are continuous, not steps', () => {
+	// The ring edge is where a pattern like this aliases. `fract` is genuinely
+	// discontinuous, so shaping it directly falls to black and snaps back to
+	// white between two adjacent pixels - and no amount of resolution helps,
+	// because a jump is a jump at any scale.
+	//
+	// That is exactly what makes it testable. A continuous ramp gets *shallower*
+	// the more pixels it is drawn across, so the largest step between neighbours
+	// falls as the frame grows; a discontinuity does not move at all. Comparing
+	// the two sizes tests the property rather than any particular threshold,
+	// which is what a mean or a fixed bound failed to do - measured, the
+	// sawtooth's mean step is actually *lower*, because the fix puts more pixels
+	// on a slope.
+	const worstStep = (size) => {
+		const img = new CLARITY.Woodgrain({ seed: 3 }).process(new NodeImageData(size, size));
+		let worst = 0;
+		for (let y = 1; y < size; y++) {
+			for (let x = 1; x < size; x++) {
+				const here = img.data[(y * size + x) * 4];
+				worst = Math.max(
+					worst,
+					Math.abs(here - img.data[((y - 1) * size + x) * 4]),
+					Math.abs(here - img.data[(y * size + x - 1) * 4])
+				);
+			}
+		}
+		return worst;
+	};
+
+	const small = worstStep(200);
+	const large = worstStep(800);
+
+	// Measured: 202 -> 101 as it stands, against 249 -> 253 for the raw sawtooth.
+	assert.ok(
+		large < small * 0.75,
+		`the largest step barely moved with resolution (${small} at 200px, ${large} at 800px), ` +
+			'which is what a discontinuity looks like'
+	);
+});

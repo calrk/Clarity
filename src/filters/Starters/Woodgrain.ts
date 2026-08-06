@@ -14,6 +14,11 @@ import type { FilterSchema } from '../../core/schema.js';
 const GX = new Float64Array([1, -1, 0, 0, 1, -1, 1, -1]);
 const GY = new Float64Array([0, 0, 1, -1, 1, 1, -1, -1]);
 
+/** Twin of the shader's LEAN: where in each cycle the sharp ring edge falls. */
+const LEAN = 0.2;
+/** Pixels the ring edge should span once the footprint decides it. */
+const RAMP = 5;
+
 export interface WoodgrainOptions extends FilterOptions {
 	seed?: number | null;
 	rings?: number;
@@ -107,10 +112,8 @@ float fbm(vec2 q, int lane){
 		+ noiseAt(q * 4.0, lane + 2) * 0.25;
 }
 
-void main(){
-	vec2 p = vec2(outPixel()) + 0.5;
-	vec2 uv = p / uSize;
-
+/** Which ring we are on, and how far through it. Whole numbers are ring lines. */
+float phase(vec2 uv){
 	//Along the grain is x, across it is y, and dividing x by the stretch is the
 	//whole anisotropy - it has to reach the noise as well as the rings, or the
 	//rings elongate while the wobble stays round and it reads as fabric.
@@ -122,16 +125,75 @@ void main(){
 	//- a stump. Wind it up and the circle flattens into the long shallow arcs of
 	//a flat-sawn plank, which is the cathedral figure down the middle of a board.
 	vec2 fromAxis = uv - vec2(0.5);
-	float d = length(vec2(fromAxis.x / u_stretch, fromAxis.y)) * u_rings;
+	return length(vec2(fromAxis.x / u_stretch, fromAxis.y)) * u_rings
+		+ fbm(q, 0) * u_turbulence;
+}
 
-	//the rings, wandering
-	d += fbm(q, 0) * u_turbulence;
+void main(){
+	vec2 p = vec2(outPixel()) + 0.5;
+	vec2 uv = p / uSize;
+	vec2 texel = 1.0 / uSize;
+
+	float d = phase(uv);
+
+	//How much of a ring a single pixel spans - the footprint, and the whole of
+	//what makes this not alias.
+	//
+	//Turbulence is what makes it necessary. The rings alone move slowly enough
+	//to resolve, but the noise perturbing them has a far steeper gradient, so
+	//where it bunches the rings together a whole cycle can fall inside two or
+	//three pixels and a fixed-width ring edge is then sub-pixel.
+	//
+	//A forward difference rather than fwidth: the derivative builtins exist only
+	//in a fragment shader, and the CPU path has to compute the identical number
+	//or the two backends disagree along every ring. It costs two more evaluations
+	//of the field, which is cheap for something that draws once.
+	float width = max(
+		abs(phase(uv + vec2(texel.x, 0.0)) - d),
+		abs(phase(uv + vec2(0.0, texel.y)) - d)
+	);
+
 	float ring = fract(d);
 
-	//Wide pale early wood, narrow dark late wood. A bare fract would read as a
-	//sawtooth gradient; the cube pushes the dark into a thin band at the year's
-	//edge, which is where a growth ring actually is.
-	float tone = 1.0 - ring*ring*ring;
+	//An asymmetric triangle rather than the sawtooth itself, and this is what
+	//keeps the ring edge from aliasing.
+	//
+	//fract is discontinuous: shaping it directly falls smoothly to black and
+	//then snaps back to white in the space of one pixel, which is a full-range
+	//step with nothing to soften it. Folding the cycle into a triangle first
+	//makes the field continuous everywhere - it reaches its peak *at* the wrap
+	//and comes back down, so there is no step left to alias.
+	//
+	//The fold is off-centre on purpose. A symmetric triangle gives a ring shaded
+	//equally on both sides, and a real one is abrupt where the dense late wood
+	//of one year meets the open early wood of the next and gradual the other
+	//way. LEAN is where in the cycle that edge falls; the short side is the
+	//sharp one.
+	//
+	//It also antialiases *proportionally*, which is the reason this beats
+	//smoothing by a fixed width: the ramp is a fraction of a ring rather than a
+	//number of pixels, so it stays smooth where the rings crowd together and
+	//stays sharp where they are far apart, with nothing to measure.
+	//Never narrower than the pixel it has to be drawn in. Below that the ramp is
+	//the width it was authored at; above it, it opens up to match the footprint,
+	//which is the difference between a stepped edge and a soft one.
+	const float LEAN = 0.2;
+	const float RAMP = 5.0;
+	float lean = clamp(width * RAMP, LEAN, 0.5);
+	float t = ring < lean ? ring / lean : (1.0 - ring) / (1.0 - lean);
+
+	//Dark at the ring line, pale across the year's growth - and smoothstep rather
+	//than a cube, which is the last of the three things this needed. A cube has
+	//slope 3 where it meets the ring line, so it crams most of the fall into the
+	//end of the ramp and steps there however wide the ramp is; smoothstep is flat
+	//at both ends and halves the steepest slope.
+	float tone = 1.0 - t*t*(3.0 - 2.0*t);
+
+	//And where a whole ring falls inside a pixel there is nothing left to
+	//resolve at all, so fade to the tone a ring averages rather than letting it
+	//flicker between light and dark. That average is 0.75 whatever the lean is,
+	//which is why it can be a constant.
+	tone = mix(0.75, tone, clamp(1.0 - width * 2.0, 0.0, 1.0));
 
 	//The second scale, and it multiplies rather than subtracting. One field only
 	//gives the rings, and it is the fine pore lines along the grain that stop it
@@ -139,6 +201,7 @@ void main(){
 	//below zero, where they clamp into flat black blobs. Scaling keeps the pores
 	//proportional, so they show on the pale early wood and leave the ring alone,
 	//which is also where they are on a real board.
+	vec2 q = vec2(uv.x / u_stretch, uv.y) * u_rings;
 	tone *= 1.0 - u_grain * abs(noiseAt(q * vec2(3.0, 24.0), 9));
 
 	writeRGB(vec3(clamp(tone, 0.0, 1.0) * 255.0));
@@ -246,31 +309,56 @@ void main(){
 			+ this.noiseAt(qx*4, qy*4, lane + 2, seed) * 0.25;
 	}
 
+	/** Twin of the shader's: which ring, and how far through it. */
+	private phase(ux: number, uy: number, seed: number): number {
+		const { rings, stretch, turbulence } = this.properties;
+
+		//see the shader: dividing along the grain is the whole anisotropy
+		const qx = (ux / stretch) * rings;
+		const qy = uy * rings;
+
+		//squashed distance from the trunk's axis - a circle at stretch 1
+		const fromX = (ux - 0.5) / stretch;
+		const fromY = uy - 0.5;
+
+		return Math.sqrt(fromX*fromX + fromY*fromY) * rings
+			+ this.fbm(qx, qy, 0, seed)*turbulence;
+	}
+
 	override doProcess(frame: ImageData): ImageData {
 		const output = createImageData(frame.width, frame.height);
 		const width = frame.width;
 		const height = frame.height;
 		const seed = this.seed;
-		const { rings, stretch, turbulence, grain } = this.properties;
+		const { rings, stretch, grain } = this.properties;
 
 		for(let y = 0; y < height; y++){
 			for(let x = 0; x < width; x++){
 				const ux = (x + 0.5) / width;
 				const uy = (y + 0.5) / height;
 
-				//see the shader: dividing along the grain is the whole anisotropy
-				const qx = (ux / stretch) * rings;
-				const qy = uy * rings;
+				const d = this.phase(ux, uy, seed);
 
-				//squashed distance from the trunk's axis - a circle at stretch 1
-				const fromX = (ux - 0.5) / stretch;
-				const fromY = uy - 0.5;
-				let d = Math.sqrt(fromX*fromX + fromY*fromY) * rings;
+				//the same forward difference the shader takes, so the two agree
+				//along every ring rather than only between them
+				const footprint = Math.max(
+					Math.abs(this.phase(ux + 1/width, uy, seed) - d),
+					Math.abs(this.phase(ux, uy + 1/height, seed) - d)
+				);
 
-				d += this.fbm(qx, qy, 0, seed)*turbulence;
 				const ring = d - Math.floor(d);
 
-				let tone = 1 - ring*ring*ring;
+				//see the shader: the fold plus a ramp never narrower than a pixel
+				const lean = Math.min(0.5, Math.max(LEAN, footprint * RAMP));
+				const t = ring < lean ? ring / lean : (1 - ring) / (1 - lean);
+				let tone = 1 - t*t*(3 - 2*t);
+
+				//nothing to resolve below a pixel; 0.75 is a ring's mean tone
+				const resolved = Math.min(1, Math.max(0, 1 - footprint*2));
+				tone = 0.75 + (tone - 0.75)*resolved;
+
+				const qx = (ux / stretch) * rings;
+				const qy = uy * rings;
 				tone *= 1 - grain * Math.abs(this.noiseAt(qx*3, qy*24, 9, seed));
 
 				const value = Math.min(1, Math.max(0, tone)) * 255;

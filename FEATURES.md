@@ -13,7 +13,7 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
 | Filters clean | 31 of 41, 4 hard crashes | 51 of 51, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 102/102 parity cases as shaders |
-| Tests | none | 630, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Tests | none | 631, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and thirteen presets |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
@@ -327,7 +327,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** The suite has grown with everything since — **630 tests** and **102 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
+**Done.** The suite has grown with everything since — **631 tests** and **102 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
 - **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
@@ -585,6 +585,16 @@ Two smaller things:
 
 - **The pore lines multiply rather than subtract.** Subtracting drove the already-dark ring bands below zero, where they clamped into flat black blobs. Scaling keeps the pores proportional, so they show on the pale early wood and leave the ring alone — which is also where they are on a real board.
 - **It outputs grey, and `GradientMap` colours it.** `Gradient` set that precedent and `Cloud` has since been brought into line with it. The `timber` preset is `blank/Woodgrain/GradientMap,ramp=sepia` and neither filter knows anything about wood: `sepia` runs dark brown to cream because that is a useful ramp, and this happens to be the thing it was waiting for.
+
+**The ring edge aliased, and fixing it took three things** — Clark spotted it. `fract` is genuinely discontinuous, so shaping it directly fell to black and snapped back to white between two adjacent pixels, which is a full-range step with nothing to soften it. A downstream `Blur` is not the answer to that: it is a low-pass over *everything*, so it would cost the pore lines and the whole field to fix a one-pixel edge, and only the filter knows where its edges are. `Halftone` had already set the precedent by antialiasing its own dots.
+
+1. **Fold the cycle into an asymmetric triangle** rather than shaping the sawtooth. The field then peaks *at* the wrap and comes back down, so there is no step left. Off-centre on purpose, because a real ring is abrupt where one year's late wood meets the next year's early wood and gradual the other way.
+2. **Widen the ramp to the pixel footprint**, taken as a forward difference of the field rather than `fwidth` — the derivative builtins exist only in a fragment shader, and the CPU has to compute the identical number or the two backends disagree along every ring.
+3. **Smoothstep rather than a cube**, which has slope 3 where it meets the ring line and so crams most of the fall into the end of the ramp however wide the ramp is.
+
+**The test for it is the interesting part**, because the two obvious measures both fail. A mean step does not discriminate at all — the sawtooth's is *lower*, since widening the ramp puts more pixels on a slope — and a fixed bound on the largest step separates 202 from 249, which is no separation. What does discriminate is the definition: **a continuous ramp gets shallower the more pixels it is drawn across, and a jump does not.** Rendered at 200px and again at 800px, this now falls 202 → 101 where the sawtooth sat at 249 → 253.
+
+**Found by accident on the way, and still open: a shader that fails to compile crashes the pipeline instead of falling back.** A stray identifier in this filter's shader took the whole page down with `Cannot read properties of null`, and the same reproduces on a two-line filter with deliberately invalid GLSL. The README promises the opposite in as many words — "Fallback is still **per stage** rather than all-or-nothing, for the cases where a shader can't compile" — so this is a documented guarantee that does not hold. It wants a regression test as much as a fix, since nothing currently covers the compile-failure path.
 
 **Knots are the missing ingredient**, not a missing option. A knot is a local singularity the ring field wraps around, which is `Voronoi`-shaped work, and without one this reads as a board rather than as a particular board.
 
