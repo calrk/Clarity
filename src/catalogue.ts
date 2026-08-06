@@ -30,7 +30,8 @@ export type FilterTrait =
 	| 'temporal'
 	| 'heightmap-in'
 	| 'normalmap-in'
-	| 'binary-out';
+	| 'binary-out'
+	| 'alpha-out';
 
 /** What to call each trait, once, so a chip and a docs table cannot disagree. */
 export const TRAITS: Record<FilterTrait, { label: string; description: string }> = {
@@ -57,6 +58,10 @@ export const TRAITS: Record<FilterTrait, { label: string; description: string }>
 	'binary-out': {
 		label: 'Makes black & white',
 		description: 'Outputs two tones, which is what the filters wanting black and white are waiting for.'
+	},
+	'alpha-out': {
+		label: 'Makes transparency',
+		description: 'Writes a real alpha channel. Most filters rewrite alpha to opaque, so put this last or the transparency is flattened by whatever follows.'
 	}
 };
 
@@ -94,6 +99,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	// --- Process ---
 	Bleed: { category: 'Process', summary: "Blurs a single channel, so colour bleeds out of its edges." },
 	Blur: { category: 'Process', summary: "Stack blur - a fast Gaussian approximation." },
+	ChromaKey: { category: 'Process', summary: "Makes one colour transparent, matching on hue rather than brightness - the green screen.", traits: ['alpha-out'] },
 	Convolver: { category: 'Process', summary: "Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace." },
 	Desaturate: { category: 'Process', summary: "Pulls colour towards grey, by an amount, keeping luminance." },
 	Dither: { category: 'Process', summary: "Quantises to a few levels and hides the banding in a pattern - ordered, or error diffusion." },

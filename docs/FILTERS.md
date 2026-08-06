@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-52 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+53 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Dither](#dither) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [ChromaKey](#chromakey) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Dither](#dither) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -40,6 +40,7 @@ playground link to see one at a sensible size.
 | **Wants a height map** | Reads brightness as height, so it expects a greyscale height map rather than a picture. |
 | **Wants a normal map** | Reads the channels as an XYZ vector, so it expects a normal map - run NormalGenerator first. |
 | **Makes black & white** | Outputs two tones, which is what the filters wanting black and white are waiting for. |
+| **Makes transparency** | Writes a real alpha channel. Most filters rewrite alpha to opaque, so put this last or the transparency is flattened by whatever follows. |
 
 ## Process
 
@@ -78,6 +79,29 @@ new Blur({ radius: 6 });
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
 | `radius` | int | 1–180 | `10` | Radius of the blur, in pixels. |
+
+### ChromaKey
+
+Makes one colour transparent, matching on hue rather than brightness - the green screen.
+
+**Makes transparency**
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/ChromaKey.png" width="192" alt="ChromaKey applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/ChromaKey,colour=6691d0,tolerance=20)
+
+```js
+import { ChromaKey } from '@calrk/clarity';
+
+new ChromaKey({ colour: "6691d0", tolerance: 20 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `colour` | colour | undefined–undefined | `00b140` | The colour to make transparent, as six hex digits. Only its hue and saturation are used - see Tolerance. The default is the green screens are actually painted, not pure green. |
+| `tolerance` | int | 0–255 | `60` | How far a pixel may sit from the key colour and still go fully transparent, measured across hue and saturation only. Brightness is ignored, so a shadow on the screen keys the same as a lit patch - and every grey counts as the same colour. |
+| `softness` | int | 0–255 | `30` | Extra distance beyond the tolerance over which transparency fades back in, so the cut-out has an edge rather than a staircase. 0 is a hard cut. |
+| `spill` | float | 0–1 | `0` | Removes the key colour bounced onto what is kept - the green fringe around a subject. 1 takes out all of it. The one option here that changes colour rather than transparency. |
 
 ### Convolver
 

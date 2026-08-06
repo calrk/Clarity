@@ -125,6 +125,18 @@ test("the README's filter table has not fallen behind", () => {
 	// kind of second copy that goes stale. The full reference is generated; this
 	// only has to stay complete.
 	const readme = readFileSync('README.md', 'utf8');
-	const missing = Object.keys(CLARITY.CATALOGUE).filter((name) => !readme.includes(`\`${name}\``));
+	const names = Object.keys(CLARITY.CATALOGUE);
+	const missing = names.filter((name) => !readme.includes(`\`${name}\``));
 	assert.deepEqual(missing, [], 'filters missing from the README table - update it');
+
+	// The sentence above the table counts them, and a count is worse than the
+	// list it summarises: a missing filter is visible, a stale number is not.
+	// This one had drifted three behind before anything noticed.
+	const counted = /^(\d+) of them, in (\w+) families/m.exec(readme);
+	assert.ok(counted, 'the README no longer says how many filters there are');
+	assert.equal(Number(counted[1]), names.length, 'the README\'s filter count is stale');
+
+	const families = new Set(names.map((name) => CLARITY.CATALOGUE[name].category));
+	const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+	assert.equal(counted[2], words[families.size], 'the README\'s family count is stale');
 });

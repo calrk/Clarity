@@ -105,12 +105,27 @@ for (const name of filterNames) {
 			assert.ok(!Number.isNaN(out.data[i]), `NaN at ${i}`);
 		}
 
-		// No exemptions. Cloud used to be one, because it derived alpha from its
-		// colour options and so was legitimately transparent with the defaults -
-		// see FEATURES.md #1. Those options are gone and it is opaque like
-		// everything else, which is the whole of what that exemption was hiding.
+		// No exemptions by name. Cloud used to be one, because it derived alpha
+		// from its colour options and so was legitimately transparent with the
+		// defaults - see FEATURES.md #1. Those options are gone and it is opaque
+		// like everything else, which is the whole of what that exemption was
+		// hiding.
+		//
+		// ChromaKey is legitimately transparent, so the rule keys off the
+		// declared `alpha-out` trait rather than off its name - and it runs in
+		// both directions, because a trait nothing checks is a comment. A filter
+		// that claims alpha has to produce some, and one that does not claim it
+		// has to be opaque everywhere.
+		const claimsAlpha = (CLARITY.CATALOGUE[name].traits ?? []).includes('alpha-out');
+		let transparent = 0;
 		for (let i = 3; i < out.data.length; i += 4) {
-			assert.equal(out.data[i], 255, `alpha not opaque at ${i}`);
+			if (out.data[i] !== 255) transparent++;
+			if (!claimsAlpha) {
+				assert.equal(out.data[i], 255, `alpha not opaque at ${i}`);
+			}
+		}
+		if (claimsAlpha) {
+			assert.ok(transparent > 0, 'declares alpha-out but returned a fully opaque frame');
 		}
 	});
 }
@@ -786,7 +801,11 @@ test('Fill takes three spellings of a colour and keeps one', () => {
 
 	// Two spellings at once is a caller bug, not user input, so it throws - the
 	// same split setProperty makes between a bad key and a bad value.
-	assert.throws(() => new CLARITY.Fill({ colour: 'ff0000', rgb: [0, 0, 255] }), /one of colour, rgb or hsv/);
+	assert.throws(() => new CLARITY.Fill({ colour: 'ff0000', rgb: [0, 0, 255] }), /one of colour, color, rgb or hsv/);
+	// including the two spellings of the same word, which are the likeliest pair
+	// to arrive together and the least likely to have been meant
+	assert.throws(() => new CLARITY.Fill({ colour: 'ff0000', color: '0000ff' }), /got colour and color/);
+	assert.equal(new CLARITY.Fill({ color: '#F84' }).properties.colour, 'ff8844', 'the American spelling did not normalise');
 
 	// A malformed string is not a caller bug in the same way - it may have come
 	// from a hand-edited link - so it falls back rather than throwing.
@@ -1014,4 +1033,105 @@ test('Dither ordered mode tiles, and the two modes are really different', () => 
 	const diffused = new CLARITY.Dither({ mode: 'diffusion', monochrome: true }).process(makeFrame());
 	const same = new CLARITY.Dither({ mode: 'bayer', monochrome: true }).process(makeFrame());
 	assert.notDeepEqual([...diffused.data], [...same.data], 'the two modes produced identical frames');
+});
+
+test('ChromaKey is blind to a neutral offset, which RGB distance is not', () => {
+	// The defining claim, and the one that separates this from a colour-distance
+	// filter. U and V are linear in RGB and the coefficients of each sum to zero,
+	// so adding the same amount to all three channels moves a pixel nowhere in
+	// chroma - the match cannot see haze, a lift, or ambient fill at all.
+	//
+	// Asserted against the *same* colours' RGB distance, because "within 1 byte"
+	// on its own would also pass if the offsets were too small to matter. They
+	// are not: the same pairs are up to 90 apart in RGB.
+	const key = [0, 177, 64];
+	const key1 = (rgb) => {
+		const f = new NodeImageData(1, 1);
+		f.data.set([...rgb, 255]);
+		return new CLARITY.ChromaKey({}).process(f).data[3];
+	};
+
+	const base = key1(key);
+	assert.equal(base, 0, 'the key colour itself did not key');
+
+	let largestRGB = 0;
+	for (const lift of [-40, -20, 20, 50, 90]) {
+		const shifted = key.map((c) => Math.max(0, Math.min(255, c + lift)));
+		// clipping at a channel end would be a real colour change, not an offset
+		if (shifted.some((c, i) => c !== key[i] + lift)) continue;
+
+		assert.equal(key1(shifted), base, `a lift of ${lift} changed the alpha`);
+		largestRGB = Math.max(largestRGB, Math.hypot(...shifted.map((c, i) => c - key[i])));
+	}
+
+	assert.ok(largestRGB > 80, `the offsets tested were only ${largestRGB.toFixed(0)} apart in RGB`);
+
+	// The control, and the reason the claim above says offset rather than
+	// brightness. A neutral *gain* does move the match, because U and V are
+	// linear rather than normalised - halving all three channels halves the
+	// chroma with them. It takes a tolerance tighter than the default to show
+	// it, since 60 is wide enough to absorb the 50 that halving costs, which is
+	// the whole reason the default is that wide.
+	const tight = (rgb) => {
+		const f = new NodeImageData(1, 1);
+		f.data.set([...rgb, 255]);
+		return new CLARITY.ChromaKey({ tolerance: 10, softness: 0 }).process(f).data[3];
+	};
+	assert.equal(tight(key), 0, 'the key colour itself did not key at a tight tolerance');
+	assert.equal(tight(key.map((c) => Math.round(c + 40))), 0, 'a lift stopped it keying at a tight tolerance');
+	assert.equal(tight(key.map((c) => Math.round(c / 2))), 255, 'halving the key still keyed');
+
+	// and a different hue at the same brightness is not keyed at all
+	assert.equal(key1([64, 0, 177]), 255, 'a different hue was keyed');
+});
+
+test('ChromaKey multiplies alpha rather than assigning it', () => {
+	// A frame arriving half transparent has to come back half transparent where
+	// nothing matched. Assigning would hand every pixel its opacity back, which
+	// is a silent failure - the frame looks right on white and wrong on anything
+	// else, and only shows up when it is composited.
+	const f = new NodeImageData(4, 1);
+	//two that match the key, two that do not, at two opacities each
+	const pixels = [[0, 177, 64, 90], [0, 177, 64, 255], [200, 60, 60, 90], [200, 60, 60, 255]];
+	pixels.forEach((p, i) => f.data.set(p, i * 4));
+
+	const out = new CLARITY.ChromaKey({}).process(f);
+	assert.deepEqual([...out.data.filter((_, i) => i % 4 === 3)], [0, 0, 90, 255]);
+});
+
+test('ChromaKey spill takes colour off the key axis and leaves the rest alone', () => {
+	// Suppression is the only thing here that writes colour, so it is asserted
+	// separately from the keying: at tolerance 0 and softness 0 the only thing
+	// that keys is a pixel sitting exactly on the key, and every difference
+	// below is the suppression rather than the match.
+	const run = (rgb, spill) => {
+		const f = new NodeImageData(1, 1);
+		f.data.set([...rgb, 255]);
+		const out = new CLARITY.ChromaKey({ tolerance: 0, softness: 0, spill }).process(f);
+		return [...out.data];
+	};
+
+	// A neutral has no chroma to take off, and so is untouched however hard the
+	// suppression is pushed.
+	assert.deepEqual(run([128, 128, 128], 1), [128, 128, 128, 255], 'grey moved');
+
+	// Magenta is the opposite direction to the green key, so its projection onto
+	// the key axis is negative - the `along > 0` branch. Suppressing it would
+	// push it *further* from the key, which is the bug that branch exists to
+	// prevent, so this is the assertion that guards it.
+	assert.deepEqual(run([255, 0, 255], 1), [255, 0, 255, 255], 'magenta was suppressed');
+
+	// The key colour is entirely on the axis, so full suppression leaves nothing
+	// but its luma - a grey, at the brightness it came in at. Its alpha is 0
+	// because it is the one colour a zero tolerance still matches, and the
+	// colour is written regardless of alpha, which is what keeps a cut-out
+	// composite-able rather than leaving black behind the transparency.
+	const [r, g, b, a] = run([0, 177, 64], 1);
+	assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 1, `the key came back as ${[r, g, b]}, not neutral`);
+	assert.equal(a, 0, 'the key colour itself did not key');
+
+	// Partial suppression lands partway, and 0 does nothing at all.
+	assert.deepEqual(run([0, 177, 64], 0), [0, 177, 64, 0], 'spill 0 changed the colour');
+	const half = run([0, 177, 64], 0.5);
+	assert.ok(half[1] < 177 && half[1] > g, `half suppression gave green ${half[1]}, not between 177 and ${g}`);
 });

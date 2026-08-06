@@ -10,6 +10,7 @@ import type { FilterSchema } from '../../core/schema.js';
 export interface FillOptions extends FilterOptions {
 	/** Six hex digits, with or without the leading `#`. Shorthand works too. */
 	colour?: string;
+	color?: string;
 	/** The same colour as `[r, g, b]`, 0-255 each. */
 	rgb?: readonly [number, number, number];
 	/** The same colour as `[hue, saturation, value]` - degrees, then 0-1 twice. */
@@ -76,9 +77,9 @@ void main(){
 		//Two spellings of the same thing is a caller bug, not user input, so it
 		//throws rather than picking one - the split setProperty already makes
 		//between a bad key (throw) and a bad value (clamp).
-		const given = (['colour', 'rgb', 'hsv'] as const).filter((key) => options[key] !== undefined);
+		const given = (['colour', 'color', 'rgb', 'hsv'] as const).filter((key) => options[key] !== undefined);
 		if (given.length > 1) {
-			throw new Error(`Fill takes one of colour, rgb or hsv - got ${given.join(' and ')}`);
+			throw new Error(`Fill takes one of colour, color, rgb or hsv - got ${given.join(' and ')}`);
 		}
 
 		this.properties = {
@@ -96,18 +97,18 @@ void main(){
 		}
 		//normalised rather than validated, so a malformed string lands on the
 		//default instead of throwing - it may well have come from a hand-edited link
-		return normaliseHex(options.colour, '000000');
+		return normaliseHex(options.colour || options.color, '000000');
 	}
 
 	override doProcess(frame: ImageData): ImageData {
 		const output = createImageData(frame.width, frame.height);
 		const [red, green, blue] = Operations.hexToRGB(this.properties.colour);
 
-		for(let i = 0; i < frame.width*frame.height*4; i+=4){
-			output.data[i  ] = red;
-			output.data[i+1] = green;
-			output.data[i+2] = blue;
-			output.data[i+3] = 255;
+		for (let i = 0; i < frame.width * frame.height * 4; i += 4) {
+			output.data[i] = red;
+			output.data[i + 1] = green;
+			output.data[i + 2] = blue;
+			output.data[i + 3] = 255;
 		}
 
 		return output;

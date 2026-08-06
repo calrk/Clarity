@@ -142,6 +142,34 @@ export const cases = [
 	{ filter: 'Morphology', name: 'open', input: 'binary', options: { mode: 'open' }, gpu: POINTWISE },
 	{ filter: 'Morphology', name: 'close', input: 'binary', options: { mode: 'close' }, gpu: POINTWISE },
 
+	// ChromaKey, on `photo`'s sky as a blue screen - the fixture has no green
+	// screen in it, but it has something better: a sky that is graded from
+	// [93,137,221] to [95,159,198] and is still one colour to a chroma match.
+	// The whole sky keys and the whole hill stays, on one tolerance, which is
+	// the claim the filter makes about ignoring brightness.
+	//
+	// POINTWISE rather than the population metric these were expected to want.
+	// Measured at tolerance 0, the first, soft and alpha cases are *byte-exact*
+	// against the CPU and only spill differs at all - 2 pixels of 3072, by 1.
+	// Nothing here flips: RGB is carried through untouched unless spill is on,
+	// and the two paths compute one float each for alpha.
+	{ filter: 'ChromaKey', input: 'photo', options: { colour: '6691d0', tolerance: 20 }, gpu: POINTWISE },
+	// The softness ramp, which the case above cannot reach - the sky and the
+	// hill are 61 apart in chroma and its ramp is 30 wide, so every pixel lands
+	// at one end or the other. `odd` swings through the whole hue circle, so a
+	// wide ramp keyed to one point in it comes out as a chroma-distance field
+	// rather than a cut-out, and it brings the not-divisible-by-anything
+	// dimensions along with it.
+	{ filter: 'ChromaKey', name: 'soft', input: 'odd', options: { colour: 'c04080', tolerance: 40, softness: 120 }, gpu: POINTWISE },
+	// Spill suppression, which is the one thing here that writes colour. Same
+	// key as the first case, so a break in the keying shows up as this case and
+	// that one moving together, and a break in the suppression shows up alone.
+	{ filter: 'ChromaKey', name: 'spill', input: 'photo', options: { colour: '6691d0', tolerance: 20, spill: 1 }, gpu: POINTWISE },
+	// Alpha in as well as out. The fixture is already graded from transparent to
+	// opaque, and the key multiplies rather than assigns, so a pixel that was
+	// half there and matches nothing has to come back half there.
+	{ filter: 'ChromaKey', name: 'alpha', input: 'alpha', options: { colour: 'e63c50', tolerance: 50 }, gpu: POINTWISE },
+
 	// --- Thresholders (hard boundaries) ---------------------------------
 	{ filter: 'ValueThreshold', input: 'photo', options: { threshold: 120 }, gpu: BOUNDARY },
 	{ filter: 'ValueThreshold', name: 'auto', input: 'photo', options: {}, gpu: BOUNDARY },

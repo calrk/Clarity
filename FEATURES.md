@@ -529,13 +529,12 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **fifteen filters added, five deleted, 41 to 52** — and what is left is the five below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **sixteen filters added, five deleted, 41 to 53** — and what is left is the four below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
 | Filter | Summary | Effort |
 |---|---|---|
-| **ChromaKey** | Makes one colour transparent, with tolerance and edge softening. | Low |
 | **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
 | **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
 | **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
@@ -543,9 +542,22 @@ The README's "Filters to be made" list had been sitting there since 2014. Most o
 
 Roughly ordered by effort, which is also the order to do them in — the cheap ones reuse machinery that already exists.
 
-**`ChromaKey`** was not on the old list and is the obvious partner to `Mask`. It is the first filter whose *output* is a real alpha channel rather than an opaque frame, which the alpha fixture already exists to check and which `Blur` had to be corrected for once already (see #3).
-
 **`Histogram` wants `samples` + `prepare`** — the shape that already exists for `Posteriser`'s palette: a thumbnail read back, the statistic derived on the CPU, the result handed to the shader through `data()`. `ShotDetector` is the closer model, since it uses that path for *state* rather than for a one-off statistic. The open question is whether it draws over the frame or replaces it, and the answer is probably an `overlay` bool, because both are wanted and neither is obviously the default.
+
+### ~~ChromaKey~~ ✓
+
+**Done.** `src/filters/Process/ChromaKey.ts` — the obvious partner to `Mask`, and the first filter in the library whose output is a real alpha channel rather than an opaque frame.
+
+Four things worth recording:
+
+- **It matches in the U-V plane of YUV, not in RGB**, which is what the word chroma means and what lets one tolerance cover an unevenly lit screen. The loose version of that claim — "it ignores brightness" — is wrong, and the code comment says so: U and V are *linear* in RGB, so the match is perfectly blind to a neutral **offset** (the coefficients of each sum to zero, so haze or a lift move it not one byte) but not to a neutral **gain** (halving all three channels halves the chroma, and a screen at half brightness lands ~50 away). Roughly twice as forgiving as an RGB distance, not infinitely.
+- **The default key is `00b140`, not `00ff00`.** Measured, not chosen: a lit screen photographs ~35 from `00b140` and ~81 from pure green, so against pure green the default tolerance would key nothing at all. And since every neutral sits at the origin of the chroma plane, a key's own saturation *is* its distance to every grey in the frame — 100 for `00b140`, safely outside the ramp, where a paler `3cb44b` measures 69 and starts dissolving the greys along with the screen.
+- **`spill` is the only option that writes colour**, and it defaults to 0 for that reason. It projects a pixel's chroma onto the key's axis and removes what points along it, which is one formula for a green screen and a blue one — with an `along > 0` guard so a colour on the far side is pushed nowhere.
+- **The alpha rule in `filters.test.js` now keys off the `alpha-out` trait rather than a filter's name, and runs both ways** — a filter claiming the trait must produce some transparency, and one not claiming it must be opaque everywhere. That keeps the "no exemptions" stance the Cloud fix established while letting this filter through honestly. New trait, so the docs and any palette pick it up for free.
+
+Measured GPU/CPU parity rather than assumed: three of the four cases are **byte-exact**, and only the spill case differs at all — 2 pixels of 3072, by 1. The population metric these were expected to need turned out to be unnecessary.
+
+Not done, and deliberately: **no preset.** The payoff of a key is compositing, and the playground has no background layer to composite onto — a preset could only ever show the checkerboard. That is now the strongest argument for a second source in the site (see #10), and the docs link demonstrates the filter well enough on its own in the meantime.
 
 ### ~~Dither~~ ✓
 
@@ -1125,18 +1137,18 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
 | 16 | Presets in the playground | Low | Fourteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 15 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Five left — still open below** |
+| 9 | Filter wishlist — 16 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Four left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last five filters | Low each | Medium — `ChromaKey`, `Histogram`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last four filters | Low each | Medium — `Histogram`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`ChromaKey` and `Histogram` first** — both reuse machinery that exists, and `Histogram` is the only one that tells you something about a picture rather than changing it.
+**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`Histogram` next** — it reuses machinery that exists, and it is the only one of the four that tells you something about a picture rather than changing it.
 
 Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 

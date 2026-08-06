@@ -70,6 +70,8 @@ export { Bleed } from './filters/Process/Bleed.js';
 export type { BleedOptions } from './filters/Process/Bleed.js';
 export { Blur } from './filters/Process/Blur.js';
 export type { BlurOptions } from './filters/Process/Blur.js';
+export { ChromaKey } from './filters/Process/ChromaKey.js';
+export type { ChromaKeyOptions } from './filters/Process/ChromaKey.js';
 export { Desaturate } from './filters/Process/Desaturate.js';
 export type { DesaturateOptions } from './filters/Process/Desaturate.js';
 export { Dither } from './filters/Process/Dither.js';
