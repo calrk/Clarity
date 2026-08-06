@@ -13,7 +13,7 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
 | Filters clean | 31 of 41, 4 hard crashes | 51 of 51, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 102/102 parity cases as shaders |
-| Tests | none | 631, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Tests | none | 633, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and thirteen presets |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
@@ -327,7 +327,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** The suite has grown with everything since — **631 tests** and **102 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
+**Done.** The suite has grown with everything since — **633 tests** and **102 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
 - **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
@@ -594,7 +594,13 @@ Two smaller things:
 
 **The test for it is the interesting part**, because the two obvious measures both fail. A mean step does not discriminate at all — the sawtooth's is *lower*, since widening the ramp puts more pixels on a slope — and a fixed bound on the largest step separates 202 from 249, which is no separation. What does discriminate is the definition: **a continuous ramp gets shallower the more pixels it is drawn across, and a jump does not.** Rendered at 200px and again at 800px, this now falls 202 → 101 where the sawtooth sat at 249 → 253.
 
-**Found by accident on the way, and still open: a shader that fails to compile crashes the pipeline instead of falling back.** A stray identifier in this filter's shader took the whole page down with `Cannot read properties of null`, and the same reproduces on a two-line filter with deliberately invalid GLSL. The README promises the opposite in as many words — "Fallback is still **per stage** rather than all-or-nothing, for the cases where a shader can't compile" — so this is a documented guarantee that does not hold. It wants a regression test as much as a fix, since nothing currently covers the compile-failure path.
+**Found by accident on the way, and fixed: a shader that failed to compile crashed the pipeline instead of falling back.** A stray identifier in this filter's shader took the whole playground down with `Cannot read properties of null`, and it reproduced on a two-line filter with deliberately invalid GLSL. The README promises the opposite in as many words — "Fallback is still **per stage** rather than all-or-nothing, for the cases where a shader can't compile" — so a documented guarantee did not hold.
+
+The cause is worth keeping, because the intent was already right and the recovery was simply impossible. `toCPU()` read the frame back off a *render target*, and between the upload and the first successful draw the picture lives only in a bare texture, which has nothing to read back from — so it returned early, left `cpuFrame` null, and the fallback called `process(null)`. Which means it only bit when the failing filter was the **first of its GPU run**: mid-chain there is always a target, and that path had always worked. A single-filter chain hits the broken case every time.
+
+The fix is to keep the frame that was uploaded until a draw supersedes it. It costs nothing — they are the same bytes — and it is the only route back from that state.
+
+**Nothing covered the compile-failure path at all**, which is how it survived. Two tests now do, and they discriminate: with the fix reverted the first-of-run case fails and the mid-chain one still passes, which is exactly the shape of the bug.
 
 **Knots are the missing ingredient**, not a missing option. A knot is a local singularity the ring field wraps around, which is `Voronoi`-shaped work, and without one this reads as a board rather than as a particular board.
 

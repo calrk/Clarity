@@ -138,6 +138,8 @@ export async function openHarness() {
 		run: (entry) => page.evaluate((e) => window.runCase(e), entry),
 		renderGPU: (entry) => page.evaluate((e) => window.renderGPU(e), entry),
 		historyResets: () => page.evaluate(() => window.historyResets()),
+		brokenShaderFallsBack: () => page.evaluate(() => window.brokenShaderFallsBack()),
+		brokenShaderFallsBackMidChain: () => page.evaluate(() => window.brokenShaderFallsBackMidChain()),
 		async close() {
 			await browser.close();
 			server.close();

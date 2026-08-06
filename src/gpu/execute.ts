@@ -61,6 +61,19 @@ export function executeChain(
 	/** Which pooled target to render into next. */
 	let ping = 0;
 
+	/**
+	 * The frame as it was uploaded, kept until a draw supersedes it.
+	 *
+	 * Between the upload and the first successful draw the picture lives only in
+	 * `gpuTexture`, and a bare texture cannot be read back - `download` needs a
+	 * target to read from. Holding the bytes we uploaded costs nothing, because
+	 * they are the same bytes, and it is the only way back to the CPU from that
+	 * state. Which matters precisely when a shader will not compile: the filter
+	 * that fails is usually the first of its run, so that is exactly where the
+	 * frame is.
+	 */
+	let uploaded: ImageData | null = null;
+
 	const toGPU = () => {
 		if (!cpuFrame) {
 			return;
@@ -69,18 +82,31 @@ export function executeChain(
 		width = cpuFrame.width;
 		height = cpuFrame.height;
 		gpuTarget = null;
+		uploaded = cpuFrame;
 		cpuFrame = null;
 		result.transfers++;
 	};
 
 	const toCPU = () => {
-		if (!gpuTarget) {
+		if (gpuTarget) {
+			cpuFrame = backend.download(gpuTarget);
+			gpuTarget = null;
+			gpuTexture = null;
+			uploaded = null;
+			result.transfers++;
 			return;
 		}
-		cpuFrame = backend.download(gpuTarget);
-		gpuTarget = null;
-		gpuTexture = null;
-		result.transfers++;
+
+		//Uploaded, but nothing has drawn yet, so the texture still holds exactly
+		//what went into it. Hand those bytes back rather than reading a target
+		//that does not exist - the alternative is `cpuFrame` staying null and the
+		//fallback calling `process(null)`, which is a crash rather than the
+		//per-stage fallback this is here to provide.
+		if (uploaded) {
+			cpuFrame = uploaded;
+			gpuTexture = null;
+			uploaded = null;
+		}
 	};
 
 	for (let index = 0; index < stages.length; index++) {
@@ -199,6 +225,8 @@ export function executeChain(
 					uniforms: { ...uniforms, ...(pass.uniforms ?? {}), uPass: n }
 				});
 				gpuTarget = into;
+				//a draw has happened, so the uploaded copy is now out of date
+				uploaded = null;
 				ping = ping === 0 ? 1 : 0;
 				width = outWidth;
 				height = outHeight;

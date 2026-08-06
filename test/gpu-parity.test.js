@@ -86,6 +86,30 @@ if (!harness) {
 		assert.ok(movedBy > 0, 'the stale reference would have produced the same frame anyway');
 	});
 
+	test('a shader that will not compile drops that stage to the CPU', async () => {
+		// The README promises a per-stage fallback in as many words. It did not
+		// hold when the failing filter was the first of its GPU run, which is the
+		// common case and the one a single-filter chain always hits.
+		const { differing, movedBy, reasons, total } = await harness.brokenShaderFallsBack();
+
+		// Byte-exact here: nothing ran on the GPU at all, so the whole chain is
+		// the CPU implementation and there is no rounding to allow for.
+		assert.equal(differing, 0, `${differing} of ${total} bytes differ from the CPU implementation`);
+		assert.ok(movedBy > 0, 'the frame passed through unfiltered rather than falling back');
+		assert.deepEqual(reasons, ['Broken'], 'the fallback was not reported in stats');
+	});
+
+	test('a shader that will not compile mid-chain also falls back', async () => {
+		// The case that always worked: by then the frame is in a render target
+		// rather than freshly uploaded, so it has somewhere to be read back from.
+		//
+		// Compared with a tolerance rather than exactly, because the stage in
+		// front of it really did run on the GPU - so this is the ordinary
+		// GPU-against-CPU rounding, not the fallback getting anything wrong.
+		const { maxDelta, total } = await harness.brokenShaderFallsBackMidChain();
+		assert.ok(maxDelta <= 2, `largest channel delta ${maxDelta} across ${total} bytes`);
+	});
+
 	test('summary', (t) => {
 		const cpuOnly = report.filter((row) => !row.gpu);
 		t.diagnostic(`${report.length - cpuOnly.length}/${report.length} cases ran as shaders`);

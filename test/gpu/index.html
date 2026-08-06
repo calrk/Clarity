@@ -200,6 +200,57 @@ window.historyResets = async () => {
 	return { differing, movedBy, total: after.data.length };
 };
 
+window.brokenShaderFallsBack = async () => {
+	// A filter whose shader cannot compile. The README promises the chain drops
+	// that one stage to the CPU and carries on, and nothing covered the path -
+	// which is how it came to crash instead: between the upload and the first
+	// draw the frame lives only in a bare texture, and a bare texture cannot be
+	// read back, so the fallback was handed null.
+	class Broken extends CLARITY.Invert {}
+	Broken.shader = 'void main(){ this is not glsl }';
+
+	const photo = await fixture('photo');
+	const pipeline = new CLARITY.Pipeline([new Broken({})], { gpu: true });
+	const out = pipeline.run(photo);
+
+	// what the CPU implementation it fell back to should have produced
+	const expected = new CLARITY.Invert({}).process(photo);
+	let differing = 0;
+	for (let i = 0; i < out.data.length; i++) {
+		if (out.data[i] !== expected.data[i]) differing++;
+	}
+
+	// and it must be a real inversion rather than the frame passing through
+	let movedBy = 0;
+	for (let i = 0; i < out.data.length; i++) {
+		if (out.data[i] !== photo.data[i]) movedBy++;
+	}
+
+	const reasons = pipeline.stats.fallbacks.map((f) => f.filter);
+	pipeline.dispose();
+	return { differing, movedBy, reasons, total: out.data.length };
+};
+
+// The same thing with a working filter in front, so the frame is in a render
+// target rather than freshly uploaded - the path that always worked, kept so a
+// fix for one cannot quietly break the other.
+window.brokenShaderFallsBackMidChain = async () => {
+	class Broken extends CLARITY.Invert {}
+	Broken.shader = 'void main(){ this is not glsl }';
+
+	const photo = await fixture('photo');
+	const pipeline = new CLARITY.Pipeline([new CLARITY.Desaturate({}), new Broken({})], { gpu: true });
+	const out = pipeline.run(photo);
+
+	const expected = new CLARITY.Invert({}).process(new CLARITY.Desaturate({}).process(photo));
+	let maxDelta = 0;
+	for (let i = 0; i < out.data.length; i++) {
+		maxDelta = Math.max(maxDelta, Math.abs(out.data[i] - expected.data[i]));
+	}
+	pipeline.dispose();
+	return { maxDelta, total: out.data.length };
+};
+
 window.gpuAvailable = () => CLARITY.GLBackend.create() !== null;
 
 window.runCase = async (entry) => {
