@@ -11,10 +11,10 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 50 of 50, each with a golden image, a GPU parity case and a generated docs entry |
-| GPU | none | every filter, 95/95 parity cases as shaders |
-| Tests | none | 604, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
-| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and ten presets |
+| Filters clean | 31 of 41, 4 hard crashes | 51 of 51, each with a golden image, a GPU parity case and a generated docs entry |
+| GPU | none | every filter, 99/99 parity cases as shaders |
+| Tests | none | 620, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and eleven presets |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
 
@@ -327,7 +327,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** The suite has grown with everything since — **604 tests** and **95 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
+**Done.** The suite has grown with everything since — **620 tests** and **99 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
 - **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
@@ -529,7 +529,7 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **twelve filters added, three deleted, 41 to 50** — and what is left is the seven below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, three deleted, 41 to 51** — and what is left is the six below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
@@ -538,12 +538,11 @@ The README's "Filters to be made" list had been sitting there since 2014. Most o
 | **ChromaKey** | Makes one colour transparent, with tolerance and edge softening. | Low |
 | **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
 | **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
-| **Halftone** | Redraws the frame as a grid of dots on a flat ground, sized by how strong each cell is. | Low–Medium |
 | **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
+| **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
 | **Crackulate** | Draws procedural cracks across the frame. | Medium |
-| **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium–High |
 
-Roughly ordered by effort, which is also the order to do them in — the cheap ones reuse machinery that already exists, and the expensive ones need something the executor cannot currently do.
+Roughly ordered by effort, which is also the order to do them in — the cheap ones reuse machinery that already exists.
 
 **`ChromaKey`** was not on the old list and is the obvious partner to `Mask`. It is the first filter whose *output* is a real alpha channel rather than an opaque frame, which the alpha fixture already exists to check and which `Blur` had to be corrected for once already (see #3).
 
@@ -551,15 +550,21 @@ Roughly ordered by effort, which is also the order to do them in — the cheap o
 
 **`Dither` is the one honest use of `supportsGPU`.** Bayer is an ordered threshold and runs as a shader; Floyd–Steinberg diffuses error into pixels it has not visited yet and is inherently sequential, so it stays CPU-only. That flag exists precisely so one filter can say which half of itself the GPU can take.
 
-**`Halftone` is cheaper than it sounds and covers two effects at once.** For each output pixel: find its cell, sample the source at the cell's centre, turn that into a radius, and write the dot colour or the ground depending on the distance. One pass, pure gather, nothing retained — the same shape as `Pixelate`, which is already the closest thing in the library and is the reason this is not just a variant of it: `Pixelate` fills every cell edge to edge, so it never shows a ground and can never look drawn.
+It is also the honest partner to the shipped `Halftone`: both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one, so they answer different questions and neither absorbs the other.
 
-The dot colour is the choice that splits it in two. Take it from the cell and you get **Clark's dot painting** — coloured dots on white, size by strength. Fix it to black and you get **newsprint**. One `colour: 'sampled' | 'ink'` covers both, alongside `spacing`, `background` and a `scale` for how much of a cell a full-strength dot fills.
+**`Skeletiser` stopped being the hard one**, and the fix was Clark's: **iterate a fixed number of times rather than until nothing changes.**
 
-The one thing worth getting right rather than shipping naively: **rotate the grid**. An axis-aligned screen reads as a grid artifact laid over a photograph, because the rows line up with everything else rectangular in the frame; the classic screens sit near 15°, 45° and 75° precisely so the eye reads tone instead of pattern. It is one rotation of the cell coordinates and it is the difference between "looks like a halftone" and "looks like a bug". Per-channel angles are the full CMYK version and are a later problem — the rosette they make is the thing worth doing eventually, and it wants three sampled channels rather than one.
+The entry here used to say iterative thinning is sequential and a poor fit for a shader. That was wrong, and worth correcting because it is what kept this at the bottom of the list. Zhang–Suen is explicitly a *parallel* thinning algorithm — that is why it exists rather than the sequential ones like Hilditch. Each subiteration reads a pixel's eight neighbours from the previous state and decides independently, which is a fragment shader exactly. **The only genuinely sequential part was the termination test**, and a declared iteration count deletes precisely that and nothing else.
 
-It is also the honest partner to `Dither`: both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one, so they answer different questions and neither absorbs the other.
+It needs **no new executor capability**. `execute.ts:178` already runs a pass `repeat` times with the repeat index handed in as `uPass`, which is what `Convolver.iterations` uses — so this is one shader with `repeat: f => 2 * f.properties.iterations` and the two subiterations chosen by `uPass % 2`. `Morphology`'s four-phase workaround is not even needed.
 
-**`Skeletiser` is the only genuinely hard one** — iterative thinning is sequential and needs a repeat-until-stable loop, which is a poor fit for a shader and the one item here that is a day rather than an hour. Zhang–Suen is the standard two-subiteration formulation and is the one to port; it is also the only filter on this list that would want `supportsGPU: false` for a reason other than `Dither`'s.
+Three things make the fixed count better than a compromise:
+
+- **A converged skeleton is a fixed point.** Once it is one pixel wide no pixel satisfies the deletion conditions, so further iterations delete nothing. The failure mode is one-directional: too few under-thins, too many costs draw calls and nothing else. That is a far more forgiving control than most fixed-iteration approximations, and it means the default can be generous.
+- **Partial thinning is a real result, not a broken one** — and it is *distinct from* `Morphology,mode=erode`. Erode severs a thin neck and eats short strokes; Zhang–Suen's conditions preserve connectivity and refuse to delete endpoints, so `iterations=3` means "shrink by three but never disconnect anything and never shorten a line", which erode cannot express at any radius.
+- **Iterate-until-stable would break parity structurally**, which is the strongest argument and not the performance one. The CPU can converge trivially and the GPU cannot without a readback per iteration. The rule here is that a filter is not done until both paths agree, so a fixed count is not a GPU concession — it is the only version of this filter where the two backends *can* agree.
+
+What is given up is the guarantee of a one-pixel-wide result. The iterations needed are half the thickest stroke, not any function of image size, so for the actual inputs — thresholded edges, text, line art — that is one to eight. Where it genuinely runs out is a big solid blob, and the skeleton of a disc is a single dot, so nothing useful was on offer there anyway. Cost is 2X draws of an eight-tap read.
 
 It also **reintroduces the `binary-in` trait**, which `DotRemover` took with it when `Morphology` replaced it. **Three dead references survived that removal**, and they are worth sweeping up whether or not this ever ships:
 
@@ -616,6 +621,7 @@ Removing it also orphaned the `binary-in` trait, which nothing else carried, so 
 | ~~**Levels**~~ ✓ | Remaps the black point, white point and gamma — the everyday contrast control. | Done |
 | ~~**Sepia**~~ ✓ | Tones the frame to warm monochrome. | Done — a `GradientMap` ramp |
 | ~~**LUT**~~ ✓ | Remaps every colour through a lookup table. | Done as `GradientMap`; the 3D cube is a separate thing |
+| ~~**Halftone**~~ ✓ | Redraws the frame as a grid of dots on a flat ground, sized by how strong each cell is. | Done |
 
 **`Levels` was a real gap rather than a nicety** and is now done: there was no brightness or contrast control anywhere in the library, only `hsvShifter.value` multiplying brightness, which can scale but never *stretch*. Gamma is applied after the black/white stretch, as `pow(t, 1/gamma)`, so the two ends stay pinned while the midtones move — doing it before would drag the ends with it.
 
@@ -625,6 +631,17 @@ Two things worth recording:
 
 - **`steps` and `cycle` together are palette cycling**, the trick pixel artists used to animate waterfalls and lava without touching a pixel. Banding happens *before* the rotation on purpose: quantising fixes where the bands are and the rotation then moves colours through them, which is what reads as flow. Rotating first and banding after slides the band edges instead, and the picture appears to crawl. The test asserts exactly that — two pixels sharing a colour before the rotation must still share one after.
 - **The table is built on the CPU and handed to the shader through `data()`**, so both backends look colours up in the same 256 bytes rather than each evaluating the ramp its own way. All that is left to disagree about is which entry a pixel lands on, which is a hard boundary and takes the population metric.
+
+**`Halftone` is done**, and one `colour` option really does cover two effects that look nothing alike: sampled gives Clark's dot painting, ink gives newsprint. It ships with the `dots` preset, because a filter whose whole argument is "this is a *look*" is exactly the kind that nobody finds by browsing a palette.
+
+Four things came out of building it, and three of them are the difference between a halftone and a bug:
+
+- **The radius goes as the square root of coverage.** Perceived tone follows the dot's *area*, and area goes as r², so a radius linear in coverage makes every midtone far too light — a midtone would ink 0.196 of its cell instead of 0.393, and come back at 205 instead of 155. Measured against the prediction `255 × (1 − π/4 × coverage)` across the range, which is what the test asserts, because this is invisible in any single picture.
+- **A dot is not confined to its own cell**, and the naive version confines it. Each pixel tests the nine cells around it rather than the one it falls in. For a uniform grid that changes nothing — a pixel's own cell centre is always the nearest one — so it looks like dead code right up until there is a contrast edge, where a dark cell's oversized dot has to reach into its light neighbour. Testing one cell clips it to a square exactly when it gets big enough to matter. The test pins the reach at `radius − spacing/2`, which is 0, 2 and 4 pixels at scale 1, 1.5 and 2; the one-cell version reaches 0 at every scale, and only the two cases above scale 1 catch it.
+- **The grid is rotated, and 45° is the default.** An axis-aligned screen reads as a grid artifact laid over the picture, because its rows line up with everything else rectangular in the frame. The `newsprint` golden is at 0° and shows exactly that, which is the argument for the default sitting beside it.
+- **Antialiasing the dot edge is not a polish item.** A hard cut leaves small dots as aliased crosses, and it would put a 0-or-255 decision on every dot edge — the population metric, the way `Voronoi`'s cells need it. Softening it over one pixel keeps the whole filter a tolerance question instead. It needs one guard: at radius 0 the one-pixel band still reports half coverage for the pixel exactly on the cell centre, so a blown-out sky comes back stippled unless sub-pixel dots are faded out separately.
+
+The parity metric is the `banded` one rather than a tolerance, and the reason is worth recording because the first two guesses were both wrong. It is not float precision — simulating float32 through the whole computation reproduces the CPU result exactly. It is not the cell-assignment `floor` either. It is **one pixel in 825**, where two overlapping dots covered it at ink `0.135309` against `0.134927` — 0.03% apart — and the two cells they came from were sampling colours 44 apart. Which dot is "on top" there is genuinely undetermined, so the honest answer is a metric that allows a rare arbitrary flip while holding everything else to rounding, which is exactly what `banded` says.
 
 ### Starters
 
@@ -931,7 +948,7 @@ Once it is live, two small additions to `site/seo.js` become possible and are wo
 
 ## ~~16. Presets — the README's Example Chains, Inside the Playground~~ ✓
 
-**Done.** **Ten presets** as chips in the Pipeline panel, in `site/src/presets.js`, four shown and the rest behind a `+N more` toggle. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
+**Done.** **Eleven presets** as chips in the Pipeline panel, in `site/src/presets.js`, four shown and the rest behind a `+N more` toggle. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
 
 Six things worth recording:
 
@@ -1009,27 +1026,27 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 1 | Correctness sweep | Low | 4 crashing filters revived, 31→40 of 41 clean; 5 more found later by the contact sheet |
 | 2 | ESM + Vite + publishable package | Medium | TS classes, 3 bundles, types, `npm test`; the type system found 3 more bugs |
 | 7 | Licensing / replace GPL MCut | Low–Med | MIT throughout, and the replacement quantiser is 2–21× faster |
-| 6 | Golden-image test suite | Medium | 63 goldens then, 95 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
+| 6 | Golden-image test suite | Medium | 63 goldens then, 99 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
 | 8 | Declarative filter schemas | Medium | 717 lines out, DOM dependency gone, `setProperty` the one write path |
 | 4 | `Renderer` / `Pipeline` | Medium | Headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
-| 3 | GPU shader backend | High | Every filter has a shader; 95/95 parity cases on the GPU; 6 more bugs found |
+| 3 | GPU shader backend | High | Every filter has a shader; 99/99 parity cases on the GPU; 6 more bugs found |
 | 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
 | 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
-| 16 | Presets in the playground | Low | Ten chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
+| 16 | Presets in the playground | Low | Eleven chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 12 of 19 | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Seven left — still open below** |
+| 9 | Filter wishlist — 13 of 19 | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Six left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last seven filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Halftone`, `Bilateral`, `Crackulate`, `Skeletiser`. Genuinely cheap except the last, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last six filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first. **`ChromaKey` and `Histogram` first** — both reuse machinery that exists, and `Histogram` is the only one that tells you something about a picture rather than changing it.
+**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`ChromaKey` and `Histogram` first** — both reuse machinery that exists, and `Histogram` is the only one that tells you something about a picture rather than changing it.
 
 Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 

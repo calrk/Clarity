@@ -81,6 +81,8 @@ export { GradientMap } from './filters/Process/GradientMap.js';
 export type { GradientMapOptions, Ramp } from './filters/Process/GradientMap.js';
 export { Glow } from './filters/Process/Glow.js';
 export type { GlowOptions } from './filters/Process/Glow.js';
+export { Halftone } from './filters/Process/Halftone.js';
+export type { HalftoneOptions, HalftoneColour, HalftoneGround } from './filters/Process/Halftone.js';
 export { HanoverBars } from './filters/Process/HanoverBars.js';
 export type { HanoverBarsOptions } from './filters/Process/HanoverBars.js';
 export { Invert } from './filters/Process/Invert.js';

@@ -18,6 +18,7 @@ import { Morphology } from './filters/Process/Morphology.js';
 import { Vignette } from './filters/Process/Vignette.js';
 import { GradientMap } from './filters/Process/GradientMap.js';
 import { Glow } from './filters/Process/Glow.js';
+import { Halftone } from './filters/Process/Halftone.js';
 import { HanoverBars } from './filters/Process/HanoverBars.js';
 import { Invert } from './filters/Process/Invert.js';
 import { Levels } from './filters/Process/Levels.js';
@@ -82,6 +83,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Vignette,
 	GradientMap,
 	Glow,
+	Halftone,
 	HanoverBars,
 	Invert,
 	Levels,

@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-50 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+51 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Blur](#blur) · [Convolver](#convolver) · [Desaturate](#desaturate) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -174,6 +174,28 @@ new Glow({ radius: 6 });
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
 | `radius` | int | 1–180 | `10` | Radius of the blur that is blended back over the original. |
+
+### Halftone
+
+Redraws the frame as a grid of dots on a flat ground, sized by how strong each cell is.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Halftone.png" width="192" alt="Halftone applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Halftone,spacing=6)
+
+```js
+import { Halftone } from '@calrk/clarity';
+
+new Halftone({ spacing: 6 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `spacing` | int | 2–64 | `8` | Distance between dot centres, in pixels. This is the resolution of the screen, so smaller keeps more of the picture. |
+| `angle` | float | 0–90 | `45` | Rotation of the dot grid. 45 is the classic screen angle; 0 lines the dots up with the frame, which reads as a grid laid over the picture rather than as tone. |
+| `scale` | float | 0–2 | `1` | How much of a cell a full-strength dot fills. At 1 the dots just touch; above about 1.4 they meet at the corners and solid areas go solid. |
+| `colour` | select | `sampled` · `ink` | `sampled` | Sampled takes each dot from the picture, for coloured dots on a flat ground. Ink fixes them to the opposite of the background, which is newsprint. |
+| `background` | select | `white` · `black` | `white` | The ground the dots are drawn on. White gives paper, and the dark parts of the picture get the big dots; black swaps that over. |
 
 ### HanoverBars
 

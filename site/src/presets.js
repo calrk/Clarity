@@ -34,6 +34,20 @@ export const PRESETS = [
 		chain: 'landscape/Pixelate,size=8/Posteriser,colours=6/hsvShifter,saturation=1.4'
 	},
 	{
+		id: 'dots',
+		label: 'Dot painting',
+		note: 'Coloured dots on white paper, each one sized by how dark the picture is beneath it',
+		//The saturation lift is doing the same job it does in the pixel-art
+		//preset, for the same reason: most of the frame ends up as white ground,
+		//so what colour there is has to carry the whole picture on its own and
+		//reads washed out at the source's own saturation.
+		//
+		//`scale` stays at 1.3 rather than going higher on purpose. The dots can
+		//only fill their cell's corners past 1.41, and the moment they do the
+		//paper stops showing through and it turns back into a photograph.
+		chain: 'landscape/hsvShifter,saturation=1.5/Halftone,spacing=12,scale=1.3'
+	},
+	{
 		id: 'composite',
 		label: 'Composite video',
 		note: 'Colour bleeding off its edges, fringing, and the dots that crawl along them',

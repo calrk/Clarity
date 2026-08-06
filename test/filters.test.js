@@ -677,3 +677,84 @@ test('Translator only moves when it is told to', () => {
 	assert.equal(CLARITY.Translator.animated(new CLARITY.Translator({})), false);
 	assert.equal(CLARITY.Translator.animated(new CLARITY.Translator({ speed: 0.5 })), true);
 });
+
+/** A flat square frame, or one shaded by a function of (x, y). */
+function flat(value, size = 64) {
+	const f = new NodeImageData(size, size);
+	for (let y = 0; y < size; y++) {
+		for (let x = 0; x < size; x++) {
+			const v = typeof value === 'function' ? value(x, y) : value;
+			const i = (y * size + x) * 4;
+			f.data[i] = f.data[i + 1] = f.data[i + 2] = v;
+			f.data[i + 3] = 255;
+		}
+	}
+	return f;
+}
+
+const meanChannel = (img) => {
+	let sum = 0;
+	for (let i = 0; i < img.data.length; i += 4) sum += img.data[i];
+	return sum / (img.data.length / 4);
+};
+
+test('Halftone reproduces tone by dot area, not dot width', () => {
+	// The radius goes as sqrt(coverage) because perceived tone follows the dot's
+	// *area*. A circle of radius r in a cell of side s covers pi*r^2 / s^2, so at
+	// scale 1 a cell asking for coverage c inks pi/4 * c of itself, and black ink
+	// on white paper should average 255 * (1 - pi/4 * c).
+	//
+	// Drop the sqrt and the radius becomes linear in coverage, which squares the
+	// inked fraction: a midtone would ink 0.196 of each cell instead of 0.393 and
+	// come back at 205 rather than 155. This is the whole of correct tonal
+	// reproduction in a halftone and it is invisible in any single picture.
+	for (const grey of [64, 128, 191]) {
+		const out = new CLARITY.Halftone({ spacing: 8, scale: 1, colour: 'ink' })
+			.process(flat(grey));
+
+		const coverage = (255 - grey) / 255;
+		const predicted = 255 * (1 - (Math.PI / 4) * coverage);
+
+		assert.ok(
+			Math.abs(meanChannel(out) - predicted) < 6,
+			`grey ${grey}: expected about ${predicted.toFixed(1)}, got ${meanChannel(out).toFixed(1)}`
+		);
+	}
+});
+
+test('Halftone dots grow past their own cell', () => {
+	// Each pixel tests the nine cells around it rather than only the one it falls
+	// in. For a uniform grid that changes nothing - a pixel's own cell centre is
+	// always the nearest one - so it only shows where neighbouring radii differ
+	// sharply, which is exactly a contrast edge.
+	//
+	// Dark on the left, white on the right. The dark cells want a full dot, and
+	// past a scale of 1 that dot is wider than its cell, so it has to reach into
+	// the light side. Testing one cell clips it to a square at the boundary and
+	// the reach is zero at every scale.
+	for (const [scale, expected] of [[1, 0], [1.5, 2], [2, 4]]) {
+		const out = new CLARITY.Halftone({ spacing: 8, angle: 0, scale, colour: 'ink' })
+			.process(flat((x) => (x < 32 ? 0 : 255)));
+
+		let reach = 0;
+		for (let y = 0; y < 64; y++) {
+			for (let x = 32; x < 64; x++) {
+				if (out.data[(y * 64 + x) * 4] < 128) reach = Math.max(reach, x - 31);
+			}
+		}
+
+		// radius is scale * spacing/2, so it clears the half-cell by exactly this
+		assert.equal(reach, expected, `at scale ${scale} the dots reached ${reach}px past the edge`);
+	}
+});
+
+test('Halftone leaves a blown-out area completely clean', () => {
+	// A zero-radius dot still sits exactly on its cell centre, so the one-pixel
+	// antialiasing reports half coverage for that pixel unless something fades
+	// sub-pixel dots out - and a white sky comes back stippled with grey.
+	const out = new CLARITY.Halftone({ spacing: 8, colour: 'ink' }).process(flat(255));
+
+	for (let i = 0; i < out.data.length; i += 4) {
+		assert.equal(out.data[i], 255, `stippled a pure white frame at ${i}`);
+	}
+});

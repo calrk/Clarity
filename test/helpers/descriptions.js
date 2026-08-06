@@ -60,6 +60,10 @@ export const descriptions = {
 	HanoverBars: {
 		look: 'Banding every other bar - colour-shifted in hanover mode, darkened in scanlines mode, and running down the frame rather than across it when vertical. Either way it must not be identical to the input.'
 	},
+	Halftone: {
+		look: 'A grid of dots on flat white, turned 45 degrees, with the big dots where the picture is dark. Newsprint drops the colour and keeps the tone; wide fills the dark cells solid on a black ground, which is the same reading the other way up.',
+		note: 'Dot radius goes as the square root of coverage, because tone follows the dot area rather than its width. A radius linear in coverage makes every midtone far too light.'
+	},
 	Invert: {
 		look: 'Sky goes orange, ground goes purple. Dynamic mode is subtler than plain invert.'
 	},

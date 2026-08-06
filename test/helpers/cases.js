@@ -39,6 +39,21 @@ const BOUNDARY = { mode: 'population', maxDifferentRatio: 0.02 };
  * band. Neither of the other two metrics describes that shape.
  */
 const BANDED = { mode: 'banded', tolerance: 1, maxFlippedRatio: 0.01 };
+/**
+ * Antialiased dots, plus a rare arbitrary one.
+ *
+ * Halftone's edges are antialiased over a pixel, so almost everything agrees to
+ * rounding - a hard-edged dot would need the population metric the way Voronoi's
+ * cells do. What it cannot make continuous is *which* dot owns a pixel that two
+ * overlapping ones both cover: the strongest wins, and where they are within a
+ * fraction of a percent of each other that choice is undetermined. Measured on
+ * the odd fixture, one pixel in 825 lands there, and the two cells it is
+ * choosing between were sampling colours 44 apart.
+ *
+ * The same shape as `banded` - agreement everywhere, a hard flip on a decision
+ * boundary - so it uses the same mode rather than a fourth one.
+ */
+const DOTS = { mode: 'banded', tolerance: 2, maxFlippedRatio: 0.005 };
 
 /** NormalIntensity and NormalFlip take a normal map, not a height map. */
 const NORMAL = [{ filter: 'NormalGenerator', options: { intensity: 1 } }];
@@ -81,6 +96,14 @@ export const cases = [
 	{ filter: 'Pixelate', input: 'photo', options: { size: 8 }, gpu: POINTWISE },
 	// odd dimensions: 33 is not a multiple of 8, so the right column is partial
 	{ filter: 'Pixelate', name: 'odd', input: 'odd', options: { size: 8 }, gpu: POINTWISE },
+	{ filter: 'Halftone', input: 'photo', options: { spacing: 6 }, gpu: DOTS },
+	// newsprint: flat ink, and the rotation switched off so the grid is testable
+	{ filter: 'Halftone', name: 'newsprint', input: 'photo', options: { spacing: 8, angle: 0, colour: 'ink' }, gpu: DOTS },
+	// dots meeting at the corners on a black ground, so the bright cells are the
+	// ones that fill - the opposite assignment to the default
+	{ filter: 'Halftone', name: 'wide', input: 'photo', options: { spacing: 10, scale: 1.5, background: 'black' }, gpu: DOTS },
+	// odd dimensions, for the same reason Pixelate has the case
+	{ filter: 'Halftone', name: 'odd', input: 'odd', options: { spacing: 5 }, gpu: DOTS },
 	{ filter: 'Posteriser', input: 'photo', options: { colours: 6 }, gpu: BOUNDARY },
 	// The fast method lands on band centres like 21.5, and the two paths break
 	// that tie in opposite directions - Uint8ClampedArray rounds half to even,
