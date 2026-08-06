@@ -529,7 +529,7 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, three deleted, 41 to 51** — and what is left is the six below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, three deleted, 41 to 51** — and what is left is the seven below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
@@ -538,6 +538,7 @@ The README's "Filters to be made" list had been sitting there since 2014. Most o
 | **ChromaKey** | Makes one colour transparent, with tolerance and edge softening. | Low |
 | **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
 | **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
+| **Woodgrain** | Fills the frame with growth rings and grain — a *starter*, like `Cloud` and `Voronoi`. | Low–Medium |
 | **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
 | **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
 | **Crackulate** | Draws procedural cracks across the frame. | Medium |
@@ -551,6 +552,19 @@ Roughly ordered by effort, which is also the order to do them in — the cheap o
 **`Dither` is the one honest use of `supportsGPU`.** Bayer is an ordered threshold and runs as a shader; Floyd–Steinberg diffuses error into pixels it has not visited yet and is inherently sequential, so it stays CPU-only. That flag exists precisely so one filter can say which half of itself the GPU can take.
 
 It is also the honest partner to the shipped `Halftone`: both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one, so they answer different questions and neither absorbs the other.
+
+**`Woodgrain` is the third starter**, and it is cheap for the same reason `Voronoi` was: `Cloud`'s hashed gradient noise already exists and already agrees exactly on both backends, so this is a coordinate function wrapped around a solved problem rather than a new one.
+
+The core is one line — `fract(distance × frequency + turbulence)` — where the distance is measured across the grain and the turbulence is a `Cloud` sample. A sawtooth is what puts a hard edge on each growth ring; a smooth field gives ripples, which is the difference between wood and water.
+
+**The obvious question is whether it is a `Cloud` mode, and it is not.** `fold` applies to the noise *value*, per octave — `ridged` is `(1 − |n|)²`, `billow` is `|n|`. Rings apply to a *coordinate* that the noise then perturbs, which is a different operation in a different place, and no value-space fold can reach it. Nor is it `Cloud` → `Contourer`: `Contourer` bands by value, so a noise field through it gives contour islands, and there is nowhere to say which way the grain runs.
+
+**The thing to get right rather than ship naively is the anisotropy.** Isotropic rings are a tree stump — end grain, correct and not what anyone pictures. A plank is the same field stretched hugely along the trunk, so the rings become long slow parallel bands and the wobble is gentle down the board and tight across it. Both are wanted, so it wants a `stretch` rather than a choice, and the stretch has to apply to the turbulence's coordinates too or the rings elongate while the noise stays round and it reads as fabric.
+
+Two other notes:
+
+- **It outputs grey, and `GradientMap` colours it.** `Gradient` set that precedent deliberately — a coloured ramp is this multiplied by a `FillRGB`, one more stage against six more properties nobody sets — and `GradientMap` was built afterwards precisely for the pile of filters here that emit grey and had nothing to do with it. A `timber` ramp is one row in `GradientMap`'s table and colours `Cloud` and `Contourer` too; six colour properties on `Woodgrain` colour nothing else.
+- **Real wood has two scales**, and one field only gives one: the growth rings, and the fine pore lines running along the grain at a much higher frequency. The second is what stops it looking like a contour map. Knots are the next step up again — a knot is a local singularity the ring field wraps around, which is `Voronoi`-shaped work — and are the thing that makes it read as a board rather than a pattern. Worth leaving out of the first version and knowing it is the missing ingredient.
 
 **`Skeletiser` stopped being the hard one**, and the fix was Clark's: **iterate a fixed number of times rather than until nothing changes.**
 
@@ -1035,14 +1049,14 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
 | 16 | Presets in the playground | Low | Eleven chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 13 of 19 | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Six left — still open below** |
+| 9 | Filter wishlist — 13 of 20 | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Seven left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last six filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last seven filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Woodgrain`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
