@@ -529,7 +529,7 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, three deleted, 41 to 51** — and what is left is the seven below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, three deleted, 41 to 51** — and what is left is the eight below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
@@ -539,6 +539,7 @@ The README's "Filters to be made" list had been sitting there since 2014. Most o
 | **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
 | **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
 | **Woodgrain** | Fills the frame with growth rings and grain — a *starter*, like `Cloud` and `Voronoi`. | Low–Medium |
+| **Halftone, per channel** | One screen per ink instead of one for the picture: CMYK for print, RGB for a screen. | Low–Medium |
 | **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
 | **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
 | **Crackulate** | Draws procedural cracks across the frame. | Medium |
@@ -552,6 +553,16 @@ Roughly ordered by effort, which is also the order to do them in — the cheap o
 **`Dither` is the one honest use of `supportsGPU`.** Bayer is an ordered threshold and runs as a shader; Floyd–Steinberg diffuses error into pixels it has not visited yet and is inherently sequential, so it stays CPU-only. That flag exists precisely so one filter can say which half of itself the GPU can take.
 
 It is also the honest partner to the shipped `Halftone`: both trade colour depth for pattern, but a dither keeps the pixel grid and a halftone throws it away for a coarser one, so they answer different questions and neither absorbs the other.
+
+**`Halftone` per channel is Clark's, and the CMYK half is the strongest idea anyone has had about this filter.** The shipped version screens the *picture* once; real print screens each *ink* separately, at a different angle, and lets them mix on the paper. That is not a variant of the effect, it is the authentic version of it — and it is exactly what a comic book is, because Ben-Day dots are CMYK halftone.
+
+The rosette is the whole point and it comes free from the angles: C 15°, M 75°, Y 0°, K 45°, spaced 30° apart so the four screens interfere into a rosette instead of a moiré. Yellow sits closest to the others because it is the least visible. It is a fixed table, not something to tune.
+
+**The one thing that decides whether this looks like print or like mud is the black.** Naive `C = 1 − R, M = 1 − G, Y = 1 − B` puts three full-coverage dots on top of each other everywhere the picture is dark, and every black comes out muddy brown with no contrast. Pulling `K = min(C, M, Y)` out first — grey component replacement — is what makes blacks black. Skip it and the honest conclusion would be that the idea does not work, when it was one line.
+
+**RGB is the same machinery and a different argument.** Three dots per cell on a black ground, mixing additively, which is what a screen is. The risk is specific and worth stating: at any fine spacing an RGB triad *reconstructs the original slightly darker*, because that is precisely a screen's job, and it only reads as an effect once the cells are coarse enough to see — by which point the picture is gone. There is a narrow band where it works. Where it clearly earns its place is the CRT chain, which fakes scanlines through `HanoverBars` and currently has nothing at all for the phosphor mask.
+
+Both fit without a new filter: `colour` stops being a two-way switch and becomes the colour *model* — `sampled | ink | cmyk | rgb`, at one, one, four and three screens, all sharing the cell machinery that already exists. `angle` stays a single control as the base, with the per-channel offsets added from the fixed table. Cost is 4 × the nine-cell neighbourhood, so 36 fetches in one pass, still a pure gather — about what `Morphology` does at radius 4.
 
 **`Woodgrain` is the third starter**, and it is cheap for the same reason `Voronoi` was: `Cloud`'s hashed gradient noise already exists and already agrees exactly on both backends, so this is a coordinate function wrapped around a solved problem rather than a new one.
 
@@ -1049,14 +1060,14 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
 | 16 | Presets in the playground | Low | Eleven chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 13 of 20 | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Seven left — still open below** |
+| 9 | Filter wishlist — 13 of 20 | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Seven left, plus a Halftone mode — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last seven filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Woodgrain`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last seven filters, and a Halftone mode | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Woodgrain`, `Bilateral`, `Skeletiser`, `Crackulate`, plus per-channel `Halftone`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
