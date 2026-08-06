@@ -11,10 +11,10 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 50 of 50, each with a golden image, a GPU parity case and a generated docs entry |
-| GPU | none | every filter, 100/100 parity cases as shaders |
-| Tests | none | 620, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
-| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and twelve presets |
+| Filters clean | 31 of 41, 4 hard crashes | 51 of 51, each with a golden image, a GPU parity case and a generated docs entry |
+| GPU | none | every filter, 102/102 parity cases as shaders |
+| Tests | none | 630, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and thirteen presets |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
 
@@ -327,7 +327,7 @@ Deploy via GitHub Actions → GitHub Pages (replacing the broken `gulp aws` task
 
 **Effort: Medium** *(depends on #2)*
 
-**Done.** The suite has grown with everything since — **620 tests** and **100 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
+**Done.** The suite has grown with everything since — **630 tests** and **102 golden cases** now, across golden images, GPU parity, schemas, the pipeline, the control renderer and the playground. What follows is what it looked like when this feature landed; the counts have moved but nothing about the design has.
 
 - **63 golden cases across all 41 filters**, pinned to committed PNGs in `test/golden/`. CPU output is deterministic, so goldens are matched **exactly** — any difference is a regression. Verified by injecting a one-unit change into `Invert` (`255-x` → `254-x`) and confirming it was caught, with an actual/diff image written for inspection.
 - **Determinism plumbing** (`src/core/random.ts`): `Filter` now takes injectable `random` and `now`, defaulting to `Math.random` / `performance.now`, plus an exported `seededRandom()` (mulberry32). `Cloud`, `Noise`, `Puzzler` and `Wave` use them. Regenerating every golden twice produces byte-identical output.
@@ -529,7 +529,7 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **thirteen filters added, five deleted, 41 to 50** — and what is left is the seven below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **fourteen filters added, five deleted, 41 to 51** — and what is left is the six below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
@@ -538,7 +538,6 @@ The README's "Filters to be made" list had been sitting there since 2014. Most o
 | **ChromaKey** | Makes one colour transparent, with tolerance and edge softening. | Low |
 | **Histogram** | Draws the frame's tonal distribution over it. | Low–Medium |
 | **Dither** | Quantises to a few colours with an ordered or diffused pattern instead of flat bands. | Low–Medium |
-| **Woodgrain** | Fills the frame with growth rings and grain — a *starter*, like `Cloud` and `Voronoi`. | Low–Medium |
 | **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
 | **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
 | **Crackulate** | Draws procedural cracks across the frame. | Medium |
@@ -570,18 +569,24 @@ Two measurements worth keeping:
 - **A dot inks `π/4 × scale² × coverage` of its cell**, so at `scale` 1 — where the dots just touch — the result prints about a fifth lighter than the source. `1.13` is where inked area matches tone exactly and `1.41` is where the dots reach the corners. All three are now in the `scale` description, because "dot size" is a geometric control and the tonal consequence is not guessable from it.
 - **The GPU disagreement has a different shape in CMYK, and the reason is not the one the single-screen mode has.** `rgb` at 0° is **byte-identical** — no rotation means no irrational trig and no ambiguity anywhere. `cmyk` differs on 38 pixels of 3072, worst 49, against 2268 exactly equal. That is the sample-point `floor` — the same hazard `FishEye` carries — and CMYK is more exposed for two compounding reasons: four screens rather than one, and a flip changes an ink's *coverage*, which is then multiplied by the other three rather than merely nudging one dot's edge. It gets its own budget with the numbers written next to it.
 
-**`Woodgrain` is the third starter**, and it is cheap for the same reason `Voronoi` was: `Cloud`'s hashed gradient noise already exists and already agrees exactly on both backends, so this is a coordinate function wrapped around a solved problem rather than a new one.
+### ~~Woodgrain~~ ✓
 
-The core is one line — `fract(distance × frequency + turbulence)` — where the distance is measured across the grain and the turbulence is a `Cloud` sample. A sawtooth is what puts a hard edge on each growth ring; a smooth field gives ripples, which is the difference between wood and water.
+**Done, and cheap for the reason `Voronoi` was:** the hashed gradient noise already existed and already agreed exactly on both backends, so this was a coordinate function wrapped around a solved problem. GPU parity passed on the first run at the ordinary accumulating tolerance, which is not something the other cell-based filters managed. It ships with the `timber` preset.
 
-**The obvious question is whether it is a `Cloud` mode, and it is not.** `fold` applies to the noise *value*, per octave — `ridged` is `(1 − |n|)²`, `billow` is `|n|`. Rings apply to a *coordinate* that the noise then perturbs, which is a different operation in a different place, and no value-space fold can reach it. Nor is it `Cloud` → `Contourer`: `Contourer` bands by value, so a noise field through it gives contour islands, and there is nowhere to say which way the grain runs.
+The core is one line — `fract(distance across the grain + turbulence)` — and **the sawtooth is the point**. A growth ring has a hard edge where one year's dense late wood meets the next year's open early wood, and `fract` is what puts it there. Any smooth field gives ripples, which is the difference between wood and water.
 
-**The thing to get right rather than ship naively is the anisotropy.** Isotropic rings are a tree stump — end grain, correct and not what anyone pictures. A plank is the same field stretched hugely along the trunk, so the rings become long slow parallel bands and the wobble is gentle down the board and tight across it. Both are wanted, so it wants a `stretch` rather than a choice, and the stretch has to apply to the turbulence's coordinates too or the rings elongate while the noise stays round and it reads as fabric.
+**It is not a `Cloud` mode**, which was the obvious question. `fold` applies to the noise *value*, per octave; rings apply to a *coordinate* that the noise then perturbs, which is a different operation in a different place and no value-space fold can reach it. Nor is it `Cloud` → `Contourer`: that bands by value, so a noise field through it gives contour islands with nowhere to say which way the grain runs.
 
-Two other notes:
+**The anisotropy was the thing to get right, and the first attempt got it wrong** in a way only a picture showed. The prediction here said isotropic rings are end grain — a stump — and that a plank is the same field stretched along the trunk. The first implementation measured distance *linearly* across the grain, so `stretch` only tightened the wobble: at 1 it produced horizontal bands, not concentric rings, and the documentation described a filter that had not been written. Squashing a *radial* distance instead — `length(vec2(x / stretch, y))` — makes one control genuinely cover both cuts, and at high stretch the circle flattens into the long shallow arcs that are the cathedral figure down the middle of a board.
 
-- **It outputs grey, and `GradientMap` colours it.** `Gradient` set that precedent deliberately — a coloured ramp is this multiplied by a `FillRGB`, one more stage against six more properties nobody sets — and `GradientMap` was built afterwards precisely for the pile of filters here that emit grey and had nothing to do with it. A `timber` ramp is one row in `GradientMap`'s table and colours `Cloud` and `Contourer` too; six colour properties on `Woodgrain` colour nothing else.
-- **Real wood has two scales**, and one field only gives one: the growth rings, and the fine pore lines running along the grain at a much higher frequency. The second is what stops it looking like a contour map. Knots are the next step up again — a knot is a local singularity the ring field wraps around, which is `Voronoi`-shaped work — and are the thing that makes it read as a board rather than a pattern. Worth leaving out of the first version and knowing it is the missing ingredient.
+That is now measured rather than eyeballed. The field is **1.01×** rougher across the grain than along it at `stretch` 1, and **18.4×** at 20, climbing monotonically in between — and the test fails if the stretch stops reaching *either* the rings or the noise, which are two separate halves that each look plausible alone.
+
+Two smaller things:
+
+- **The pore lines multiply rather than subtract.** Subtracting drove the already-dark ring bands below zero, where they clamped into flat black blobs. Scaling keeps the pores proportional, so they show on the pale early wood and leave the ring alone — which is also where they are on a real board.
+- **It outputs grey, and `GradientMap` colours it.** `Gradient` set that precedent and `Cloud` has since been brought into line with it. The `timber` preset is `blank/Woodgrain/GradientMap,ramp=sepia` and neither filter knows anything about wood: `sepia` runs dark brown to cream because that is a useful ramp, and this happens to be the thing it was waiting for.
+
+**Knots are the missing ingredient**, not a missing option. A knot is a local singularity the ring field wraps around, which is `Voronoi`-shaped work, and without one this reads as a board rather than as a particular board.
 
 **`Skeletiser` stopped being the hard one**, and the fix was Clark's: **iterate a fixed number of times rather than until nothing changes.**
 
@@ -1010,7 +1015,7 @@ Once it is live, two small additions to `site/seo.js` become possible and are wo
 
 ## ~~16. Presets — the README's Example Chains, Inside the Playground~~ ✓
 
-**Done.** **Twelve presets** as chips in the Pipeline panel, in `site/src/presets.js`, four shown and the rest behind a `+N more` toggle. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
+**Done.** **Thirteen presets** as chips in the Pipeline panel, in `site/src/presets.js`, four shown and the rest behind a `+N more` toggle. Applying one is `location.hash = preset.chain` and nothing else — the existing `hashchange` → `loadFromHash` path does the whole rebuild, so there is no second apply path, and browser-back is a free undo exactly as predicted. `test/docs.test.js` round-trips every chain, and `test/site.test.js` drives the CRT chip and checks the chain, the source, the URL and the back button together.
 
 Six things worth recording:
 
@@ -1088,23 +1093,23 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 1 | Correctness sweep | Low | 4 crashing filters revived, 31→40 of 41 clean; 5 more found later by the contact sheet |
 | 2 | ESM + Vite + publishable package | Medium | TS classes, 3 bundles, types, `npm test`; the type system found 3 more bugs |
 | 7 | Licensing / replace GPL MCut | Low–Med | MIT throughout, and the replacement quantiser is 2–21× faster |
-| 6 | Golden-image test suite | Medium | 63 goldens then, 100 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
+| 6 | Golden-image test suite | Medium | 63 goldens then, 102 now; contact sheet, determinism plumbing — and the parity harness written before there was a backend |
 | 8 | Declarative filter schemas | Medium | 717 lines out, DOM dependency gone, `setProperty` the one write path |
 | 4 | `Renderer` / `Pipeline` | Medium | Headless `Pipeline` + browser `Renderer`, stage caching, seven copied loops gone |
-| 3 | GPU shader backend | High | Every filter has a shader; 100/100 parity cases on the GPU; 6 more bugs found |
+| 3 | GPU shader backend | High | Every filter has a shader; 102/102 parity cases on the GPU; 6 more bugs found |
 | 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
 | 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
-| 16 | Presets in the playground | Low | Twelve chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
+| 16 | Presets in the playground | Low | Thirteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 13 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Seven left — still open below** |
+| 9 | Filter wishlist — 14 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Six left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last seven filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Woodgrain`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last six filters | Low each | Medium — `ChromaKey`, `Histogram`, `Dither`, `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 

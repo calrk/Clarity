@@ -854,3 +854,49 @@ test('Halftone CMYK pulls the black out rather than stacking three inks', () => 
 	}
 	assert.equal(worstCast, 0, `neutral grey printed with a colour cast of ${worstCast}`);
 });
+
+test('Woodgrain stretch draws the grain out along the board', () => {
+	// The anisotropy is the thing that separates a plank from a stump, and it is
+	// easy to half-implement: stretching the rings but not the noise that
+	// perturbs them leaves the wobble round, and the result reads as fabric.
+	// Measuring how much rougher the field is across the grain than along it
+	// catches either half going missing.
+	const S = 96;
+	const blank = () => new NodeImageData(S, S);
+
+	const roughness = (img, dx, dy) => {
+		let sum = 0;
+		let n = 0;
+		for (let y = 0; y + dy < S; y++) {
+			for (let x = 0; x + dx < S; x++) {
+				sum += Math.abs(img.data[(y * S + x) * 4] - img.data[((y + dy) * S + (x + dx)) * 4]);
+				n++;
+			}
+		}
+		return sum / n;
+	};
+
+	const ratioAt = (stretch) => {
+		const img = new CLARITY.Woodgrain({ seed: 11, stretch }).process(blank());
+		return roughness(img, 0, 1) / roughness(img, 1, 0);
+	};
+
+	// At a stretch of 1 the squashed distance is a plain circle, so the field is
+	// isotropic - concentric rings, which is end grain.
+	const stump = ratioAt(1);
+	assert.ok(stump < 1.3, `stretch 1 should be near-isotropic, got a ratio of ${stump.toFixed(2)}`);
+
+	// Wound up, the rings flatten into long shallow arcs and the field gets very
+	// much smoother along the board than across it.
+	const plank = ratioAt(20);
+	assert.ok(plank > 10, `stretch 20 should be strongly anisotropic, got ${plank.toFixed(2)}`);
+
+	// and monotonically in between, which a sign error or a swapped axis breaks
+	const ladder = [1, 4, 8, 20].map(ratioAt);
+	for (let i = 1; i < ladder.length; i++) {
+		assert.ok(
+			ladder[i] > ladder[i - 1],
+			`the ratio should climb with stretch: ${ladder.map((r) => r.toFixed(2)).join(', ')}`
+		);
+	}
+});

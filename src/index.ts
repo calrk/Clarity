@@ -119,6 +119,8 @@ export type { FillOptions } from './filters/Starters/Fill.js';
 export { Gradient } from './filters/Starters/Gradient.js';
 export type { GradientOptions, GradientShape } from './filters/Starters/Gradient.js';
 export { Voronoi } from './filters/Starters/Voronoi.js';
+export { Woodgrain } from './filters/Starters/Woodgrain.js';
+export type { WoodgrainOptions } from './filters/Starters/Woodgrain.js';
 export type { VoronoiOptions, VoronoiMode } from './filters/Starters/Voronoi.js';
 
 // Thresholders

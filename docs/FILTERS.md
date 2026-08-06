@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-50 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+51 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -24,7 +24,7 @@ playground link to see one at a sensible size.
 
 **Height Map** — [Contourer](#contourer) · [NormalFlip](#normalflip) · [NormalGenerator](#normalgenerator) · [NormalIntensity](#normalintensity)
 
-**Starters** — [Cloud](#cloud) · [Fill](#fill) · [Gradient](#gradient) · [Voronoi](#voronoi)
+**Starters** — [Cloud](#cloud) · [Fill](#fill) · [Gradient](#gradient) · [Woodgrain](#woodgrain) · [Voronoi](#voronoi)
 
 **Dual Input** — [Add](#add) · [Subtract](#subtract) · [Difference](#difference) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply)
 
@@ -802,6 +802,30 @@ new Gradient();
 | `angle` | int | 0–360 | `0` | Direction of a linear ramp, in degrees. 0 runs left to right. Ignored when radial. |
 | `start` | int | 0–255 | `0` | Value at the beginning of the ramp, or at the centre when radial. |
 | `end` | int | 0–255 | `255` | Value at the end of the ramp, or at the edge when radial. |
+
+### Woodgrain
+
+Fills the frame with growth rings and grain, in grey - timber out of an empty frame.
+
+**Starter**
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Woodgrain.png" width="192" alt="Woodgrain applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#blank/Woodgrain)
+
+```js
+import { Woodgrain } from '@calrk/clarity';
+
+new Woodgrain();
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `seed` | int | 0–16777215, or empty for random | _random_ | Which board. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same grain - which is what makes a link reproduce. |
+| `rings` | int | 1–64 | `14` | How many growth rings across the frame. More is a smaller, older tree, or a wider board. |
+| `stretch` | float | 1–30 | `8` | How far the grain is drawn out along the board. 1 is end grain - concentric, like a stump - and anything high is a plank cut down the trunk. |
+| `turbulence` | float | 0–3 | `0.7` | How far the rings wander from straight. 0 gives perfect stripes, which no tree has ever produced. |
+| `grain` | float | 0–1 | `0.3` | The fine pore lines running along the grain, on top of the rings. Without them it reads as a contour map rather than as timber. |
 
 ### Voronoi
 

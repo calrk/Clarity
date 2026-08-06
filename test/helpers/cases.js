@@ -207,6 +207,10 @@ export const cases = [
 	// Grey out, like every other starter. The `mask` case went with the colour
 	// options: it existed to exercise alpha derived from them, and Cloud is now
 	// opaque like everything else.
+	{ filter: 'Woodgrain', input: 'photo', options: {}, seed: 3, gpu: ACCUMULATING },
+	// end grain: stretch 1 is a stump rather than a plank, which is the other half
+	// of what the anisotropy does
+	{ filter: 'Woodgrain', name: 'endgrain', input: 'photo', options: { stretch: 1, rings: 8, turbulence: 0.4 }, seed: 3, gpu: ACCUMULATING },
 	{ filter: 'Cloud', input: 'photo', options: { iterations: 3, initialSize: 4 }, seed: 7, gpu: ACCUMULATING },
 	{ filter: 'Cloud', name: 'ridged', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'ridged' }, seed: 7, gpu: ACCUMULATING },
 	{ filter: 'Cloud', name: 'billow', input: 'photo', options: { iterations: 5, initialSize: 4, fold: 'billow' }, seed: 7, gpu: ACCUMULATING },

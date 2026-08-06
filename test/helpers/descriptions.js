@@ -91,6 +91,10 @@ export const descriptions = {
 	Cloud: {
 		look: 'Soft organic blotches in grey, not a uniform fill and not white static. Opaque, like every other starter.'
 	},
+	Woodgrain: {
+		look: 'Long horizontal grain with dark growth rings and fine pore lines through the pale wood. End grain is the same field unstretched - concentric rings around a centre, which is a stump rather than a plank.',
+		note: 'Grey on purpose, following Gradient: a ramp downstream is one stage against several colour properties nobody sets, and GradientMap sepia turns this into timber.'
+	},
 	Fill: {
 		look: 'Completely flat colour, matching the one asked for exactly. Any structure left over means the fill is not covering.',
 		note: 'The hex and hsv cases are the same colour reached two ways and must come out identical - that equivalence is the whole argument for one Fill rather than a filter per colour model.'

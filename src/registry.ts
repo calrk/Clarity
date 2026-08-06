@@ -35,6 +35,7 @@ import { Cloud } from './filters/Starters/Cloud.js';
 import { Fill } from './filters/Starters/Fill.js';
 import { Gradient } from './filters/Starters/Gradient.js';
 import { Voronoi } from './filters/Starters/Voronoi.js';
+import { Woodgrain } from './filters/Starters/Woodgrain.js';
 import { GradientThreshold } from './filters/Thresholders/GradientThreshold.js';
 import { MedianThreshold } from './filters/Thresholders/MedianThreshold.js';
 import { ValueThreshold } from './filters/Thresholders/ValueThreshold.js';
@@ -99,6 +100,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Fill,
 	Gradient,
 	Voronoi,
+	Woodgrain,
 	GradientThreshold,
 	MedianThreshold,
 	ValueThreshold,

@@ -121,6 +121,16 @@ export const PRESETS = [
 		chain: 'heightmap/GradientMap,ramp=thermal,steps=12'
 	},
 	{
+		id: 'timber',
+		label: 'Timber',
+		note: 'Growth rings out of an empty frame, then a ramp to make them wood',
+		//The pairing the greyscale-out rule exists for. `Woodgrain` emits grey
+		//because a coloured ramp is a stage rather than six more properties, and
+		//`GradientMap` is that stage - `sepia` runs dark brown to cream, which is
+		//timber without either filter knowing anything about wood.
+		chain: 'blank/Woodgrain/GradientMap,ramp=sepia'
+	},
+	{
 		id: 'terrain',
 		label: 'Terrain',
 		note: 'Ridged noise read as a height map — a lit surface out of an empty frame',

@@ -1,7 +1,7 @@
 Clarity
 =======
 
-Fifty composable image filters for canvas — blur, edge detection, chromatic
+Fifty-one composable image filters for canvas — blur, edge detection, chromatic
 aberration, posterising, normal maps, motion detection — running as fragment
 shaders by default, with a CPU implementation of every one of them behind it.
 
@@ -439,7 +439,7 @@ cannot describe a filter that no longer works that way.
 | Salience | `EdgeDetector`, `MotionDetector`, `ShotDetector`, `SkinDetector` |
 | Transform | `ChromaticAberration`, `FishEye`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
 | Height Map | `Contourer`, `NormalFlip`, `NormalGenerator`, `NormalIntensity` |
-| Starters | `Cloud`, `Fill`, `Gradient`, `Voronoi` |
+| Starters | `Cloud`, `Fill`, `Gradient`, `Voronoi`, `Woodgrain` |
 | Dual Input | `Add`, `Subtract`, `Difference`, `Blend`, `Mask`, `Multiply` |
 | Misc | `Brickulate`, `DifferenceDetector`, `Ghoster`, `ScreenBurn`, `Puzzler` |
 
