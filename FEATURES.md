@@ -529,14 +529,26 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **eighteen filters added, five deleted, 41 to 55** — and what is left is the two below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **nineteen filters added, five deleted, 41 to 56** — and what is left is the one below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
 | Filter | Summary | Effort |
 |---|---|---|
-| **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
 | **Crackulate** | Draws procedural cracks across the frame. | Medium |
+
+### ~~Skeletiser~~ ✓
+
+**Done.** `src/filters/Process/Skeletiser.ts` — Zhang-Suen thinning, and it turned out to be a shader, which was not the expectation when this was written up as the hard one.
+
+- **Thinning sounds inherently sequential and is not.** Delete a pixel and its neighbour's answer changes — except that Zhang-Suen is specifically designed to avoid exactly that. Each of its two sub-iterations marks pixels using only the *previous* pass's state and deletes them all at once, which is a pure gather over a 3×3 neighbourhood. `Dither`'s diffusion mode really is sequential and had to declare `supportsGPU` false; this one never needed to.
+- **It is the library's first use of `uPass`.** The executor has been setting the repeat index as a uniform on every draw since `Convolver` landed, and no shader had ever declared it. The two sub-iterations attack opposite corners and must alternate, so one declared pass repeated `2 × iterations` times, reading `uPass` for its parity, is the entire GPU implementation.
+- **The fixed count costs nothing, which is why your suggestion works.** "Repeat until nothing changes" needs a readback between every pass to ask whether anything moved — the stall the whole GPU backend exists to avoid. But **thinning converges**: once a shape is one pixel wide there is nothing left that can be deleted without breaking it, so overshooting is free and the count is a budget rather than a look. Asserted, not assumed: 12, 20 and 30 iterations give byte-identical frames.
+- **New `binary-in` trait**, the partner to the `binary-out` that already existed. The filter thresholds at mid-grey so it is defined for any frame, but that is a fallback rather than a feature and the trait says so.
+
+Two tests carry the design. **The distinction from erode is a comparison, not an adjective** — both remove boundary pixels, so the test counts connected components and requires that thinning keeps a bar and a ring separate and intact at a point where `Morphology` erode has already destroyed them. And **one pixel wide** is checked as the absence of any fully-lit 2×2 block, which a region two or more pixels thick must contain and a line cannot.
+
+The sabotage that mattered: **making the shader ignore `uPass`** — so only the first sub-iteration ever runs on the GPU — is invisible to every test except GPU/CPU parity, where it shows up as a channel delta of 255 on 64 pixels. That is the proof the repeat index actually arrives, and it is the only proof available.
 
 Roughly ordered by effort, which is also the order to do them in — the cheap ones reuse machinery that already exists.
 
@@ -1168,18 +1180,18 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
 | 16 | Presets in the playground | Low | Fourteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 18 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`, `Bilateral`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Two left — still open below** |
+| 9 | Filter wishlist — 19 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`, `Bilateral`, `Skeletiser`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **One left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last two filters | Medium each | Medium — `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last filter | Medium | Medium — `Crackulate`, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`Skeletiser` next**, now that a fixed iteration count has replaced iterating to stability — and `Crackulate` after it, which is the only one left with no obvious model already in the library.
+**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`Crackulate` last**, and it is the only one of the twenty with no obvious model already in the library — the nearest is `Voronoi`, whose cell seams are most of what a crack pattern is.
 
 Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 

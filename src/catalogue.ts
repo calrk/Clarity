@@ -30,6 +30,7 @@ export type FilterTrait =
 	| 'temporal'
 	| 'heightmap-in'
 	| 'normalmap-in'
+	| 'binary-in'
 	| 'binary-out'
 	| 'alpha-out';
 
@@ -54,6 +55,10 @@ export const TRAITS: Record<FilterTrait, { label: string; description: string }>
 	'normalmap-in': {
 		label: 'Wants a normal map',
 		description: 'Reads the channels as an XYZ vector, so it expects a normal map - run NormalGenerator first.'
+	},
+	'binary-in': {
+		label: 'Wants black & white',
+		description: 'Only meaningful on a two-tone image. It will threshold at mid-grey rather than fail, but put a thresholder in front and choose where the cut falls.'
 	},
 	'binary-out': {
 		label: 'Makes black & white',
@@ -116,6 +121,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Noise: { category: 'Process', summary: "Adds random noise, optionally monochromatic." },
 	Pixelate: { category: 'Process', summary: "Snaps the image to fixed-size blocks." },
 	Posteriser: { category: 'Process', summary: "Quantises to a fixed number of colours via median cut." },
+	Skeletiser: { category: 'Process', summary: "Thins a shape down to the one-pixel lines running through the middle of it.", traits: ['binary-in', 'binary-out'] },
 	Vignette: { category: 'Process', summary: "Darkens towards the corners." },
 	hsvShifter: { category: 'Process', summary: "Rotates hue and scales saturation/value." },
 

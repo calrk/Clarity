@@ -106,6 +106,22 @@ export const PRESETS = [
 		chain: 'face/EdgeDetector/Invert/Levels,black=140,gamma=0.6'
 	},
 	{
+		id: 'skeleton',
+		label: 'Skeleton',
+		note: 'A solid inkblot reduced to the one-pixel lines running through the middle of it',
+		//The `Invert` is doing real work and is easy to leave out by mistake:
+		//Skeletiser thins whatever is *white*, and the thresholded inkblot is
+		//black ink on white paper, so without it the skeleton would be of the
+		//paper rather than of the ink.
+		//
+		//What makes this worth looking at is that thinning preserves topology.
+		//Every solid arm becomes a line and every enclosed gap stays an enclosed
+		//loop, so the blot is still recognisably the same shape - which is
+		//exactly what erode, at any radius that removed this much, would not
+		//have left.
+		chain: 'rorschach/ValueThreshold/Invert/Skeletiser,iterations=25'
+	},
+	{
 		id: 'despeckle',
 		label: 'Speckle removal',
 		note: 'Open eats the specks and the hairlines; the thick shapes do not move',

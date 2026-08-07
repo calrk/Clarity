@@ -179,6 +179,18 @@ export const cases = [
 	{ filter: 'Morphology', name: 'open', input: 'binary', options: { mode: 'open' }, gpu: POINTWISE },
 	{ filter: 'Morphology', name: 'close', input: 'binary', options: { mode: 'close' }, gpu: POINTWISE },
 
+	// Skeletiser on the fixture Morphology's despeckle was built for - already
+	// binary, with shapes thick enough to have a skeleton. All-or-nothing
+	// arithmetic on both paths, so this should agree exactly.
+	{ filter: 'Skeletiser', input: 'binary', options: { iterations: 12 }, gpu: POINTWISE },
+	// stopped early, so the shape is partly thinned rather than converged -
+	// which is the case that fails if the two paths disagree about how many
+	// sub-iterations have run, rather than about what one of them does
+	{ filter: 'Skeletiser', name: 'partial', input: 'binary', options: { iterations: 2 }, gpu: POINTWISE },
+	// thresholded from a photograph rather than already binary, which is what
+	// the binary-in trait is warning about - and odd dimensions with it
+	{ filter: 'Skeletiser', name: 'odd', input: 'odd', options: { iterations: 6 }, gpu: POINTWISE },
+
 	// ChromaKey, on `photo`'s sky as a blue screen - the fixture has no green
 	// screen in it, but it has something better: a sky that is graded from
 	// [93,137,221] to [95,159,198] and is still one colour to a chroma match.

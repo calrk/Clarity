@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-55 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+56 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Bilateral](#bilateral) · [Blur](#blur) · [ChromaKey](#chromakey) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Dither](#dither) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Histogram](#histogram) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Bilateral](#bilateral) · [Blur](#blur) · [ChromaKey](#chromakey) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Dither](#dither) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Histogram](#histogram) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Skeletiser](#skeletiser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -39,6 +39,7 @@ playground link to see one at a sensible size.
 | **Needs motion** | Compares frames over time. On a still image it has nothing to compare and outputs black. |
 | **Wants a height map** | Reads brightness as height, so it expects a greyscale height map rather than a picture. |
 | **Wants a normal map** | Reads the channels as an XYZ vector, so it expects a normal map - run NormalGenerator first. |
+| **Wants black & white** | Only meaningful on a two-tone image. It will threshold at mid-grey rather than fail, but put a thresholder in front and choose where the cut falls. |
 | **Makes black & white** | Outputs two tones, which is what the filters wanting black and white are waiting for. |
 | **Makes transparency** | Writes a real alpha channel. Most filters rewrite alpha to opaque, so put this last or the transparency is flattened by whatever follows. |
 
@@ -419,6 +420,26 @@ new Posteriser({ colours: 6 });
 |---|---|---|---|---|
 | `colours` | int | 1–20 | `5` | Palette size. Ignored by the fast method. |
 | `method` | select | `median` · `fast` | `median` | Median cut derives a palette from the image; fast snaps to fixed bands. |
+
+### Skeletiser
+
+Thins a shape down to the one-pixel lines running through the middle of it.
+
+**Wants black & white** · **Makes black & white**
+
+<img src="../test/fixtures/binary.png" width="192" alt="The binary fixture"> <img src="../test/golden/Skeletiser.png" width="192" alt="Skeletiser applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Skeletiser)
+
+```js
+import { Skeletiser } from '@calrk/clarity';
+
+new Skeletiser({ iterations: 12 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `iterations` | int | 1–30 | `12` | How many times to peel a layer off. Thinning converges, so anything past the point where the shape is already one pixel wide changes nothing - set it to about half the thickness of the fattest shape in the frame, and higher is only slower. |
 
 ### Vignette
 

@@ -1473,3 +1473,162 @@ test('Bilateral leaves a flat frame exactly as it found it', () => {
 		}
 	}
 });
+
+// A disc, a bar and a ring on black - the shapes whose skeletons are known in
+// advance, which is what makes them worth testing against.
+function shapes(W = 48, H = 48) {
+	const f = new NodeImageData(W, H);
+	for (let y = 0; y < H; y++) {
+		for (let x = 0; x < W; x++) {
+			const i = (y * W + x) * 4;
+			const ring = (() => {
+				const d = Math.hypot(x - 32, y - 32);
+				return d < 13 && d > 7;
+			})();
+			const bar = x >= 4 && x < 20 && y >= 4 && y < 12;
+			const on = ring || bar;
+			f.data[i] = f.data[i + 1] = f.data[i + 2] = on ? 255 : 0;
+			f.data[i + 3] = 255;
+		}
+	}
+	return f;
+}
+
+const litPixels = (img) => {
+	let n = 0;
+	for (let i = 0; i < img.data.length; i += 4) if (img.data[i] > 128) n++;
+	return n;
+};
+
+test('Skeletiser thins to one pixel wide and writes only two tones', () => {
+	// The defining outcome. "One pixel wide" is checked as the absence of any
+	// 2x2 block that is entirely lit: a region two or more pixels thick anywhere
+	// must contain one, and a one-pixel line cannot.
+	const out = new CLARITY.Skeletiser({ iterations: 12 }).process(shapes());
+	const W = 48;
+	const at = (x, y) => out.data[(y * W + x) * 4] > 128;
+
+	for (let i = 0; i < out.data.length; i += 4) {
+		assert.ok(out.data[i] === 0 || out.data[i] === 255, `wrote ${out.data[i]}, not a tone`);
+	}
+
+	for (let y = 0; y < 47; y++) {
+		for (let x = 0; x < 47; x++) {
+			assert.ok(
+				!(at(x, y) && at(x + 1, y) && at(x, y + 1) && at(x + 1, y + 1)),
+				`a 2x2 block is still solid at ${x},${y}`
+			);
+		}
+	}
+
+	assert.ok(litPixels(out) > 0, 'the skeleton is empty');
+});
+
+test('Skeletiser keeps the shape connected where erode destroys it', () => {
+	// The distinction from Morphology, and the reason the transition count is in
+	// there at all. Both remove boundary pixels; only one refuses when removing
+	// would break something. Asserted against erode on the same shapes so the
+	// claim is a comparison rather than an adjective.
+	const source = shapes();
+
+	// count 8-connected components of lit pixels
+	const components = (img) => {
+		const W = img.width;
+		const H = img.height;
+		const seen = new Uint8Array(W * H);
+		const lit = (x, y) => x >= 0 && y >= 0 && x < W && y < H && img.data[(y * W + x) * 4] > 128;
+		let found = 0;
+		for (let y = 0; y < H; y++) {
+			for (let x = 0; x < W; x++) {
+				if (!lit(x, y) || seen[y * W + x]) continue;
+				found++;
+				const stack = [[x, y]];
+				seen[y * W + x] = 1;
+				while (stack.length) {
+					const [cx, cy] = stack.pop();
+					for (let dy = -1; dy <= 1; dy++) {
+						for (let dx = -1; dx <= 1; dx++) {
+							const nx = cx + dx;
+							const ny = cy + dy;
+							if (lit(nx, ny) && !seen[ny * W + nx]) {
+								seen[ny * W + nx] = 1;
+								stack.push([nx, ny]);
+							}
+						}
+					}
+				}
+			}
+		}
+		return found;
+	};
+
+	assert.equal(components(source), 2, 'the fixture should start as a bar and a ring');
+
+	const thinned = new CLARITY.Skeletiser({ iterations: 12 }).process(source);
+	assert.equal(components(thinned), 2, 'thinning split or merged the shapes');
+	// and it really did remove most of the shape, or keeping it connected is trivial
+	assert.ok(litPixels(thinned) < litPixels(source) * 0.4, 'barely anything was removed');
+
+	// erode, given enough radius to remove the same amount, destroys them
+	const eroded = new CLARITY.Morphology({ mode: 'erode', radius: 4 }).process(source);
+	assert.ok(
+		components(eroded) < 2,
+		'erode kept both shapes at this radius, so the comparison proves nothing'
+	);
+});
+
+test('Skeletiser converges, so extra iterations are free', () => {
+	// The claim that lets a fixed count replace "repeat until nothing changes",
+	// which is the whole reason this is a shader. If it did not converge, the
+	// count would be a look rather than a budget.
+	const source = shapes();
+	const at = (n) => new CLARITY.Skeletiser({ iterations: n }).process(shapes());
+
+	const twelve = at(12);
+	assert.deepEqual([...at(20).data], [...twelve.data], 'more iterations kept changing the result');
+	assert.deepEqual([...at(30).data], [...twelve.data], 'still changing at the maximum');
+
+	// and it is genuinely converging rather than having done nothing: the early
+	// counts have to be strictly falling
+	const counts = [1, 2, 3, 4].map((n) => litPixels(at(n)));
+	assert.ok(
+		counts.every((count, i) => i === 0 || count < counts[i - 1]),
+		`the first iterations did not each remove something: ${counts.join(' -> ')}`
+	);
+	assert.ok(counts[0] < litPixels(source), 'the first iteration removed nothing');
+});
+
+test('Skeletiser runs both sub-iterations, so the skeleton is not lopsided', () => {
+	// Zhang-Suen's two halves attack opposite corners, and running one of them
+	// alone eats the shape from one side. A symmetric input is what makes that
+	// visible: the skeleton of a centred disc has to be centred too.
+	const S = 41;
+	const disc = new NodeImageData(S, S);
+	for (let y = 0; y < S; y++) {
+		for (let x = 0; x < S; x++) {
+			const i = (y * S + x) * 4;
+			const on = Math.hypot(x - 20, y - 20) <= 15;
+			disc.data[i] = disc.data[i + 1] = disc.data[i + 2] = on ? 255 : 0;
+			disc.data[i + 3] = 255;
+		}
+	}
+
+	const out = new CLARITY.Skeletiser({ iterations: 12 }).process(disc);
+	let sumX = 0;
+	let sumY = 0;
+	let n = 0;
+	for (let y = 0; y < S; y++) {
+		for (let x = 0; x < S; x++) {
+			if (out.data[(y * S + x) * 4] > 128) {
+				sumX += x;
+				sumY += y;
+				n++;
+			}
+		}
+	}
+	assert.ok(n > 0, 'the disc thinned away to nothing');
+	// one sub-iteration alone drags the centre several pixels off; both together
+	// leave it within a pixel or so of where it started
+	assert.ok(Math.abs(sumX / n - 20) < 2.5, `the skeleton drifted to x ${(sumX / n).toFixed(1)}, not 20`);
+	assert.ok(Math.abs(sumY / n - 20) < 2.5, `the skeleton drifted to y ${(sumY / n).toFixed(1)}, not 20`);
+});

@@ -104,6 +104,8 @@ export { Pixelate } from './filters/Process/Pixelate.js';
 export type { PixelateOptions } from './filters/Process/Pixelate.js';
 export { Posteriser } from './filters/Process/Posteriser.js';
 export type { PosteriserOptions, PosteriserMethod } from './filters/Process/Posteriser.js';
+export { Skeletiser } from './filters/Process/Skeletiser.js';
+export type { SkeletiserOptions } from './filters/Process/Skeletiser.js';
 export { Convolver } from './filters/Process/Convolver.js';
 export type { ConvolverOptions, ConvolverPreset } from './filters/Process/Convolver.js';
 export { hsvShifter } from './filters/Process/hsvShifter.js';

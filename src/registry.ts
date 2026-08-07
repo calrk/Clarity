@@ -29,6 +29,7 @@ import { Levels } from './filters/Process/Levels.js';
 import { Noise } from './filters/Process/Noise.js';
 import { Pixelate } from './filters/Process/Pixelate.js';
 import { Posteriser } from './filters/Process/Posteriser.js';
+import { Skeletiser } from './filters/Process/Skeletiser.js';
 import { Convolver } from './filters/Process/Convolver.js';
 import { hsvShifter } from './filters/Process/hsvShifter.js';
 import { EdgeDetector } from './filters/Salience/EdgeDetector.js';
@@ -98,6 +99,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Noise,
 	Pixelate,
 	Posteriser,
+	Skeletiser,
 	Convolver,
 	hsvShifter,
 	EdgeDetector,
