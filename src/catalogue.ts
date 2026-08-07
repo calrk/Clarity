@@ -153,6 +153,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 
 	// --- Starters ---
 	Cloud: { category: 'Starters', summary: "Fills the frame with fractal gradient noise, in grey - fog, terrain, or a mask for anything else.", traits: ['starter'] },
+	Crackulate: { category: 'Starters', summary: "Cracks a surface, in grey - recursive fracture with the T-junctions and dead ends a cell diagram cannot make.", traits: ['starter'] },
 	Fill: { category: 'Starters', summary: "Fills the frame with one flat colour.", traits: ['starter'] },
 	Gradient: { category: 'Starters', summary: "Fills the frame with a linear or radial grey ramp - the mask primitive for fading anything.", traits: ['starter'] },
 	Woodgrain: { category: 'Starters', summary: "Fills the frame with growth rings and grain, in grey - timber out of an empty frame.", traits: ['starter'] },

@@ -37,6 +37,7 @@ import { MotionDetector } from './filters/Salience/MotionDetector.js';
 import { ShotDetector } from './filters/Salience/ShotDetector.js';
 import { SkinDetector } from './filters/Salience/SkinDetector.js';
 import { Cloud } from './filters/Starters/Cloud.js';
+import { Crackulate } from './filters/Starters/Crackulate.js';
 import { Fill } from './filters/Starters/Fill.js';
 import { Gradient } from './filters/Starters/Gradient.js';
 import { Voronoi } from './filters/Starters/Voronoi.js';
@@ -107,6 +108,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	ShotDetector,
 	SkinDetector,
 	Cloud,
+	Crackulate,
 	Fill,
 	Gradient,
 	Voronoi,

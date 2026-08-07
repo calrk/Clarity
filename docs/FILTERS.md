@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-56 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+57 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -24,7 +24,7 @@ playground link to see one at a sensible size.
 
 **Height Map** — [Contourer](#contourer) · [NormalFlip](#normalflip) · [NormalGenerator](#normalgenerator) · [NormalIntensity](#normalintensity)
 
-**Starters** — [Cloud](#cloud) · [Fill](#fill) · [Gradient](#gradient) · [Woodgrain](#woodgrain) · [Voronoi](#voronoi)
+**Starters** — [Cloud](#cloud) · [Crackulate](#crackulate) · [Fill](#fill) · [Gradient](#gradient) · [Woodgrain](#woodgrain) · [Voronoi](#voronoi)
 
 **Dual Input** — [Add](#add) · [Subtract](#subtract) · [Difference](#difference) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply)
 
@@ -868,6 +868,30 @@ new Cloud({ iterations: 3, initialSize: 4 });
 | `persistence` | float | 0.1–0.9, or empty for Harmonic | `0.5` | How much quieter each octave is than the last. Lower is smoother; 0.5 is standard fBm. Harmonic is the original falloff, kept for compatibility - it also darkens the frame the more octaves you ask for. |
 | `iterations` | int | 1–10 | `4` | Octaves of value noise. |
 | `initialSize` | int | 1–16 | `4` | Grid size of the coarsest octave. |
+
+### Crackulate
+
+Cracks a surface, in grey - recursive fracture with the T-junctions and dead ends a cell diagram cannot make.
+
+**Starter**
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Crackulate.png" width="192" alt="Crackulate applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#blank/Crackulate,levels=7)
+
+```js
+import { Crackulate } from '@calrk/clarity';
+
+new Crackulate({ levels: 7 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `seed` | int | 0–16777215, or empty for random | _random_ | Which arrangement of cracks. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same result - which is what makes a link reproduce. |
+| `levels` | int | 1–16 | `8` | How many times to split. Each level halves the pieces, so this is the number of cracks in a hierarchy rather than a count - one more level is twice as many pieces. |
+| `jitter` | float | 0–1 | `0.7` | How far off centre a crack may fall. 0 splits everything exactly in half and gives a regular grid; 1 gives pieces of wildly different sizes. |
+| `width` | float | 0.5–8 | `1.5` | How wide the cracks are drawn, in pixels. The surface fades to black over this distance, so it is a softness as much as a width. |
+| `roughness` | float | 0–1 | `0.5` | How far the cracks lean and wander off the axis they were split on. 0 leaves every crack square to the frame, which reads as a tiled floor rather than a broken surface. |
 
 ### Fill
 

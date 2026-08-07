@@ -1632,3 +1632,155 @@ test('Skeletiser runs both sub-iterations, so the skeleton is not lopsided', () 
 	assert.ok(Math.abs(sumX / n - 20) < 2.5, `the skeleton drifted to x ${(sumX / n).toFixed(1)}, not 20`);
 	assert.ok(Math.abs(sumY / n - 20) < 2.5, `the skeleton drifted to y ${(sumY / n).toFixed(1)}, not 20`);
 });
+
+// A crack network reduced to one-pixel lines, so its junctions can be counted.
+function crackSkeleton(img) {
+	return new CLARITY.Skeletiser({ iterations: 6 }).process(new CLARITY.Invert({}).process(img));
+}
+
+/**
+ * How the lines of a skeleton meet, by how many branches leave each pixel:
+ * 1 is a free end, 2 is a line running through, 3 a T and 4 a crossing.
+ * Counted as 0-to-1 transitions round the ring, the same measure Zhang-Suen
+ * uses to decide connectivity.
+ */
+function junctions(img) {
+	const W = img.width;
+	const H = img.height;
+	const lit = (x, y) => x >= 0 && y >= 0 && x < W && y < H && img.data[(y * W + x) * 4] > 128;
+	const ring = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
+	const found = { ends: 0, tees: 0, crossings: 0, total: 0 };
+
+	for (let y = 1; y < H - 1; y++) {
+		for (let x = 1; x < W - 1; x++) {
+			if (!lit(x, y)) continue;
+			found.total++;
+			const round = ring.map(([dx, dy]) => (lit(x + dx, y + dy) ? 1 : 0));
+			let branches = 0;
+			for (let i = 0; i < 8; i++) {
+				if (round[i] === 0 && round[(i + 1) % 8] === 1) branches++;
+			}
+			if (branches === 1) found.ends++;
+			if (branches === 3) found.tees++;
+			if (branches >= 4) found.crossings++;
+		}
+	}
+	return found;
+}
+
+test('Crackulate cracks stop and never cross, where Voronoi seams do neither', () => {
+	// The claim that says this is not Voronoi,mode=borders with extra steps, and
+	// the reason the recursive split was worth building. Two halves:
+	//
+	// Cracks stop. In a cell diagram every seam is the boundary between two
+	// neighbours for its whole length, so free ends are rare and incidental - a
+	// seam running off the frame. In a fracture network they are everywhere,
+	// because a crack stops the moment it reaches an open one.
+	//
+	// Cracks do not cross. That is the exact structural claim, and it holds
+	// exactly rather than statistically: a child is bounded by its parent's
+	// drawn crack and can only draw inside it, so a crossing is not something
+	// this can produce. Measured, there are none at all.
+	//
+	// Counted on the skeleton rather than the raw output, so both answers are
+	// about the network rather than about how wide the lines were drawn.
+	const blank = new NodeImageData(200, 200);
+
+	const cracked = junctions(crackSkeleton(new CLARITY.Crackulate({ seed: 7, levels: 8, width: 0.6 }).process(blank)));
+	const cells = junctions(crackSkeleton(new CLARITY.Voronoi({ seed: 7, cells: 12, mode: 'borders' }).process(blank)));
+
+	// both have to have drawn a real network, or the comparison is empty
+	assert.ok(cracked.total > 1000, `only ${cracked.total} crack pixels`);
+	assert.ok(cells.total > 1000, `only ${cells.total} seam pixels`);
+
+	assert.equal(cracked.crossings, 0, `${cracked.crossings} cracks cross, which the recursion cannot do`);
+
+	// A ratio rather than a count on either side: how many free ends a Voronoi
+	// network shows depends on how many cells run off the frame, so an exact 0
+	// is a property of the frame size rather than of the filter.
+	const crackedRatio = cracked.ends / cracked.total;
+	const cellRatio = cells.ends / cells.total;
+	assert.ok(crackedRatio > 0.15, `only ${(crackedRatio * 100).toFixed(1)}% of crack pixels are free ends`);
+	assert.ok(
+		crackedRatio > cellRatio * 10,
+		`cracks end at ${(crackedRatio * 100).toFixed(1)}% and seams at ${(cellRatio * 100).toFixed(1)}%, which is not a different kind of network`
+	);
+});
+
+test('Crackulate splits both ways, so the pieces stay pieces', () => {
+	// It always splits the longer side, which is what keeps a cell from being
+	// cut the same way twice and degenerating into a sliver. The visible
+	// consequence is that a square frame gets both vertical and horizontal
+	// cracks - and a filter that only ever split one axis would draw stripes
+	// while passing every other test here.
+	const blank = new NodeImageData(128, 128);
+	const out = new CLARITY.Crackulate({ seed: 11, levels: 6, width: 1, roughness: 0 }).process(blank);
+	const dark = (x, y) => out.data[(y * 128 + x) * 4] < 128;
+
+	// a column of the frame that a horizontal crack must cross, and a row that a
+	// vertical one must
+	let acrossRow = 0;
+	let acrossColumn = 0;
+	for (let i = 0; i < 128; i++) {
+		if (dark(i, 64)) acrossRow++;
+		if (dark(64, i)) acrossColumn++;
+	}
+
+	assert.ok(acrossRow > 2, `only ${acrossRow} dark pixels along the middle row - no vertical cracks`);
+	assert.ok(acrossColumn > 2, `only ${acrossColumn} dark pixels down the middle column - no horizontal cracks`);
+});
+
+test('Crackulate reproduces from its seed and thickens with levels', () => {
+	const blank = new NodeImageData(64, 48);
+	const at = (options) => new CLARITY.Crackulate({ seed: 3, ...options }).process(blank);
+
+	assert.deepEqual([...at({}).data], [...at({}).data], 'the same seed gave two different fields');
+	assert.notDeepEqual(
+		[...at({}).data],
+		[...new CLARITY.Crackulate({ seed: 4 }).process(blank).data],
+		'two seeds gave the same field'
+	);
+
+	// Each level splits every piece, so the crack pixels have to keep going up.
+	// A filter whose main control saturates after a couple of steps is one
+	// nobody can steer.
+	const lit = (img) => {
+		let n = 0;
+		for (let i = 0; i < img.data.length; i += 4) if (img.data[i] < 128) n++;
+		return n;
+	};
+	const counts = [2, 4, 6, 8].map((levels) => lit(at({ levels })));
+	assert.ok(
+		counts.every((count, i) => i === 0 || count > counts[i - 1]),
+		`more levels did not draw more cracks: ${counts.join(' -> ')}`
+	);
+});
+
+test('Crackulate jitter and roughness each have a do-nothing end', () => {
+	// Both properties are "how irregular", and both have to reach a floor where
+	// the irregularity is gone - otherwise there is no way to tell what either
+	// of them is contributing.
+	const blank = new NodeImageData(128, 128);
+	const square = (options) => new CLARITY.Crackulate({ seed: 5, levels: 4, width: 1, jitter: 0, roughness: 0, ...options }).process(blank);
+
+	// jitter 0 and roughness 0: splits exactly in half, square to the frame. On
+	// a 128px frame that is cracks at 32, 64 and 96 exactly, so the field has to
+	// be its own mirror image.
+	const regular = square({});
+	let asymmetric = 0;
+	for (let y = 0; y < 128; y++) {
+		for (let x = 0; x < 64; x++) {
+			const left = regular.data[(y * 128 + x) * 4];
+			const right = regular.data[(y * 128 + (127 - x)) * 4];
+			if (Math.abs(left - right) > 1) asymmetric++;
+		}
+	}
+	assert.equal(asymmetric, 0, `${asymmetric} pixels break the mirror symmetry an unjittered grid must have`);
+
+	// and each property on its own breaks it, so neither is dead weight
+	const jittered = square({ jitter: 1 });
+	const leaned = square({ roughness: 1 });
+	assert.notDeepEqual([...jittered.data], [...regular.data], 'jitter did nothing');
+	assert.notDeepEqual([...leaned.data], [...regular.data], 'roughness did nothing');
+	assert.notDeepEqual([...jittered.data], [...leaned.data], 'jitter and roughness do the same thing');
+});

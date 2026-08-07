@@ -427,7 +427,7 @@ LICENSE and is baked into every built bundle.
 Filters
 =======
 
-56 of them, in eight families. The **[full reference](docs/FILTERS.md)**
+57 of them, in eight families. The **[full reference](docs/FILTERS.md)**
 gives each one a before/after image, an options table and a live playground link -
 generated from the library by `npm run docs`, and checked by the test suite, so it
 cannot describe a filter that no longer works that way.
@@ -439,7 +439,7 @@ cannot describe a filter that no longer works that way.
 | Salience | `EdgeDetector`, `MotionDetector`, `ShotDetector`, `SkinDetector` |
 | Transform | `ChromaticAberration`, `FishEye`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
 | Height Map | `Contourer`, `NormalFlip`, `NormalGenerator`, `NormalIntensity` |
-| Starters | `Cloud`, `Fill`, `Gradient`, `Voronoi`, `Woodgrain` |
+| Starters | `Cloud`, `Crackulate`, `Fill`, `Gradient`, `Voronoi`, `Woodgrain` |
 | Dual Input | `Add`, `Subtract`, `Difference`, `Blend`, `Mask`, `Multiply` |
 | Misc | `Brickulate`, `DifferenceDetector`, `Ghoster`, `ScreenBurn`, `Puzzler` |
 

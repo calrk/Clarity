@@ -525,17 +525,30 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 ---
 
-## 9. Finish the Filter Wishlist
+## ~~9. Finish the Filter Wishlist~~ ✓
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **nineteen filters added, five deleted, 41 to 56** — and what is left is the one below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **twenty filters added, five deleted, 41 to 57** — and there is nothing left. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
-| Filter | Summary | Effort |
-|---|---|---|
-| **Crackulate** | Draws procedural cracks across the frame. | Medium |
+**Nothing.** The list the README had been carrying since 2014 is finished.
+
+### ~~Crackulate~~ ✓
+
+**Done.** `src/filters/Starters/Crackulate.ts` — the last one, and the only one whose 2014 note had to be dug out of git to work out what it meant. Commit `6ce7b5b`, 2 June 2014: *"Will draw procedural cracks over a **texture**"* — and it went into the same README as `Brickulate`, `Brickulate Normal` and the HeightMap family, all of which already existed. It was a procedural texture tool for game assets, not a photo effect: make a surface, weather it, generate a normal map so the damage catches light.
+
+- **Recursive splitting, not a cell diagram, and that is the whole reason it is not `Voronoi,mode=borders`.** In a Voronoi seam network every seam is the boundary between two neighbours for its entire length, so it has no free ends and three seams meet at a Y. Real fracture is *sequential* — a crack propagates until it reaches an existing one and then stops dead, because an open crack is a free surface that cannot carry stress across. So real cracked surfaces are full of **T-junctions and dead ends**, and that is what the eye reads as cracked rather than tiled. Splitting a region and then splitting the halves reproduces that for free: a child draws only inside its own side of the parent's crack, so it has to terminate there.
+- **Measured, not asserted.** On a 200px frame a Voronoi seam network's free ends are incidental — a seam running off the frame — while **40% of Crackulate's crack pixels are free ends**, and it has **exactly zero crossings**. The no-crossing property holds precisely rather than statistically, because a crossing is not something the recursion can produce.
+- **It is a shader, and cheaply.** There is no network to store and no propagation to simulate: a pixel walks down the tree it is in, `levels` steps of a loop. Neighbouring pixels either side of a crack take different paths and never need to agree about anything.
+- **Byte-exact GPU/CPU parity** on all three cases, measured at tolerance 0 — the recursion is driven entirely by `hash32`, which is 32-bit integer arithmetic with an exact GLSL twin, so the two paths cannot take different branches. Shipped at `POINTWISE` anyway, because the last step is a float division and this has only been measured on one driver.
+
+**The first version was wrong, and looking at it was the only way to know.** Axis-aligned splits alone are structurally perfect — every T-junction in the right place, the size hierarchy exactly as intended — and read as a **treemap**. A city plan, not a surface. `roughness` is the fix: the split stays on its axis for bookkeeping and the *drawn* line leans and meanders off it. At 0.5 it is dried mud, at 1 it is shattered glass, and at 0 the Mondrian it started as is still visible, which is why that end of the range is worth keeping.
+
+Three sabotages went uncaught by the first set of tests, two of which produced entirely plausible output: descending on the axis split rather than on the drawn crack, which lets children cross their parents, and always splitting the same axis, which draws stripes. Both have tests now — a crossing count and a both-axes check. The third, both branches hashing identically, is caught by the goldens only.
+
+**A backtick inside a GLSL comment broke the build twice more here**, which makes four times across this project. Same failure, same fix, every time.
 
 ### ~~Skeletiser~~ ✓
 
@@ -1178,22 +1191,21 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 5 | Demo site / playground | Med–High | One page replaces eight, driven by a browser test that has already caught 3 bugs |
 | 13 | `clarity` action for `<img>` | Low | `@calrk/clarity/svelte`; chain-as-text moved into the library and is now shared with the playground |
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
-| 16 | Presets in the playground | Low | Fourteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
+| 16 | Presets in the playground | Low | Sixteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 19 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`, `Bilateral`, `Skeletiser`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **One left — still open below** |
+| ✓ | Filter wishlist — 20 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`, `Bilateral`, `Skeletiser`, `Crackulate`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Done** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last filter | Medium | Medium — `Crackulate`, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`Crackulate` last**, and it is the only one of the twenty with no obvious model already in the library — the nearest is `Voronoi`, whose cell seams are most of what a crack pattern is.
+**#14 next.** #9 is finished — the 2014 wishlist is closed, and the last four filters cost far less than their Medium ratings suggested because the ground had shifted under them: `Skeletiser` turned out to be a shader, `Bilateral` got its iterations from machinery `Convolver` already had, and the drift tests from #11 meant none of them could land undocumented. What is left of that entry is a custom 3×3 kernel and a `.cube` importer, neither of which anybody has asked for.
 
-Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
+So #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 
 **#16 shipped ahead of the rest of #9, which changes what #9 owes.** Every filter added from here should arrive with the question "what does this combine with?" answered — a new preset in `site/src/presets.js` where there is a good answer, and nothing where there is not. The list is the cheapest place in the project to make a new filter findable.
 

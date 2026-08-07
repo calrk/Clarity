@@ -282,6 +282,24 @@ export const cases = [
 	{ filter: 'Gradient', input: 'photo', options: {}, gpu: POINTWISE },
 	{ filter: 'Gradient', name: 'angled', input: 'photo', options: { angle: 35 }, gpu: POINTWISE },
 	{ filter: 'Gradient', name: 'radial', input: 'photo', options: { shape: 'radial', start: 255, end: 0 }, gpu: POINTWISE },
+	// Crackulate ignores its input like every starter; `photo` is only a frame of
+	// the right size. Default roughness, so the lean and the meander are both
+	// exercised rather than switched off.
+	//
+	// All three cases are *byte-exact* against the CPU when measured at tolerance
+	// 0, which is stricter than anything else in this file. The recursion is
+	// driven entirely by hash32, and that is 32-bit integer arithmetic with an
+	// exact GLSL twin, so the two paths cannot take different branches - they
+	// only share the float division at the end. POINTWISE rather than 0 all the
+	// same, because that last step is float and this has only been measured on
+	// one driver.
+	{ filter: 'Crackulate', input: 'photo', options: { levels: 7 }, seed: 5, gpu: POINTWISE },
+	// square to the frame and split exactly in half - the regular grid, and the
+	// case where every crack lands on an exact pixel boundary, which is where
+	// the two paths have the most room to round it differently
+	{ filter: 'Crackulate', name: 'regular', input: 'photo', options: { levels: 6, jitter: 0, roughness: 0, width: 1 }, seed: 5, gpu: POINTWISE },
+	// shattered rather than cracked, on odd dimensions
+	{ filter: 'Crackulate', name: 'odd', input: 'odd', options: { levels: 8, roughness: 1, width: 2.5 }, seed: 2, gpu: POINTWISE },
 	{ filter: 'Voronoi', input: 'photo', options: { cells: 6 }, seed: 5, gpu: ACCUMULATING },
 	{ filter: 'Voronoi', name: 'borders', input: 'photo', options: { cells: 6, mode: 'borders' }, seed: 5, gpu: ACCUMULATING },
 	// a whole cell flips on a near-tie between two feature points, which a

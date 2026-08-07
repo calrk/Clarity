@@ -124,6 +124,8 @@ export type { SkinDetectorOptions } from './filters/Salience/SkinDetector.js';
 // Starters
 export { Cloud } from './filters/Starters/Cloud.js';
 export type { CloudOptions, CloudFold } from './filters/Starters/Cloud.js';
+export { Crackulate } from './filters/Starters/Crackulate.js';
+export type { CrackulateOptions } from './filters/Starters/Crackulate.js';
 export { Fill } from './filters/Starters/Fill.js';
 export type { FillOptions } from './filters/Starters/Fill.js';
 export { Gradient } from './filters/Starters/Gradient.js';

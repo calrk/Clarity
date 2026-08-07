@@ -166,6 +166,20 @@ export const PRESETS = [
 		chain: 'heightmap/GradientMap,ramp=thermal,steps=12'
 	},
 	{
+		id: 'craquelure',
+		label: 'Craquelure',
+		note: 'The crack network old varnish dries into, out of an empty frame',
+		//The third filter to lean on the greyscale-out rule, after Woodgrain and
+		//Cloud, and for the same reason: Crackulate emits grey because a warm
+		//ramp is a stage rather than three more properties.
+		//
+		//`roughness` is doing the work that stops this reading as a tiled floor.
+		//At 0 every crack is square to the frame and the recursive split shows
+		//through as what it is; the lean and the meander are what turn the same
+		//structure into a surface that broke.
+		chain: 'blank/Crackulate,levels=9,width=2.5,roughness=0.6/GradientMap,ramp=sepia'
+	},
+	{
 		id: 'timber',
 		label: 'Timber',
 		note: 'Growth rings out of an empty frame, then a ramp to make them wood',
