@@ -68,6 +68,8 @@ export type { NormalIntensityOptions } from './filters/HeightMap/NormalIntensity
 // Process
 export { Bleed } from './filters/Process/Bleed.js';
 export type { BleedOptions } from './filters/Process/Bleed.js';
+export { Bilateral } from './filters/Process/Bilateral.js';
+export type { BilateralOptions } from './filters/Process/Bilateral.js';
 export { Blur } from './filters/Process/Blur.js';
 export type { BlurOptions } from './filters/Process/Blur.js';
 export { ChromaKey } from './filters/Process/ChromaKey.js';

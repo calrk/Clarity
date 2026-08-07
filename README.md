@@ -427,14 +427,14 @@ LICENSE and is baked into every built bundle.
 Filters
 =======
 
-54 of them, in eight families. The **[full reference](docs/FILTERS.md)**
+55 of them, in eight families. The **[full reference](docs/FILTERS.md)**
 gives each one a before/after image, an options table and a live playground link -
 generated from the library by `npm run docs`, and checked by the test suite, so it
 cannot describe a filter that no longer works that way.
 
 | Family | Filters |
 |---|---|
-| Process | `Bleed`, `Blur`, `ChromaKey`, `Convolver`, `Desaturate`, `Dither`, `DotCrawl`, `Glow`, `GradientMap`, `Halftone`, `HanoverBars`, `Histogram`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `Vignette`, `hsvShifter` |
+| Process | `Bilateral`, `Bleed`, `Blur`, `ChromaKey`, `Convolver`, `Desaturate`, `Dither`, `DotCrawl`, `Glow`, `GradientMap`, `Halftone`, `HanoverBars`, `Histogram`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `Vignette`, `hsvShifter` |
 | Thresholders | `GradientThreshold`, `MedianThreshold`, `ValueThreshold` |
 | Salience | `EdgeDetector`, `MotionDetector`, `ShotDetector`, `SkinDetector` |
 | Transform | `ChromaticAberration`, `FishEye`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |

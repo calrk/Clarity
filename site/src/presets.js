@@ -71,6 +71,23 @@ export const PRESETS = [
 		chain: 'landscape/Pixelate,size=4/Dither,levels=3/hsvShifter,saturation=1.3'
 	},
 	{
+		id: 'cartoon',
+		label: 'Cartoon',
+		note: 'Flat areas flattened further and edges left alone, then cut to eight colours',
+		//The pairing that makes Bilateral worth having. Posteriser on its own
+		//quantises a photograph and the result is a photograph with banding,
+		//because the noise and the fine texture are still there deciding which
+		//band each pixel lands in. Running an edge-preserving smooth first is
+		//what turns a face into a handful of *regions* for it to quantise - so
+		//the bands come out as shapes with clean boundaries rather than as
+		//contours crawling through skin texture.
+		//
+		//Three small iterations rather than one big radius on purpose: each pass
+		//flattens a region towards one colour and re-sharpens its boundary,
+		//which is exactly the shape Posteriser wants next.
+		chain: 'face/Bilateral,radius=5,similarity=50,iterations=3/Posteriser,colours=8/hsvShifter,saturation=1.2'
+	},
+	{
 		id: 'composite',
 		label: 'Composite video',
 		note: 'Colour bleeding off its edges, fringing, and the dots that crawl along them',

@@ -529,17 +529,34 @@ Deletes `CLARITY.Interface` (92 lines), `Filter.createControls`/`doCreateControl
 
 **Effort: Low each** *(unblocked — #3 landed everything these need)*
 
-The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **seventeen filters added, five deleted, 41 to 54** — and what is left is the three below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
+The README's "Filters to be made" list had been sitting there since 2014. Most of it has now shipped — **eighteen filters added, five deleted, 41 to 55** — and what is left is the two below. Every mechanism they need already exists, so each is a shader, a CPU twin, a schema, a golden case and a parity case; and the drift tests added with #11 mean none of them *can* land without a catalogue entry, its traits and a description for every property.
 
 ### Still to build
 
 | Filter | Summary | Effort |
 |---|---|---|
-| **Bilateral** | Blurs flat areas while leaving edges sharp. | Medium |
 | **Skeletiser** | Thins a binary shape down to lines one pixel wide. | Medium |
 | **Crackulate** | Draws procedural cracks across the frame. | Medium |
 
 Roughly ordered by effort, which is also the order to do them in — the cheap ones reuse machinery that already exists.
+
+### ~~Bilateral~~ ✓
+
+**Done.** `src/filters/Process/Bilateral.ts` — each neighbour weighted twice, once for how far away it is and once for how different it looks, so the noise goes and the edge stays.
+
+- **It is not separable, and that is the whole cost of it.** `Blur` factors a 2D Gaussian into two 1D passes — 34 samples at radius 8 rather than 289. The range weight here depends on the *centre* pixel, so the two directions no longer commute and the factorisation does not exist. A separated bilateral is a different filter that leaves streaks along whichever axis ran first, so this takes the full square and really is the most expensive filter in the library.
+- **`similarity` is measured in the units a pixel is** — the mean of the three squared channel differences, so a flat grey step of 30 is a difference of 30 — rather than as a Euclidean RGB distance, which would have made the number mean nothing a user could reason about. One range weight covers all three channels, which is what stops colour bleeding: a neighbour matching in red but not in blue is a different colour and is discounted for red too.
+- **The spatial sigma is derived from the radius, not given.** Half of it, so the kernel's edge sits two sigma out. A property whose effect nobody can separate from the radius is one that would only ever be left alone.
+- **`iterations` reuses `Convolver`'s `repeat`** on the shader pass, so the GPU path needed nothing new. Several small passes flatten a region towards one colour and re-sharpen its boundary each time, which is worth more than radius for the cartoon look.
+
+Parity is `POINTWISE`, measured rather than assumed: exactly **one pixel of 3072** differs at all, by 1. The weights fall off fast enough that the sum is dominated by a handful of near-1 terms, so float32 and float64 have little room to drift — the `ACCUMULATING` tolerance that 289 summed samples would suggest is three times looser than the truth.
+
+Two things the sabotage pass turned up:
+
+- **A wrong border policy is invisible to a flat-frame test.** The obvious border bug — reading outside the frame instead of clamping — was replaced with *skipping* out-of-range taps, and a uniform frame still comes back uniform, because skipping renormalises. That is a legitimate alternative policy rather than a bug, so what actually pins the choice is the golden set, and it does: three of the four cases fail on it.
+- **Two sabotages did not compile** (`rangeK` and `dg`/`db` left unused) and would have read as passing tests without the harness check added during `Histogram`.
+
+**A preset came out of it** — `cartoon`, the pairing that makes this filter worth having. `Posteriser` alone quantises a photograph into a photograph with banding, because the noise and fine texture are still there deciding which band each pixel lands in. Smoothing without losing edges first turns a face into a handful of *regions* to quantise, so the bands come out as shapes rather than as contours crawling through skin texture.
 
 ### ~~Histogram~~ ✓
 
@@ -1151,18 +1168,18 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
 | 16 | Presets in the playground | Low | Fourteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
-| 9 | Filter wishlist — 17 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Three left — still open below** |
+| 9 | Filter wishlist — 18 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`, `Bilateral`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Two left — still open below** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
-| 9 | The last three filters | Low each | Medium — `Bilateral`, `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
+| 9 | The last two filters | Medium each | Medium — `Skeletiser`, `Crackulate`. All cheap now that `Skeletiser` has a fixed iteration count, plus the custom 3×3 kernel and a `.cube` importer if either is ever wanted |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`Bilateral` next** — the last three are all real algorithms rather than assemblies of things that already exist, so the cheap half of #9 is finished and what remains is genuine work.
+**Finish #9.** It was never the highest-value item, but it is the cheapest by a wide margin and the ground has shifted under it: the drift tests added with #11 mean a new filter *cannot* land without its catalogue entry, its traits and a description for every property, and `npm run docs` picks it up with no further work. Adding filters no longer creates documentation debt, which is the whole reason it was worth doing #11 first — and `Halftone` proved it, failing four drift tests on the way in for exactly the right reasons. **`Skeletiser` next**, now that a fixed iteration count has replaced iterating to stability — and `Crackulate` after it, which is the only one left with no obvious model already in the library.
 
 Then #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 

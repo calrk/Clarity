@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-54 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+55 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -14,7 +14,7 @@ playground link to see one at a sensible size.
 
 ## Contents
 
-**Process** — [Bleed](#bleed) · [Blur](#blur) · [ChromaKey](#chromakey) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Dither](#dither) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Histogram](#histogram) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
+**Process** — [Bleed](#bleed) · [Bilateral](#bilateral) · [Blur](#blur) · [ChromaKey](#chromakey) · [Convolver](#convolver) · [Desaturate](#desaturate) · [Dither](#dither) · [DotCrawl](#dotcrawl) · [GradientMap](#gradientmap) · [Glow](#glow) · [Halftone](#halftone) · [HanoverBars](#hanoverbars) · [Histogram](#histogram) · [Invert](#invert) · [Levels](#levels) · [Morphology](#morphology) · [Noise](#noise) · [Pixelate](#pixelate) · [Posteriser](#posteriser) · [Vignette](#vignette) · [hsvShifter](#hsvshifter)
 
 **Thresholders** — [GradientThreshold](#gradientthreshold) · [MedianThreshold](#medianthreshold) · [ValueThreshold](#valuethreshold)
 
@@ -61,6 +61,26 @@ new Bleed({ radius: 6 });
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
 | `radius` | int | 1–180 | `10` | How far the colour smears. Detail is unaffected. |
+
+### Bilateral
+
+Blurs flat areas while leaving edges sharp - denoising, skin smoothing, and the cartoon look.
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/Bilateral.png" width="192" alt="Bilateral applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Bilateral)
+
+```js
+import { Bilateral } from '@calrk/clarity';
+
+new Bilateral({ radius: 4, similarity: 30 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `radius` | int | 1–8 | `4` | How far to reach for neighbours. Costs the square of this, not twice it, because a bilateral filter cannot be separated into two passes the way a blur can. |
+| `similarity` | int | 1–128 | `30` | How far apart two colours may be and still count as the same surface, in the units a pixel is measured in. Low keeps almost every edge and smooths almost nothing; high stops seeing edges at all and leaves an ordinary blur. |
+| `iterations` | int | 1–4 | `1` | Run it again on its own output. Several small passes flatten a region towards one colour and sharpen its boundary each time, which is the cartoon look; one big pass mostly just averages more widely. |
 
 ### Blur
 

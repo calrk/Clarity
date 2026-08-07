@@ -1335,3 +1335,141 @@ test('Histogram draws only where it says it will', () => {
 		'an empty bin veiled the picture behind it'
 	);
 });
+
+test('Bilateral smooths the flat side of an edge and leaves the edge alone', () => {
+	// The whole claim, and the one thing that separates this from Blur. So it is
+	// measured against Blur rather than in isolation: both are given the same
+	// noisy step, and the pair has to move in opposite directions - the noise
+	// gone in both, the step still standing in one of them.
+	const W = 64;
+	const H = 32;
+	const noise = CLARITY.seededRandom(0xb17a);
+	const step = new NodeImageData(W, H);
+	for (let y = 0; y < H; y++) {
+		for (let x = 0; x < W; x++) {
+			const i = (y * W + x) * 4;
+			const base = x < W / 2 ? 60 : 200;
+			const v = base + Math.round((noise() - 0.5) * 30);
+			step.data[i] = step.data[i + 1] = step.data[i + 2] = v;
+			step.data[i + 3] = 255;
+		}
+	}
+
+	// how far the two sides of the step are apart, across the middle row
+	const contrast = (img) => {
+		const row = H >> 1;
+		const at = (x) => img.data[(row * W + x) * 4];
+		return at(W / 2) - at(W / 2 - 1);
+	};
+	// how much a flat region still wobbles
+	const roughness = (img) => {
+		let total = 0;
+		let count = 0;
+		for (let y = 1; y < H - 1; y++) {
+			for (let x = 4; x < W / 2 - 4; x++) {
+				total += Math.abs(img.data[(y * W + x) * 4] - img.data[(y * W + x - 1) * 4]);
+				count++;
+			}
+		}
+		return total / count;
+	};
+
+	const bilateral = new CLARITY.Bilateral({ radius: 4, similarity: 20 }).process(step);
+	const blurred = new CLARITY.Blur({ radius: 4 }).process(step);
+
+	// both have to actually smooth, or the comparison below is meaningless
+	assert.ok(roughness(bilateral) < roughness(step) * 0.35, `bilateral barely smoothed: ${roughness(bilateral).toFixed(1)} from ${roughness(step).toFixed(1)}`);
+	assert.ok(roughness(blurred) < roughness(step) * 0.35, `blur barely smoothed: ${roughness(blurred).toFixed(1)} from ${roughness(step).toFixed(1)}`);
+
+	// and here is the difference: the blur has spread the step over its radius,
+	// the bilateral has kept nearly all of it
+	assert.ok(
+		contrast(bilateral) > contrast(step) * 0.8,
+		`bilateral lost the edge: ${contrast(bilateral)} of an original ${contrast(step)}`
+	);
+	assert.ok(
+		contrast(blurred) < contrast(step) * 0.35,
+		`the blur kept the edge, so this fixture cannot tell the two apart: ${contrast(blurred)} of ${contrast(step)}`
+	);
+});
+
+test('Bilateral similarity decides what counts as an edge', () => {
+	// The property is only meaningful if it spans both ends: at 1 nothing is
+	// similar enough to average with, so the frame comes back as it went in, and
+	// at 128 everything is, so it converges on an ordinary blur. A filter whose
+	// main knob does neither is one knob nobody can use.
+	const source = makeFrame();
+	const keeps = new CLARITY.Bilateral({ radius: 3, similarity: 1 }).process(makeFrame());
+	const gives = new CLARITY.Bilateral({ radius: 3, similarity: 128 }).process(makeFrame());
+	const blurred = new CLARITY.Blur({ radius: 3 }).process(makeFrame());
+
+	const apart = (a, b) => {
+		let worst = 0;
+		for (let i = 0; i < a.data.length; i += 4) {
+			worst = Math.max(worst, Math.abs(a.data[i] - b.data[i]));
+		}
+		return worst;
+	};
+
+	assert.ok(apart(keeps, source) <= 1, `similarity 1 changed the frame by ${apart(keeps, source)}`);
+	assert.ok(apart(gives, source) > 20, `similarity 128 barely changed anything: ${apart(gives, source)}`);
+	assert.ok(
+		apart(gives, blurred) < apart(keeps, blurred),
+		'raising similarity did not move the result towards an ordinary blur'
+	);
+});
+
+test('Bilateral iterations compound rather than repeating one pass', () => {
+	// `repeat` on the shader pass and the loop in doProcess have to agree about
+	// what an iteration is, and the cheap mistake - running the kernel n times
+	// over the *original* each time - produces exactly the same frame as one
+	// pass. So this asserts they differ, and that the result keeps flattening
+	// rather than settling after the first.
+	const source = makeFrame();
+	const runs = [1, 2, 3].map((iterations) =>
+		new CLARITY.Bilateral({ radius: 2, similarity: 40, iterations }).process(makeFrame())
+	);
+
+	const spread = (img) => {
+		let total = 0;
+		for (let i = 4; i < img.data.length; i += 4) {
+			total += Math.abs(img.data[i] - img.data[i - 4]);
+		}
+		return total / (img.data.length / 4 - 1);
+	};
+
+	assert.notDeepEqual([...runs[0].data], [...runs[1].data], 'a second iteration did nothing');
+	assert.ok(spread(runs[1]) < spread(runs[0]), 'the second iteration did not flatten further');
+	assert.ok(spread(runs[2]) < spread(runs[1]), 'the third iteration did not flatten further');
+	assert.ok(spread(runs[0]) < spread(source), 'one iteration did not flatten at all');
+});
+
+test('Bilateral leaves a flat frame exactly as it found it', () => {
+	// The border test, and the reason it is phrased this way: a neighbourhood
+	// filter that reads outside the frame as black instead of clamping to the
+	// edge produces a dark rim, and every interior measurement in the tests
+	// above is blind to it. A uniform frame has one correct answer everywhere -
+	// itself - so any border handling that invents a value fails here.
+	//
+	// It also pins the weights: they have to sum to their own total, so a frame
+	// of one colour cannot come back as a different one however they are
+	// distributed.
+	for (const value of [0, 96, 255]) {
+		const flat = new NodeImageData(20, 14);
+		for (let i = 0; i < flat.data.length; i += 4) {
+			flat.data[i] = flat.data[i + 1] = flat.data[i + 2] = value;
+			flat.data[i + 3] = 255;
+		}
+
+		for (const radius of [1, 5, 8]) {
+			const out = new CLARITY.Bilateral({ radius, similarity: 30 }).process(flat);
+			const wrong = [...out.data].findIndex((byte, i) => (i % 4 === 3 ? byte !== 255 : byte !== value));
+			assert.equal(
+				wrong,
+				-1,
+				`a flat ${value} at radius ${radius} came back as ${out.data[wrong]} at index ${wrong}` +
+					` (row ${Math.floor(wrong / 4 / 20)}, column ${Math.floor(wrong / 4) % 20})`
+			);
+		}
+	}
+});

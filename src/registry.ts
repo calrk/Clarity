@@ -11,6 +11,7 @@ import { NormalFlip } from './filters/HeightMap/NormalFlip.js';
 import { NormalGenerator } from './filters/HeightMap/NormalGenerator.js';
 import { NormalIntensity } from './filters/HeightMap/NormalIntensity.js';
 import { Bleed } from './filters/Process/Bleed.js';
+import { Bilateral } from './filters/Process/Bilateral.js';
 import { Blur } from './filters/Process/Blur.js';
 import { ChromaKey } from './filters/Process/ChromaKey.js';
 import { Desaturate } from './filters/Process/Desaturate.js';
@@ -79,6 +80,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	NormalGenerator,
 	NormalIntensity,
 	Bleed,
+	Bilateral,
 	Blur,
 	ChromaKey,
 	Desaturate,

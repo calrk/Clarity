@@ -98,6 +98,7 @@ export const CATEGORY_ORDER: CategoryName[] = [
 export const CATALOGUE: Record<string, CatalogueEntry> = {
 	// --- Process ---
 	Bleed: { category: 'Process', summary: "Blurs a single channel, so colour bleeds out of its edges." },
+	Bilateral: { category: 'Process', summary: "Blurs flat areas while leaving edges sharp - denoising, skin smoothing, and the cartoon look." },
 	Blur: { category: 'Process', summary: "Stack blur - a fast Gaussian approximation." },
 	ChromaKey: { category: 'Process', summary: "Makes one colour transparent, matching on hue rather than brightness - the green screen.", traits: ['alpha-out'] },
 	Convolver: { category: 'Process', summary: "Convolves a 3x3 kernel over the frame - sharpen, smooth, emboss, or edges by Sobel or Laplace." },

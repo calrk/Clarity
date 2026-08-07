@@ -94,6 +94,22 @@ export const cases = [
 	// --- Process: neighbourhood -----------------------------------------
 	{ filter: 'Blur', input: 'photo', options: { radius: 6 }, gpu: ACCUMULATING },
 	{ filter: 'Bleed', input: 'photo', options: { radius: 6 }, gpu: ACCUMULATING },
+	// POINTWISE rather than ACCUMULATING, which is what 289 weighted samples
+	// summed per pixel would suggest. Measured at tolerance 0, exactly one pixel
+	// of 3072 differs at all, by 1 - the weights fall off fast enough that the
+	// sum is dominated by a handful of near-1 terms, so float32 and float64 have
+	// very little room to drift apart. The three-and-the-cartoon cases hold to
+	// the same tolerance even through three ping-ponged passes.
+	{ filter: 'Bilateral', input: 'photo', options: { radius: 4, similarity: 30 }, gpu: POINTWISE },
+	// the fixture of hard-edged flat blocks, which is the claim: the blocks
+	// should smooth and the boundaries between them should not move
+	{ filter: 'Bilateral', name: 'edges', input: 'edges', options: { radius: 5, similarity: 25 }, gpu: POINTWISE },
+	// several small passes rather than one big one - the cartoon look, and the
+	// case that exercises the shader pass's `repeat`
+	{ filter: 'Bilateral', name: 'cartoon', input: 'photo', options: { radius: 3, similarity: 50, iterations: 3 }, gpu: POINTWISE },
+	// odd dimensions, so the clamped border is read on an edge that is not a
+	// multiple of anything
+	{ filter: 'Bilateral', name: 'odd', input: 'odd', options: { radius: 2, similarity: 60 }, gpu: POINTWISE },
 	{ filter: 'DotCrawl', input: 'photo', options: {}, now: 1234, gpu: ACCUMULATING },
 	{ filter: 'Glow', input: 'photo', options: { radius: 6 }, gpu: ACCUMULATING },
 	// The table is built on the CPU and handed to the shader, so the ramp itself
