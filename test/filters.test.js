@@ -1784,3 +1784,198 @@ test('Crackulate jitter and roughness each have a do-nothing end', () => {
 	assert.notDeepEqual([...leaned.data], [...regular.data], 'roughness did nothing');
 	assert.notDeepEqual([...jittered.data], [...leaned.data], 'jitter and roughness do the same thing');
 });
+
+test('NormalGenerator writes normals a standard decoder can read', () => {
+	// The encoding is [-1,1] over 0-255 in all three channels. Blue used to be
+	// [0,1], which agreed with NormalIntensity and with nothing else: decoded
+	// the ordinary way it read every slope about 1.4x too steep, and past 60
+	// degrees it decoded to a negative z - a tangent-space normal pointing into
+	// the surface, which is not a normal.
+	const decode = (frame) => {
+		const out = [];
+		for (let i = 0; i < frame.data.length; i += 4) {
+			out.push([
+				(frame.data[i] / 255) * 2 - 1,
+				(frame.data[i + 1] / 255) * 2 - 1,
+				(frame.data[i + 2] / 255) * 2 - 1
+			]);
+		}
+		return out;
+	};
+
+	// A photographic frame, not a gentle one: the failure was the common case,
+	// so a fixture with no steep slopes in it would pass either way.
+	const source = makeFrame();
+
+	for (const [label, frame] of [
+		['NormalGenerator', new CLARITY.NormalGenerator({ intensity: 1 }).process(source)],
+		[
+			'NormalIntensity',
+			new CLARITY.NormalIntensity({ intensity: 1.5 }).process(
+				new CLARITY.NormalGenerator({ intensity: 1 }).process(source)
+			)
+		]
+	]) {
+		let behind = 0;
+		let worstLength = 0;
+		for (const [x, y, z] of decode(frame)) {
+			if (z <= 0) behind++;
+			worstLength = Math.max(worstLength, Math.abs(Math.hypot(x, y, z) - 1));
+		}
+
+		assert.equal(behind, 0, `${label}: ${behind} normals decode to z <= 0, pointing into the surface`);
+		// a byte per channel is worth about 1/128, and three of them
+		assert.ok(
+			worstLength < 0.05,
+			`${label}: a decoded normal was ${(1 + worstLength).toFixed(3)} long, so the channels are not one vector`
+		);
+	}
+});
+
+test('NormalGenerator puts the light on the right side of a bump', () => {
+	// The one property that pins the axis conventions rather than describing
+	// them. Red is universal; green is the OpenGL/DirectX difference and
+	// NormalFlip exists to switch it, so this asserts the default rather than
+	// the only possibility.
+	const size = 64;
+	const dome = new NodeImageData(size, size);
+	for (let y = 0; y < size; y++) {
+		for (let x = 0; x < size; x++) {
+			const d = Math.hypot(x - size / 2, y - size / 2) / (size / 2);
+			const v = Math.round(255 * Math.max(0, 1 - d * d));
+			const i = (y * size + x) * 4;
+			dome.data[i] = dome.data[i + 1] = dome.data[i + 2] = v;
+			dome.data[i + 3] = 255;
+		}
+	}
+
+	const n = new CLARITY.NormalGenerator({ intensity: 0.2 }).process(dome);
+	const at = (x, y) => {
+		const i = (y * size + x) * 4;
+		return { r: n.data[i], g: n.data[i + 1], b: n.data[i + 2] };
+	};
+
+	const mid = size / 2;
+	const right = at(mid + 20, mid);
+	const left = at(mid - 20, mid);
+	const top = at(mid, mid - 20);
+	const bottom = at(mid, mid + 20);
+
+	assert.ok(right.r > 140, `the right flank of a bump must lean +X, got red ${right.r}`);
+	assert.ok(left.r < 116, `the left flank of a bump must lean -X, got red ${left.r}`);
+	assert.ok(top.g > 140, `OpenGL green is up, so the top flank must be green-bright, got ${top.g}`);
+	assert.ok(bottom.g < 116, `the bottom flank must be green-dark, got ${bottom.g}`);
+
+	// and the summit is flat, which is the only place all three are pinned
+	const peak = at(mid, mid);
+	assert.ok(
+		Math.abs(peak.r - 128) <= 2 && Math.abs(peak.g - 128) <= 2 && peak.b >= 250,
+		`the top of a dome must be flat blue, got (${peak.r}, ${peak.g}, ${peak.b})`
+	);
+});
+
+test('ChromaticAberration never gathers from outside the frame', () => {
+	// The stripe: with a single displacement direction one channel walked off
+	// the left edge and another off the right, srcTexel clamped, and the
+	// outermost column smeared into a flat band `distance` pixels wide.
+	//
+	// Counting duplicated edge columns does not test this - magnifying by
+	// nearest neighbour legitimately maps two adjacent output columns onto one
+	// source column, and that is indistinguishable from a two-pixel clamp. So
+	// read the gather coordinates off the output instead: give every source
+	// column a distinct value and each output pixel *is* the column it read.
+	//
+	// The invariant is then exact. Every channel reads inward or stays put, so
+	// the first and last source columns are the two that nothing can reach.
+	const size = 64;
+	const ramp = new NodeImageData(size, 8);
+	for (let y = 0; y < 8; y++) {
+		for (let x = 0; x < size; x++) {
+			const i = (y * size + x) * 4;
+			ramp.data[i] = ramp.data[i + 1] = ramp.data[i + 2] = x;
+			ramp.data[i + 3] = 255;
+		}
+	}
+
+	// both signs, because reversing the dispersion swaps red and blue rather
+	// than turning the gather around - and getting that wrong smears worse than
+	// the original bug did
+	for (const distance of [8, -8, 3]) {
+		const out = new CLARITY.ChromaticAberration({ xdistance: distance }).process(ramp);
+
+		const readsOf = (channel, column) => {
+			let n = 0;
+			for (let x = 0; x < size; x++) {
+				if (out.data[(3 * size + x) * 4 + channel] === column) n++;
+			}
+			return n;
+		};
+
+		for (const [channel, name] of [[1, 'green'], [0, 'red'], [2, 'blue']]) {
+			// the datum channel is the one that does not move, so it reads every
+			// column including the two edges exactly once
+			const datum = readsOf(channel, 0) === 1 && readsOf(channel, size - 1) === 1;
+			if (datum) continue;
+
+			for (const column of [0, size - 1]) {
+				assert.equal(
+					readsOf(channel, column),
+					0,
+					`xdistance ${distance}: ${name} reads source column ${column}, ` +
+						`which only a gather leaving the frame and clamping can do`
+				);
+			}
+		}
+	}
+});
+
+test('ChromaticAberration disperses radially, not in one direction', () => {
+	// `abs(2 * position - size)` gave the right V-shaped magnitude and threw
+	// away which side of the centre the pixel was on, so the displacement
+	// pointed the same way across the whole frame and one half of every image
+	// fringed backwards. The magnitude was never the part that was wrong, so
+	// this measures the asymmetry: the same feature either side of centre has
+	// to move in opposite directions.
+	const size = 64;
+	const distance = 6;
+	const frame = new NodeImageData(size, 8);
+	for (let i = 3; i < frame.data.length; i += 4) frame.data[i] = 255;
+
+	// Inside the range blue can still show: magnifying crops the outer edge, so
+	// a spike too near the frame edge is not displaced, it is gone.
+	const spikes = [20, 44];
+	for (const x of spikes) {
+		for (let y = 0; y < 8; y++) {
+			const i = (y * size + x) * 4;
+			frame.data[i] = frame.data[i + 1] = frame.data[i + 2] = 255;
+		}
+	}
+
+	const out = new CLARITY.ChromaticAberration({ xdistance: distance }).process(frame);
+
+	const brightest = (channel, from, to) => {
+		let best = -1;
+		let bestValue = 0;
+		for (let x = from; x < to; x++) {
+			const v = out.data[(3 * size + x) * 4 + channel];
+			if (v > bestValue) {
+				bestValue = v;
+				best = x;
+			}
+		}
+		assert.ok(best >= 0, `no blue spike survived between ${from} and ${to}`);
+		return best;
+	};
+
+	const left = brightest(2, 0, size / 2);
+	const right = brightest(2, size / 2, size);
+
+	// blue is the outer channel, so on both sides of the frame its copy of a
+	// spike sits further from the centre than the spike itself
+	assert.ok(left < spikes[0], `left of centre, blue must move outward (below ${spikes[0]}), got ${left}`);
+	assert.ok(right > spikes[1], `right of centre, blue must move outward (above ${spikes[1]}), got ${right}`);
+
+	// and red, the datum, must not have moved at all
+	assert.equal(brightest(0, 0, size / 2), spikes[0], 'red is the datum and must not move');
+	assert.equal(brightest(0, size / 2, size), spikes[1], 'red is the datum and must not move');
+});

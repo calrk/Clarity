@@ -640,9 +640,9 @@ new ChromaticAberration({ xdistance: 4, ydistance: 2, fixed: true });
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `xdistance` | int | -100–100 | `8` | How far red and blue pull apart horizontally, in pixels at the frame edge. |
-| `ydistance` | int | -100–100 | `0` | The same displacement vertically. Green never moves. |
-| `fixed` | bool | true / false | `false` | Displace uniformly rather than growing toward the edges. |
+| `xdistance` | int | -100–100 | `8` | How far the outer channel is displaced horizontally at the frame edge, with green half as far and the inner one not at all. Zero at the centre of the frame. Negative puts red outside blue instead. |
+| `ydistance` | int | -100–100 | `0` | The same dispersion vertically, and signed independently of the horizontal. |
+| `fixed` | bool | true / false | `false` | Separate the channels by the same amount everywhere instead of growing toward the edges. Not what a lens does, and the one mode that can still smear a frame edge, since a constant offset has to read from outside somewhere. |
 
 ### FishEye
 

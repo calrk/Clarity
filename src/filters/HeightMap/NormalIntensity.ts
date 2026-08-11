@@ -21,13 +21,16 @@ vec3 normalise(vec3 v){
 
 void main(){
 	vec4 c = srcPixel(vUv);
-	vec3 v = vec3((c.r - 128.0) / 128.0, (c.g - 128.0) / 128.0, c.b / 255.0);
+	//all three channels are [-1,1] over 0-255, matching NormalGenerator - blue
+	//used to be read as [0,1] here, which agreed with what that filter wrote
+	//and with nothing else
+	vec3 v = vec3((c.r - 128.0) / 128.0, (c.g - 128.0) / 128.0, (c.b - 128.0) / 128.0);
 
 	v = normalise(v);
 	v.xy *= u_intensity;
 	v = normalise(v);
 
-	writeRGB(vec3((v.x + 1.0) * 128.0, (v.y + 1.0) * 128.0, v.z * 255.0));
+	writeRGB(vec3((v.x + 1.0) * 128.0, (v.y + 1.0) * 128.0, (v.z + 1.0) * 128.0));
 }
 `;
 
@@ -55,7 +58,7 @@ void main(){
 
 				let vector = {  x: (frame.data[i  ]-128)/128,
 								y: (frame.data[i+1]-128)/128,
-								z:  frame.data[i+2]/255
+								z: (frame.data[i+2]-128)/128
 							 };
 
 				vector = this.normalise(vector);
@@ -65,7 +68,7 @@ void main(){
 
 				output.data[i] =   (vector.x+1)*128;
 				output.data[i+1] = (vector.y+1)*128;
-				output.data[i+2] = vector.z*255;
+				output.data[i+2] = (vector.z+1)*128;
 
 				output.data[i+3] = 255;
 			}

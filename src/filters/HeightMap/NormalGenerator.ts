@@ -10,6 +10,38 @@ export interface NormalGeneratorOptions extends FilterOptions {
 	intensity?: number;
 }
 
+/**
+ * Reads brightness as height and writes the surface normal at each pixel.
+ *
+ * **The encoding is OpenGL tangent space**, `[-1,1]` mapped onto `0-255` in all
+ * three channels, so flat is `(128, 128, 255)`. Two details in it look like
+ * mistakes and are not:
+ *
+ * - **Red is negated and green is not.** This filter works in image space,
+ *   where y runs *down*, and a normal map is read in texture space, where v
+ *   runs *up*. That flip is worth exactly one negation, and green is where it
+ *   lands. The result is the OpenGL convention - a dome's right flank is
+ *   red-bright, its top flank green-bright - and {@link NormalFlip} is there
+ *   for consumers wanting DirectX's inverted green.
+ * - **Blue is negated too**, because the four cross products below are wound so
+ *   that they all come out pointing *into* the surface. Negating recovers the
+ *   outward normal, and the same negation is already on red for that reason as
+ *   well as the one above.
+ *
+ * Blue used to be written as `-n.z * 255`, mapping `[0,1]` rather than
+ * `[-1,1]`. That is internally consistent - {@link NormalIntensity} decoded it
+ * the same way - but it is not what anything outside this library reads. Under
+ * the standard `2c - 1` decode it made every slope come back about 1.4x too
+ * steep, and past 60 degrees it decoded to a *negative* z: a tangent-space
+ * normal pointing into the surface, which is not a normal at all. At the
+ * default intensity that threshold is an adjacent-pixel brightness difference
+ * of about 3.5, so it was the common case in any textured photograph rather
+ * than a corner of the range.
+ *
+ * Worth separating from the axis conventions {@link NormalFlip} exists to
+ * absorb: those are sign differences on x and y, and every renderer picks one.
+ * Nothing varies the z encoding, and no flip can reach a scale error anyway.
+ */
 export class NormalGenerator extends Filter {
 	static override shader = /* glsl */ `
 uniform float u_intensity;
@@ -63,7 +95,7 @@ void main(){
 	writeRGB(vec3(
 		(1.0 - (n.x / 2.0 + 0.5)) * 255.0,
 		(n.y / 2.0 + 0.5) * 255.0,
-		-n.z * 255.0
+		(1.0 - (n.z / 2.0 + 0.5)) * 255.0
 	));
 }
 `;
@@ -104,7 +136,7 @@ void main(){
 
 				output.data[i] =   (1-(res.x/2+0.5))*255;
 				output.data[i+1] = (res.y/2+0.5)*255;
-				output.data[i+2] = -res.z*255;
+				output.data[i+2] = (1-(res.z/2+0.5))*255;
 
 				output.data[i+3] = 255;
 			}
