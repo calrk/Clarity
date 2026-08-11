@@ -611,3 +611,98 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 	.byline { display: none; }
 	.about { padding: 2rem 1rem 2.5rem; }
 }
+
+/* ---------- modes ---------- */
+
+/*
+ * One attribute on <body> drives every difference between the two modes, so
+ * switching is a single write and nothing can end up half-swapped. The stage,
+ * the sources and the readout are in neither list: they are shared, which is
+ * the argument for this being a mode rather than a second page.
+ */
+.modes {
+	display: flex;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+}
+
+.mode {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	padding: .35rem .7rem;
+	font-size: .82rem;
+	font-family: inherit;
+	color: var(--muted);
+	cursor: pointer;
+	transition: color .12s, background .12s;
+}
+
+.mode:hover { color: var(--text); }
+
+.mode[aria-pressed='true'] {
+	background: var(--accent-wash);
+	color: var(--accent);
+}
+
+/* The palette is for dragging filters in, which code mode does not do. */
+body[data-mode='code'] #palettePanel,
+body[data-mode='code'] #chainPanel,
+body[data-mode='code'] #codeOutPanel { display: none; }
+
+body[data-mode='build'] #codePanel { display: none; }
+
+/* ---------- the editor ---------- */
+
+.editor {
+	flex: 1;
+	min-height: 260px;
+	resize: vertical;
+	width: 100%;
+	box-sizing: border-box;
+	padding: .6rem;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-tint);
+	color: var(--text);
+	font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	tab-size: 2;
+	/* a snippet is code: never wrap it and never autocorrect it */
+	white-space: pre;
+	overflow: auto;
+}
+
+.editor:focus {
+	outline: 2px solid var(--accent);
+	outline-offset: -1px;
+}
+
+.snippet-actions {
+	display: flex;
+	gap: .4rem;
+	margin-top: .5rem;
+}
+
+.snippet-actions .ghost { flex: 1; }
+
+.snippet-actions kbd {
+	font: inherit;
+	color: var(--muted);
+	opacity: .8;
+}
+
+/*
+ * The error, which has to be readable without being alarming - it is the normal
+ * state of a snippet halfway through being typed, not a fault.
+ */
+.snippet-error {
+	margin: .5rem 0 0;
+	padding: .45rem .6rem;
+	border-radius: var(--radius-sm);
+	border: 1px solid color-mix(in srgb, #c2410c 35%, var(--line));
+	background: color-mix(in srgb, #c2410c 8%, transparent);
+	color: var(--text);
+	font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	white-space: pre-wrap;
+}

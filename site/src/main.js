@@ -10,8 +10,10 @@ import * as CLARITY from '@calrk/clarity';
 import { CATALOGUE, CATEGORY_ORDER, Pipeline, Renderer, TRAITS } from '@calrk/clarity';
 
 import { createChainView, isDualInput } from './chain.js';
+import { bindPipeline, buildScope, loadBuffer, runSnippet, saveBuffer } from './code.js';
 import { PRESETS } from './presets.js';
 import { readHash, writeHash } from './share.js';
+import { DEFAULT_SNIPPET, SNIPPETS } from './snippets.js';
 import { SOURCES, addSource, loadFile, loadImage, openSource } from './sources.js';
 import './styles.css';
 
@@ -24,6 +26,27 @@ const renderer = new Renderer(canvas, { onFrame: showStats });
 const seconds = new Map();
 /** Source frames the dual-input filters can choose between. */
 let secondFrames = new Map();
+
+/**
+ * The drag-list chain, held separately from `renderer.pipeline`.
+ *
+ * In code mode the renderer is pointed at a chain a snippet returned, so
+ * `renderer.pipeline` stops being the one the Build tab is editing. Everything
+ * that maintains the built chain goes through this instead, and switching back
+ * restores it rather than rebuilding it from the URL.
+ */
+const buildPipeline = renderer.pipeline;
+
+/** 'build' or 'code'. */
+let mode = 'build';
+/** The chain the last successful snippet returned, so it can be disposed. */
+let codePipeline = null;
+/**
+ * Whether shaders are wanted, tracked here rather than read back off the
+ * renderer: `renderer.gpu` delegates to whichever pipeline is current, so in
+ * code mode it would answer for a chain that is replaced on every run.
+ */
+let gpuWanted = true;
 
 let currentSourceId = null;
 /** The live element, so a camera or video can be shut down when replaced. */
@@ -726,7 +749,11 @@ function updateCode() {
 // ---------------------------------------------------------------- share
 
 function updateShare() {
-	history.replaceState(null, '', writeHash(currentSourceId ?? 'custom', renderer.pipeline.filters));
+	//The hash describes the *built* chain. A snippet is not shareable - there is
+	//no safe way to run one that arrived in a link - so code mode leaves the URL
+	//saying whatever the Build tab last said, and switching back finds it intact.
+	if (mode !== 'build') return;
+	history.replaceState(null, '', writeHash(currentSourceId ?? 'custom', buildPipeline.filters));
 }
 
 /**
@@ -741,14 +768,17 @@ function updateShare() {
 async function loadFromHash() {
 	const { source, filters } = readHash();
 
-	renderer.clear();
+	//`buildPipeline` rather than the renderer, which in code mode is pointed at a
+	//snippet's chain - clearing that would throw away what is on screen in
+	//response to a hash the Build tab owns.
+	buildPipeline.clear();
 	seconds.clear();
 
 	for (const filter of filters) {
 		if (isDualInput(filter.constructor.name)) {
 			seconds.set(filter, 'source');
 		}
-		renderer.add(filter, stageOptions(filter));
+		buildPipeline.add(filter, stageOptions(filter));
 	}
 
 	const wanted = SOURCES.some((entry) => entry.id === source) ? source : SOURCES[0].id;
@@ -756,7 +786,135 @@ async function loadFromHash() {
 		await useSource(wanted);
 	}
 
-	sync();
+	if (mode === 'build') sync();
+}
+
+// ---------------------------------------------------------------- code mode
+
+/**
+ * Options every Pipeline a snippet builds is constructed with.
+ *
+ * Read fresh each time rather than captured, so a snippet run after the backend
+ * badge is clicked gets the current answer. Sharing the backend is what stops
+ * each run - and each branch inside a run - opening its own WebGL context.
+ */
+const scope = buildScope(
+	bindPipeline(() => ({ backend: buildPipeline.backend, gpu: gpuWanted }))
+);
+
+function buildSnippetList() {
+	const picker = $('snippetPicker');
+	for (const snippet of SNIPPETS) {
+		const option = document.createElement('option');
+		option.value = snippet.id;
+		option.textContent = `${snippet.label} — ${snippet.note}`;
+		picker.append(option);
+	}
+
+	picker.addEventListener('change', () => {
+		const snippet = SNIPPETS.find((entry) => entry.id === picker.value);
+		if (!snippet) return;
+		$('snippet').value = snippet.source;
+		picker.value = '';
+		runCode();
+	});
+}
+
+/**
+ * Runs what is in the editor, and renders it if it worked.
+ *
+ * A failure leaves the previous chain on screen rather than blanking the
+ * canvas. A snippet is a thing being written, so half-finished is its normal
+ * state, and losing the picture on every keystroke-triggered run would make the
+ * error message the only feedback there is.
+ */
+function runCode() {
+	const source = $('snippet').value;
+	saveBuffer(source);
+
+	const result = runSnippet(source, scope);
+	const error = $('snippetError');
+
+	if (result.error) {
+		error.hidden = false;
+		error.textContent = result.error;
+		return false;
+	}
+
+	error.hidden = true;
+	error.textContent = '';
+
+	const previous = codePipeline;
+	codePipeline = result.pipeline;
+	codePipeline.gpu = gpuWanted;
+	renderer.use(codePipeline);
+
+	//`use` deliberately leaves the outgoing chain alone, because it cannot know
+	//who else holds it. This one is ours and nothing else will free it - and it
+	//borrows the page's context, so disposing it releases the caches without
+	//touching the GL context the next run needs.
+	if (previous && previous !== codePipeline) {
+		previous.dispose();
+	}
+
+	smoothedFrameTime = 0;
+	requestFrame();
+	return true;
+}
+
+function setMode(next) {
+	if (next === mode) return;
+	mode = next;
+
+	document.body.dataset.mode = next;
+	$('modeBuild').setAttribute('aria-pressed', String(next === 'build'));
+	$('modeCode').setAttribute('aria-pressed', String(next === 'code'));
+
+	if (next === 'build') {
+		renderer.use(buildPipeline);
+		sync();
+		return;
+	}
+
+	//An empty buffer on first visit is a blank page with no clue what to type
+	if (!$('snippet').value.trim()) {
+		$('snippet').value = DEFAULT_SNIPPET.source;
+	}
+	if (!runCode()) {
+		//the snippet is broken, so there is nothing to render - but the canvas is
+		//still showing the built chain, which would be a lie about what is running
+		renderer.use(codePipeline ?? new CLARITY.Pipeline([], { gpu: gpuWanted }));
+		requestFrame();
+	}
+}
+
+function setUpEditor() {
+	const editor = $('snippet');
+
+	editor.addEventListener('keydown', (event) => {
+		if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+			event.preventDefault();
+			runCode();
+			return;
+		}
+		//Tab indents rather than leaving the field. Escape first, so the editor is
+		//never a keyboard trap - which is the reason browsers make Tab do that.
+		if (event.key === 'Tab' && !event.shiftKey) {
+			event.preventDefault();
+			const { selectionStart: from, selectionEnd: to, value } = editor;
+			editor.value = `${value.slice(0, from)}\t${value.slice(to)}`;
+			editor.selectionStart = editor.selectionEnd = from + 1;
+		}
+	});
+
+	//so a reload does not lose work even if the snippet was never run
+	editor.addEventListener('input', () => saveBuffer(editor.value));
+
+	$('runSnippet').addEventListener('click', () => runCode());
+	$('resetSnippet').addEventListener('click', () => {
+		editor.value = DEFAULT_SNIPPET.source;
+		runCode();
+	});
 }
 
 // ---------------------------------------------------------------- glue
@@ -806,7 +964,14 @@ async function start() {
 	buildPalette();
 	buildSourceList();
 	buildPresetList();
+	buildSnippetList();
 	setUpDropzone();
+	setUpEditor();
+
+	document.body.dataset.mode = 'build';
+	$('snippet').value = loadBuffer() || DEFAULT_SNIPPET.source;
+	$('modeBuild').addEventListener('click', () => setMode('build'));
+	$('modeCode').addEventListener('click', () => setMode('code'));
 
 	$('paletteSearch').addEventListener('input', (event) => buildPalette(event.target.value));
 	$('clearChain').addEventListener('click', () => {
@@ -819,7 +984,10 @@ async function start() {
 	$('rerollButton').addEventListener('click', () => reroll(seeded()));
 	$('benchButton').addEventListener('click', benchmark);
 	$('backendBadge').addEventListener('click', () => {
-		renderer.gpu = !renderer.gpu;
+		gpuWanted = !gpuWanted;
+		//both chains, so switching modes does not switch backend with it
+		buildPipeline.gpu = gpuWanted;
+		if (codePipeline) codePipeline.gpu = gpuWanted;
 		smoothedFrameTime = 0;
 		requestFrame();
 	});

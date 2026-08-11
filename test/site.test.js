@@ -16,6 +16,8 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, extname, join, normalize } from 'node:path';
 
+import { SNIPPETS } from '../site/src/snippets.js';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = join(here, '..', 'site', 'dist');
 
@@ -638,6 +640,114 @@ if (!existsSync(join(dist, 'index.html'))) {
 		// assertions above would pass on a source that never decoded
 		assert.equal(await movesWithin('face', 1800, true), false, 'a still image should not change');
 	});
+	// ---------------------------------------------------------------- code mode
+
+	/** Types a snippet into the editor and runs it. */
+	const setSnippet = (source) =>
+		page.evaluate((code) => {
+			document.getElementById('snippet').value = code;
+			document.getElementById('runSnippet').click();
+		}, source);
+
+	const snippetError = () => page.$eval('#snippetError', (el) => (el.hidden ? '' : el.textContent));
+
+	const enterCodeMode = async (hash = '') => {
+		await open(hash);
+		await page.click('#modeCode');
+		await page.waitForFunction(() => document.body.dataset.mode === 'code');
+	};
+
+	test('Code mode runs a snippet and renders what it returns', async () => {
+		await open();
+		const unfiltered = await canvasDigest();
+
+		await enterCodeMode();
+		assert.equal(await snippetError(), '', 'the default snippet did not run');
+		assert.notEqual(await canvasDigest(), unfiltered, 'the snippet rendered nothing');
+
+		// The palette and the chain list are for assembling a chain, which is the
+		// one thing this mode does not do.
+		assert.equal(await page.$eval('#palettePanel', (el) => getComputedStyle(el).display), 'none');
+		assert.equal(await page.$eval('#chainPanel', (el) => getComputedStyle(el).display), 'none');
+		assert.notEqual(await page.$eval('#codePanel', (el) => getComputedStyle(el).display), 'none');
+	});
+
+	test('every shipped snippet compiles and changes the picture', async () => {
+		// The examples/ folder rotted for years because nothing ran it. These are
+		// documentation, so they get what the generated docs get: an example that
+		// cannot compile fails the build.
+		await enterCodeMode();
+
+		await setSnippet('return new Pipeline();');
+		assert.equal(await snippetError(), '', 'an empty pipeline should be legal');
+		const untouched = await canvasDigest();
+
+		for (const snippet of SNIPPETS) {
+			await setSnippet(snippet.source);
+			assert.equal(await snippetError(), '', `the ${snippet.id} snippet did not run`);
+			assert.notEqual(await canvasDigest(), untouched, `the ${snippet.id} snippet changed nothing`);
+		}
+	});
+
+	test('a broken snippet reports and leaves the picture alone', async () => {
+		// Half-finished is a snippet's normal state, so a failure has to be a
+		// message rather than a blank canvas - otherwise the error text is the only
+		// feedback there is, and you lose the thing you were comparing against.
+		await enterCodeMode();
+		await setSnippet('return new Pipeline([new Invert()]);');
+		const working = await canvasDigest();
+
+		await setSnippet('return new NoSuchFilter();');
+		assert.match(await snippetError(), /ReferenceError/);
+		assert.equal(await canvasDigest(), working, 'a failed run threw the picture away');
+
+		// the two half-written states that are not exceptions
+		await setSnippet('new Invert();');
+		assert.match(await snippetError(), /Nothing was returned/);
+		await setSnippet('return new Invert();');
+		assert.match(await snippetError(), /Expected a Pipeline/);
+
+		// and it recovers
+		await setSnippet('return new Pipeline([new Invert()]);');
+		assert.equal(await snippetError(), '');
+		assert.equal(await canvasDigest(), working);
+	});
+
+	test('Code mode leaves the built chain and the URL alone', async () => {
+		await open('#colours/Invert');
+		const inverted = await canvasDigest();
+		const hash = await page.evaluate(() => location.hash);
+
+		await page.click('#modeCode');
+		await page.waitForFunction(() => document.body.dataset.mode === 'code');
+		await setSnippet('return new Pipeline([new Desaturate()]);');
+		assert.notEqual(await canvasDigest(), inverted, 'the snippet did not take over the canvas');
+
+		// A snippet cannot be shared - there is no safe way to run one that arrived
+		// in a link - so the URL has to keep describing the built chain.
+		assert.equal(await page.evaluate(() => location.hash), hash, 'code mode rewrote the URL');
+
+		await page.click('#modeBuild');
+		await page.waitForFunction(() => document.body.dataset.mode === 'build');
+		assert.equal(await canvasDigest(), inverted, 'the built chain did not come back');
+		assert.deepEqual(
+			await page.$$eval('#chain li .stage-name', (els) => els.map((el) => el.textContent)),
+			['Invert']
+		);
+	});
+
+	test('the snippet buffer survives a reload', async () => {
+		await enterCodeMode();
+		await setSnippet('//a-marker-that-survives\nreturn new Pipeline([new Desaturate()]);');
+
+		await open();
+		assert.match(
+			await page.$eval('#snippet', (el) => el.value),
+			/a-marker-that-survives/,
+			'the editor came back empty'
+		);
+	});
+
 	test('nothing threw along the way', async () => {
 		assert.deepEqual(errors, []);
 		await browser.close();
