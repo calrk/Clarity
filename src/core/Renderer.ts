@@ -64,7 +64,8 @@ export interface SourceOptions {
  */
 export class Renderer {
 	readonly canvas: HTMLCanvasElement;
-	readonly pipeline: Pipeline;
+	/** The chain being rendered. Swap the whole thing with {@link use}. */
+	pipeline: Pipeline;
 
 	private context: CanvasRenderingContext2D;
 	/** Scratch canvas the source is drawn into before being read back. */
@@ -132,6 +133,33 @@ export class Renderer {
 
 	get running(): boolean {
 		return this.handle !== 0;
+	}
+
+	/**
+	 * Renders a different chain from now on, keeping the source and the loop.
+	 *
+	 * The methods above edit the chain in place, which is the right shape for a
+	 * UI where a chain is *assembled*. It is the wrong shape for one where a
+	 * chain arrives whole - built by a caller, or returned from a snippet - and
+	 * there was no way to hand one over: `add` cannot reproduce a stage's second
+	 * input, because {@link Pipeline.filters} lists filters and not the frames
+	 * wired alongside them.
+	 *
+	 * The old pipeline is **not** disposed. It may be shared, and it may be
+	 * about to be swapped back in; both are the caller's business. What is
+	 * disposed of here is only the cached frames of the incoming one, since it
+	 * has not seen this source.
+	 */
+	use(pipeline: Pipeline): this {
+		if (pipeline === this.pipeline) {
+			return this;
+		}
+
+		this.pipeline = pipeline;
+		//It may have run against something else entirely, and it has certainly
+		//never seen this source object.
+		pipeline.invalidate();
+		return this;
 	}
 
 	source(input: RenderSource, options: SourceOptions = {}): this {

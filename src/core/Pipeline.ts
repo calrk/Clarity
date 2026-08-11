@@ -99,17 +99,26 @@ export class Pipeline {
 	private structureDirty = true;
 
 	/** null when GPU is switched off, or when WebGL2 could not be had. */
-	private backend: GLBackend | null = null;
+	private glBackend: GLBackend | null = null;
 	private gpuWanted: boolean;
 	private backendTried = false;
+	/**
+	 * Whether the backend came from somewhere else, and so is not ours to
+	 * destroy. A browser allows only a handful of live WebGL contexts, so
+	 * sharing one is the sane thing for several pipelines on a page to do - but
+	 * it means {@link dispose} must release only what it created, or the first
+	 * branch to be thrown away takes the others down with it.
+	 */
+	private borrowedBackend = false;
 
 	stats: PipelineStats = emptyStats();
 
 	constructor(filters: Filter[] = [], options: PipelineOptions = {}) {
 		this.gpuWanted = options.gpu !== false;
 		if (options.backend) {
-			this.backend = options.backend;
+			this.glBackend = options.backend;
 			this.backendTried = true;
+			this.borrowedBackend = true;
 		}
 		for (const filter of filters) {
 			this.add(filter);
@@ -122,26 +131,32 @@ export class Pipeline {
 	 * Deferred rather than built in the constructor so that constructing a
 	 * Pipeline never touches WebGL - a headless caller, or a test, should not
 	 * pay for a GL context it will not use.
+	 *
+	 * Public so that a second pipeline can be built against the same context
+	 * rather than opening another. Reading it *creates* the context, which is
+	 * the point - a caller asking to share one is a caller that has decided it
+	 * wants the GPU. Pass the result as {@link PipelineOptions.backend}, and the
+	 * borrower will leave it alone when it is disposed.
 	 */
-	private get gl(): GLBackend | null {
+	get backend(): GLBackend | null {
 		if (!this.gpuWanted) {
 			return null;
 		}
 		if (!this.backendTried) {
 			this.backendTried = true;
-			this.backend = GLBackend.create();
+			this.glBackend = GLBackend.create();
 		}
-		if (this.backend?.lost) {
+		if (this.glBackend?.lost) {
 			//A lost context cannot be recovered by using it harder. Drop to the CPU
 			//and stay there rather than producing black frames.
-			this.backend = null;
+			this.glBackend = null;
 		}
-		return this.backend;
+		return this.glBackend;
 	}
 
 	/** Whether shaders will actually be used. */
 	get usingGPU(): boolean {
-		return this.gl !== null;
+		return this.backend !== null;
 	}
 
 	/**
@@ -240,10 +255,19 @@ export class Pipeline {
 		return this;
 	}
 
-	/** Releases the GL context. Safe to call on a CPU-only pipeline. */
+	/**
+	 * Releases the GL context. Safe to call on a CPU-only pipeline.
+	 *
+	 * A *borrowed* backend is left running, because whoever lent it is still
+	 * using it. Reading `this.glBackend` directly rather than the getter, so
+	 * disposing a pipeline that never touched the GPU does not open a context in
+	 * order to close it.
+	 */
 	dispose(): void {
-		this.backend?.dispose();
-		this.backend = null;
+		if (!this.borrowedBackend) {
+			this.glBackend?.dispose();
+		}
+		this.glBackend = null;
 		this.invalidate();
 	}
 
@@ -256,7 +280,7 @@ export class Pipeline {
 	 * cheap.
 	 */
 	run(source: ImageData): ImageData {
-		const backend = this.gl;
+		const backend = this.backend;
 		this.dropStaleHistory(backend);
 		const from = this.firstStaleStage(source, backend);
 		const timings = new Array<number>(this.stages.length).fill(0);

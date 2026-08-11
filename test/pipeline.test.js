@@ -487,3 +487,32 @@ test('but a filter still forgets when it, or the chain, changes', () => {
 	pipeline.run(makeFrame());
 	assert.equal(ghoster.frames.length, 1, 'editing the chain restarts it too');
 });
+
+test('a borrowed backend is not disposed by the borrower', () => {
+	// A browser allows only a handful of live WebGL contexts, so several
+	// pipelines on one page share. Sharing is only safe if the first branch to
+	// be thrown away leaves the context alone - otherwise disposing a nested
+	// pipeline takes down the one that lent it.
+	//
+	// No WebGL in Node, so the backend is a stand-in. What is being tested is
+	// the ownership rule, which is pure bookkeeping.
+	let disposed = 0;
+	const shared = { lost: false, dispose: () => disposed++ };
+
+	const borrower = new CLARITY.Pipeline([], { backend: shared });
+	borrower.dispose();
+	assert.equal(disposed, 0, 'the borrower disposed a context it did not create');
+
+	// and the lender still can
+	shared.dispose();
+	assert.equal(disposed, 1);
+});
+
+test('a pipeline given no backend still owns the one it makes', () => {
+	// The other half of the rule. Without WebGL there is nothing to create, so
+	// this asserts the flag rather than the disposal: a pipeline that was never
+	// lent anything must not think it borrowed.
+	const own = new CLARITY.Pipeline([], { gpu: false });
+	assert.doesNotThrow(() => own.dispose());
+	assert.equal(own.usingGPU, false);
+});
