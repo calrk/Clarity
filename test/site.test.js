@@ -651,6 +651,9 @@ if (!existsSync(join(dist, 'index.html'))) {
 
 	const snippetError = () => page.$eval('#snippetError', (el) => (el.hidden ? '' : el.textContent));
 
+	/** Whether an element takes up space, hidden by itself or by an ancestor. */
+	const isVisible = (selector) => page.$eval(selector, (el) => el.getClientRects().length > 0);
+
 	const enterCodeMode = async (hash = '') => {
 		await open(hash);
 		await page.click('#modeCode');
@@ -667,9 +670,45 @@ if (!existsSync(join(dist, 'index.html'))) {
 
 		// The palette and the chain list are for assembling a chain, which is the
 		// one thing this mode does not do.
-		assert.equal(await page.$eval('#palettePanel', (el) => getComputedStyle(el).display), 'none');
-		assert.equal(await page.$eval('#chainPanel', (el) => getComputedStyle(el).display), 'none');
-		assert.notEqual(await page.$eval('#codePanel', (el) => getComputedStyle(el).display), 'none');
+		//
+		// Asked as "does this occupy space" rather than by reading `display`,
+		// because an element inside a hidden parent still computes its own display
+		// - so the property answers yes for a panel nobody can see.
+		assert.equal(await isVisible('#palettePanel'), false, 'the palette is still showing');
+		assert.equal(await isVisible('#chainPanel'), false, 'the chain list is still showing');
+		assert.equal(await isVisible('#codePanel'), true, 'the editor is not showing');
+	});
+
+	test('Code mode is two halves, with the sources above the editor', async () => {
+		// The layout is the feature here, so it is worth pinning: a snippet and the
+		// picture it produces are read together, and neither belongs in a 274px
+		// rail. Needs a wide viewport - the page stacks to one column below 1100px,
+		// and the tests otherwise run at the default 800.
+		const original = page.viewport();
+		await page.setViewport({ width: 1600, height: 1000 });
+		try {
+			await enterCodeMode();
+
+			const box = (selector) =>
+				page.$eval(selector, (el) => {
+					const { x, right, width, y } = el.getBoundingClientRect();
+					return { x, right, width, y };
+				});
+
+			const code = await box('#codePanel');
+			const stage = await box('.stage');
+			const sources = await box('.rail-left');
+
+			assert.ok(code.right <= stage.x + 1, 'the snippet should be left of the picture');
+			assert.ok(sources.right <= stage.x + 1, 'the sources belong in the left half too');
+			assert.ok(sources.y + 1 < code.y, 'the sources should sit above the editor');
+			assert.ok(
+				Math.abs(code.width - stage.width) < 40,
+				`the halves should be even, got ${Math.round(code.width)} and ${Math.round(stage.width)}`
+			);
+		} finally {
+			await page.setViewport(original ?? { width: 800, height: 600 });
+		}
 	});
 
 	test('every shipped snippet compiles and changes the picture', async () => {

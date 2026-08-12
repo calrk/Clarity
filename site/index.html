@@ -140,28 +140,29 @@
 			<button class="ghost small wide" id="copyLink" type="button">Copy shareable link</button>
 		</section>
 
-		<!--
-			Code mode. Nothing here is shareable by design: a link that runs a
-			stranger's JavaScript needs a sandboxed frame to be safe, and the buffer
-			is worth having long before that is. It persists in localStorage, so it
-			survives a reload but goes no further than this browser.
-		-->
-		<section class="panel grow" id="codePanel">
-			<div class="panel-head">
-				<h2>Snippet</h2>
-				<select class="ghost small" id="snippetPicker" aria-label="Load an example snippet">
-					<option value="">Examples&hellip;</option>
-				</select>
-			</div>
-			<textarea class="editor" id="snippet" spellcheck="false" autocomplete="off" autocapitalize="off"
-				aria-label="Pipeline snippet"></textarea>
-			<p class="snippet-error" id="snippetError" role="alert" hidden></p>
-			<div class="snippet-actions">
-				<button class="ghost small" id="runSnippet" type="button">Run <kbd>Ctrl</kbd>+<kbd>&crarr;</kbd></button>
-				<button class="ghost small" id="resetSnippet" type="button">Reset</button>
-			</div>
-		</section>
 	</aside>
+
+	<!--
+		Code mode. Nothing here is shareable by design: a link that runs a
+		stranger's JavaScript needs a sandboxed frame to be safe, and the buffer
+		is worth having long before that is. It persists in localStorage, so it
+		survives a reload but goes no further than this browser.
+	-->
+	<section class="panel grow" id="codePanel">
+		<div class="panel-head">
+			<h2>Snippet</h2>
+			<select class="ghost small" id="snippetPicker" aria-label="Load an example snippet">
+				<option value="">Examples&hellip;</option>
+			</select>
+		</div>
+		<textarea class="editor" id="snippet" spellcheck="false" autocomplete="off" autocapitalize="off"
+			aria-label="Pipeline snippet"></textarea>
+		<p class="snippet-error" id="snippetError" role="alert" hidden></p>
+		<div class="snippet-actions">
+			<button class="ghost small" id="runSnippet" type="button">Run <kbd>Ctrl</kbd>+<kbd>&crarr;</kbd></button>
+			<button class="ghost small" id="resetSnippet" type="button">Reset</button>
+		</div>
+	</section>
 
 </main>
 

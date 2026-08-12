@@ -646,12 +646,86 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 	color: var(--accent);
 }
 
-/* The palette is for dragging filters in, which code mode does not do. */
+/* The palette and the chain list assemble a chain, which code mode does not. */
 body[data-mode='code'] #palettePanel,
-body[data-mode='code'] #chainPanel,
-body[data-mode='code'] #codeOutPanel { display: none; }
+body[data-mode='code'] .rail-right { display: none; }
 
 body[data-mode='build'] #codePanel { display: none; }
+
+/*
+ * Code mode is two halves rather than three columns: you are reading the
+ * snippet and the picture together, and neither wants to be a 274px rail.
+ *
+ * `#codePanel` is a child of `.app` rather than of a rail for exactly this -
+ * it has to sit under the sources in the left half, and a grid can only place
+ * its own children. In build mode it is simply hidden.
+ *
+ * The sources keep the top-left cell because they belong to both modes; the
+ * stage spans both rows so the picture is the full height of the page.
+ */
+body[data-mode='code'] .app {
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
+	align-items: stretch;
+	min-height: calc(100vh - 96px);
+}
+
+body[data-mode='code'] .rail-left {
+	grid-column: 1;
+	grid-row: 1;
+	/* a single auto-height panel, so the rail's sticky scroll box is wrong here */
+	position: static;
+	max-height: none;
+}
+
+body[data-mode='code'] #codePanel {
+	grid-column: 1;
+	grid-row: 2;
+	min-height: 0;
+}
+
+body[data-mode='code'] .stage {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+}
+
+/* the stage is a flex column, so the picture has to be told to take the slack */
+body[data-mode='code'] .stage .viewport { flex: 1 1 auto; }
+
+/*
+ * One long row instead of the three-across grid. The rail made a 3-column grid
+ * the right answer; half a page makes it a lot of very wide thumbnails, so they
+ * take a fixed width and the row scrolls when it runs out.
+ */
+body[data-mode='code'] .sources {
+	grid-template-columns: none;
+	grid-auto-flow: column;
+	grid-auto-columns: 88px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	padding-bottom: .3rem;
+}
+
+/* and the drop zone stops being a target the size of a panel */
+body[data-mode='code'] .dropzone { padding: .4rem; font-size: .74rem; }
+
+@media (max-width: 1100px) {
+	/* the single-column stack already answers this; do not fight it */
+	body[data-mode='code'] .app {
+		grid-template-columns: 1fr;
+		grid-template-rows: none;
+		min-height: 0;
+	}
+	body[data-mode='code'] .rail-left,
+	body[data-mode='code'] #codePanel,
+	body[data-mode='code'] .stage {
+		grid-column: auto;
+		grid-row: auto;
+	}
+	body[data-mode='code'] .rail-left { order: 1; }
+	body[data-mode='code'] .stage { order: 2; }
+	body[data-mode='code'] #codePanel { order: 3; }
+}
 
 /* ---------- the editor ---------- */
 
