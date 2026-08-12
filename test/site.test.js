@@ -654,6 +654,16 @@ if (!existsSync(join(dist, 'index.html'))) {
 	/** Whether an element takes up space, hidden by itself or by an ancestor. */
 	const isVisible = (selector) => page.$eval(selector, (el) => el.getClientRects().length > 0);
 
+	/** Switches source in the page, without the reload that `open` does. */
+	const chooseSource = async (id) => {
+		await page.click(`#sources button[data-id="${id}"]`);
+		await page.waitForFunction(
+			(wanted) => document.querySelector('#sources button[aria-pressed="true"]')?.dataset.id === wanted,
+			{},
+			id
+		);
+	};
+
 	const enterCodeMode = async (hash = '') => {
 		await open(hash);
 		await page.click('#modeCode');
@@ -728,6 +738,37 @@ if (!existsSync(join(dist, 'index.html'))) {
 		}
 	});
 
+	test('a snippet declares its own Renderer, and re-running starts clean', async () => {
+		// The form the README opens with, and the one the Build tab's Code panel
+		// prints - which the panel would not previously accept.
+		await enterCodeMode();
+
+		const stageCount = () => page.$eval('#mStages', (el) => Number(el.textContent.split(' ')[0]));
+		const declared = [
+			'const renderer = new Renderer(canvas)',
+			'  .source(image)',
+			'  .add(new Invert())',
+			'  .add(new Desaturate());',
+			'return renderer;'
+		].join('\n');
+
+		await setSnippet(declared);
+		assert.equal(await snippetError(), '', 'the canonical form did not run');
+		assert.equal(await stageCount(), 2);
+
+		// `new Renderer` hands back the page's renderer rather than a second one,
+		// so a fresh pipeline per construction is the only thing stopping the chain
+		// growing every time Run is pressed.
+		await setSnippet(declared);
+		assert.equal(await stageCount(), 2, 'the chain grew when the snippet was re-run');
+
+		// and it really is the page's renderer, not a detached one drawing nowhere
+		assert.equal(
+			await page.evaluate(() => document.getElementById('canvas').width > 0),
+			true
+		);
+	});
+
 	test('a broken snippet reports and leaves the picture alone', async () => {
 		// Half-finished is a snippet's normal state, so a failure has to be a
 		// message rather than a blank canvas - otherwise the error text is the only
@@ -740,11 +781,31 @@ if (!existsSync(join(dist, 'index.html'))) {
 		assert.match(await snippetError(), /ReferenceError/);
 		assert.equal(await canvasDigest(), working, 'a failed run threw the picture away');
 
+		// The harder half: `new Renderer(...)` points the page at a fresh chain as
+		// it is constructed, so a snippet that gets part way and then throws has
+		// already replaced the chain by the time it fails. Failing above only
+		// works because nothing was built before the throw.
+		await setSnippet(
+			'new Renderer(canvas).source(image).add(new Blur({ radius: 6 }));\nthrow new Error("half way");'
+		);
+		assert.match(await snippetError(), /half way/);
+
+		// Comparing the canvas here would prove nothing: a failed run does not
+		// repaint, so a half-built chain sitting in the renderer looks identical
+		// until something asks for a frame. The bug is met on the *next* render -
+		// type something broken, click a different picture, and find a chain you
+		// never asked for. So force one.
+		await chooseSource('face');
+		await chooseSource('landscape');
+		assert.equal(await canvasDigest(), working, 'a half-built chain survived into the next render');
+
 		// the two half-written states that are not exceptions
 		await setSnippet('new Invert();');
 		assert.match(await snippetError(), /Nothing was returned/);
+		// returning the last filter is the likeliest of these, because `add` looks
+		// like it ought to hand one back
 		await setSnippet('return new Invert();');
-		assert.match(await snippetError(), /Expected a Pipeline/);
+		assert.match(await snippetError(), /Expected a Renderer or a Pipeline, got an Invert filter/);
 
 		// and it recovers
 		await setSnippet('return new Pipeline([new Invert()]);');

@@ -10,7 +10,7 @@ import * as CLARITY from '@calrk/clarity';
 import { CATALOGUE, CATEGORY_ORDER, Pipeline, Renderer, TRAITS } from '@calrk/clarity';
 
 import { createChainView, isDualInput } from './chain.js';
-import { bindPipeline, buildScope, loadBuffer, runSnippet, saveBuffer } from './code.js';
+import { bindPipeline, bindRenderer, buildScope, loadBuffer, runSnippet, saveBuffer } from './code.js';
 import { PRESETS } from './presets.js';
 import { readHash, writeHash } from './share.js';
 import { DEFAULT_SNIPPET, SNIPPETS } from './snippets.js';
@@ -792,15 +792,34 @@ async function loadFromHash() {
 // ---------------------------------------------------------------- code mode
 
 /**
- * Options every Pipeline a snippet builds is constructed with.
+ * A Pipeline sharing this page's one GL context.
  *
- * Read fresh each time rather than captured, so a snippet run after the backend
- * badge is clicked gets the current answer. Sharing the backend is what stops
- * each run - and each branch inside a run - opening its own WebGL context.
+ * The options are read fresh on every construction rather than captured, so a
+ * snippet run after the backend badge is clicked gets the current answer.
+ * Sharing the backend is what stops each run - and each branch inside a run -
+ * opening its own WebGL context.
  */
-const scope = buildScope(
-	bindPipeline(() => ({ backend: buildPipeline.backend, gpu: gpuWanted }))
-);
+const ScopedPipeline = bindPipeline(() => ({
+	backend: buildPipeline.backend,
+	gpu: gpuWanted
+}));
+
+const ScopedRenderer = bindRenderer(renderer, ScopedPipeline);
+
+/**
+ * What a snippet can see, rebuilt per run.
+ *
+ * `image` is whatever source is selected right now, so it cannot be captured
+ * once - and building the scope is a few dozen property reads against a run
+ * that is about to compile and execute JavaScript, so there is nothing to save
+ * by being clever about it.
+ */
+function currentScope() {
+	return buildScope(ScopedPipeline, ScopedRenderer, {
+		canvas: $('canvas'),
+		image: currentElement ?? renderer.sourceFrame
+	});
+}
 
 function buildSnippetList() {
 	const picker = $('snippetPicker');
@@ -832,12 +851,22 @@ function runCode() {
 	const source = $('snippet').value;
 	saveBuffer(source);
 
-	const result = runSnippet(source, scope);
+	//`new Renderer(...)` points the page at a fresh chain as it is constructed,
+	//so a snippet that throws half way through has already replaced what was on
+	//screen with whatever it managed to build. Remembering the chain lets a
+	//failure put the last working picture back.
+	const before = renderer.pipeline;
+	const result = runSnippet(source, currentScope());
 	const error = $('snippetError');
 
 	if (result.error) {
 		error.hidden = false;
 		error.textContent = result.error;
+		if (renderer.pipeline !== before) {
+			renderer.pipeline.dispose();
+			renderer.use(before);
+			requestFrame();
+		}
 		return false;
 	}
 
@@ -846,7 +875,13 @@ function runCode() {
 
 	const previous = codePipeline;
 	codePipeline = result.pipeline;
-	codePipeline.gpu = gpuWanted;
+	//`gpu` is not forced here: the binding already applies the page's preference
+	//as a default, and overwriting it would silently undo a snippet that asked
+	//for `{ gpu: false }` on purpose. The badge still overrides, because that is
+	//somebody deciding rather than a default being applied.
+	//
+	//a no-op when the snippet declared a Renderer, since that wired it up as it
+	//was constructed - and the whole job when it returned a bare Pipeline
 	renderer.use(codePipeline);
 
 	//`use` deliberately leaves the outgoing chain alone, because it cannot know
@@ -883,7 +918,7 @@ function setMode(next) {
 	if (!runCode()) {
 		//the snippet is broken, so there is nothing to render - but the canvas is
 		//still showing the built chain, which would be a lie about what is running
-		renderer.use(codePipeline ?? new CLARITY.Pipeline([], { gpu: gpuWanted }));
+		renderer.use(codePipeline ?? new ScopedPipeline());
 		requestFrame();
 	}
 }

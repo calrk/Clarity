@@ -30,7 +30,7 @@ const STORAGE_KEY = 'clarity:snippet';
  *
  * `Pipeline` is the one thing that is *not* the library's own. See below.
  */
-export function buildScope(Pipeline, extras = {}) {
+export function buildScope(Pipeline, Renderer, extras = {}) {
 	const scope = {};
 
 	for (const [name, constructor] of Object.entries(FILTERS)) {
@@ -45,9 +45,8 @@ export function buildScope(Pipeline, extras = {}) {
 	return {
 		...scope,
 		Pipeline,
-		//The handful of non-filter exports a snippet has a use for. Renderer is
-		//deliberately absent: the harness owns the canvas and the frame loop, and
-		//a second one drawing to nothing is a confusing thing to be able to make.
+		Renderer,
+		//The handful of non-filter exports a snippet has a use for.
 		CLARITY,
 		Operations: CLARITY.Operations,
 		Pixel: CLARITY.Pixel,
@@ -92,6 +91,37 @@ export function bindPipeline(defaults) {
 }
 
 /**
+ * `new Renderer(canvas)`, wired to the one this page is already driving.
+ *
+ * The point of the panel is that a snippet is the code you would write in an
+ * application, and in an application you declare a Renderer - it is the first
+ * line of the README and of the snippet the Build tab prints. Requiring a bare
+ * Pipeline instead made the playground print a form it would not accept.
+ *
+ * So the snippet gets to write that line, and what it gets back is the page's
+ * renderer rather than a second one. A real second Renderer over the same
+ * canvas would be two frame loops fighting over one 2d context, and the source
+ * list, the readout and the benchmark all reach for a specific instance -
+ * pointing them at a different object on every run is a lot of moving parts for
+ * a difference nobody can see.
+ *
+ * A plain function rather than a class because `new` on a function that returns
+ * an object hands back that object, so both `new Renderer(canvas)` and
+ * `Renderer()` do the same sensible thing.
+ *
+ * The `target` argument is accepted and ignored: there is one canvas on the
+ * page, and drawing to another would draw to nothing.
+ */
+export function bindRenderer(page, Pipeline) {
+	return function Renderer(_target, options = {}) {
+		//A fresh chain per construction, so re-running a snippet starts clean
+		//rather than appending to what the last run left behind.
+		page.use(new Pipeline([], options));
+		return page;
+	};
+}
+
+/**
  * Runs a snippet and hands back the Pipeline it returned.
  *
  * Never throws: a snippet is a thing being written, so being half-finished is
@@ -121,16 +151,30 @@ export function runSnippet(source, scope) {
 
 	if (result === undefined) {
 		return {
-			error: 'Nothing was returned. End the snippet with `return` and a Pipeline.'
-		};
-	}
-	if (!(result instanceof CLARITY.Pipeline)) {
-		return {
-			error: `Expected a Pipeline, got ${label(result)}. Filters go inside one: \`return new Pipeline([ ... ])\`.`
+			error: 'Nothing was returned. End the snippet with `return renderer;`.'
 		};
 	}
 
-	return { pipeline: result };
+	//Both shapes are accepted, and normalised to the chain, because that is the
+	//only thing the caller has to do anything with. A Renderer has already wired
+	//itself up on the way past - see bindRenderer - so this is really asking
+	//"which chain did the snippet end up describing".
+	//
+	//Forgiving in the reading direction on purpose, the way parseChain is: a bare
+	//Pipeline is a perfectly clear thing to have written, and refusing it would
+	//be pedantry rather than a rule anyone benefits from.
+	if (result instanceof CLARITY.Renderer) {
+		return { pipeline: result.pipeline };
+	}
+	if (result instanceof CLARITY.Pipeline) {
+		return { pipeline: result };
+	}
+
+	return {
+		error:
+			`Expected a Renderer or a Pipeline, got ${label(result)}. ` +
+			'A snippet ends with `return renderer;`.'
+	};
 }
 
 function describe(error) {
@@ -145,7 +189,12 @@ function describe(error) {
 function label(value) {
 	if (value === null) return 'null';
 	if (Array.isArray(value)) return 'an array';
-	if (value instanceof CLARITY.Filter) return `a ${value.constructor.name} filter`;
+	//the likeliest mistake by a distance: returning the last filter, because
+	//`add` looks like it should hand one back the way `push` does not
+	if (value instanceof CLARITY.Filter) {
+		const name = value.constructor.name;
+		return `${/^[AEIOU]/i.test(name) ? 'an' : 'a'} ${name} filter`;
+	}
 	return typeof value;
 }
 
