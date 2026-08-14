@@ -326,6 +326,13 @@ export const cases = [
 	{ filter: 'Mask', input: ['photo', 'second'], options: {}, gpu: BOUNDARY },
 	{ filter: 'Mask', name: 'inverted', input: ['photo', 'second'], options: { inverted: true }, gpu: BOUNDARY },
 	{ filter: 'Multiply', input: ['photo', 'second'], options: {}, gpu: POINTWISE },
+	// A second frame of a different size, which nothing covered - every dual-input
+	// case above pairs two 64x48 fixtures, so the two backends were free to
+	// disagree about what a mismatch meant and did. The CPU walked it by byte
+	// offset and read a row at a time out of alignment; the shader sampled by uv
+	// and stretched. `odd` is 33x25, so this pins the stretch on both.
+	{ filter: 'Multiply', name: 'mismatched', input: ['photo', 'odd'], options: {}, gpu: POINTWISE },
+	{ filter: 'Blend', name: 'mismatched', input: ['photo', 'odd'], options: { ratio: 0.5 }, gpu: POINTWISE },
 
 	// --- Misc ------------------------------------------------------------
 	{ filter: 'Brickulate', input: 'photo', options: { horizontalSegs: 4, verticalSegs: 3, grooveSize: 3 }, gpu: POINTWISE },

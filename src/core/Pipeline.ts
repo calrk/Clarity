@@ -357,6 +357,7 @@ export class Pipeline {
 
 			frame = stage.second === undefined
 				? stage.filter.process(frame)
+				//`process` matches the second frame to this one - see Filter.process
 				: stage.filter.process([frame, resolveSecond(stage.second, source)]);
 
 			timings[i] = defaultClock() - at;

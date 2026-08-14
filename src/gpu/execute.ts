@@ -1,5 +1,6 @@
 import { GLBackend, COPY_PASS, REDUCE_STEP, uniformsFor } from './GLBackend.js';
 import type { ShaderPass, Target } from './GLBackend.js';
+import { resampleTo } from '../core/imagedata.js';
 import type { Filter } from '../core/Filter.js';
 
 /** One stage of a chain, as the executor sees it. */
@@ -133,7 +134,11 @@ export function executeChain(
 		toGPU();
 
 		const uniforms = uniformsFor(filter);
-		const secondTexture = second ? backend.uploadSecond(second) : null;
+		//Matched to the working frame before it is uploaded, so `texture(uSrc2, uv)`
+		//is an exact one-to-one sample rather than a stretch the CPU has to imitate.
+		//Sizes are checked per stage rather than once for the run, because a filter
+		//with an `outputSize` changes them part way through one.
+		const secondTexture = second ? backend.uploadSecond(resampleTo(second, width, height)) : null;
 		const originalTexture = keepOriginal(backend, passes!, gpuTarget ? gpuTarget.texture : gpuTexture!, width, height);
 		const { width: outWidth, height: outHeight } =
 			(filter.constructor as typeof Filter).outputSize(filter, width, height);

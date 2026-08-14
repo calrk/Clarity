@@ -1,5 +1,6 @@
 import { defaultClock } from './random.js';
 import { seedFrom } from '../helpers/hash.js';
+import { resampleTo } from './imagedata.js';
 import { coerceValue } from './schema.js';
 import type { Clock, RandomSource } from './random.js';
 import type { FilterSchema, PropertyValue } from './schema.js';
@@ -279,7 +280,23 @@ export class Filter {
 			if (!this.enabled) {
 				return frame[0];
 			}
-			return this.doProcess(frame[0], frame[1]);
+			//The second frame is a different picture and nothing makes the two agree
+			//about size. Every `doProcess` below walks it by byte offset, which for a
+			//frame of another width reads a row at a time out of alignment - and off
+			//the end of a smaller one, where an undefined lands in a
+			//Uint8ClampedArray as 0. Two pure white frames multiplied together came
+			//out three quarters black.
+			//
+			//The shader has always sampled it by normalised uv, so it stretched to
+			//fit, which is the answer someone compositing two pictures wants. Doing
+			//it here rather than in six filters means the CPU has one implementation
+			//of that rather than six, and this is the choke point every caller goes
+			//through - including anyone using a filter on its own, away from a
+			//Pipeline. Free when the sizes already match.
+			return this.doProcess(
+				frame[0],
+				frame[1] && resampleTo(frame[1], frame[0].width, frame[0].height)
+			);
 		}
 
 		if (!this.enabled) {

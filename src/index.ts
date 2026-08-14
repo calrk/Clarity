@@ -7,7 +7,7 @@
 
 export { Filter } from './core/Filter.js';
 export type { FilterOptions, FilterProperties, Channel } from './core/Filter.js';
-export { createImageData, cloneImageData, fillAlpha, setImageDataFactory } from './core/imagedata.js';
+export { createImageData, cloneImageData, fillAlpha, resampleTo, setImageDataFactory } from './core/imagedata.js';
 export { Pipeline } from './core/Pipeline.js';
 export type { PipelineStats, StageOptions, SecondInput, PipelineOptions } from './core/Pipeline.js';
 export { Renderer } from './core/Renderer.js';
