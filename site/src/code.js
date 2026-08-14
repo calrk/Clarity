@@ -60,6 +60,7 @@ export function buildScope(Pipeline, Renderer, extras = {}) {
 		//so a chain string from the Build tab can be dropped straight in
 		buildChain: CLARITY.buildChain,
 		CATALOGUE: CLARITY.CATALOGUE,
+		frameOf,
 		...extras
 	};
 }
@@ -88,6 +89,48 @@ export function bindPipeline(defaults) {
 			super(filters, { ...defaults(), ...options });
 		}
 	};
+}
+
+/**
+ * Any source as an ImageData, whatever it started as.
+ *
+ * The second input of a two-input filter has to be pixels. A still already is
+ * one; a video or a webcam is an element with a *current* frame, so it has to
+ * be drawn and read back, and the answer is only good for as long as the frame
+ * on screen. That is why a live source belongs in a function - `{ second: () =>
+ * frameOf(video) }` re-reads it every render where `{ second: frameOf(video) }`
+ * freezes the moment you pressed Run. Both are legitimate; the difference is
+ * worth being able to say.
+ *
+ * One scratch canvas for the module rather than one per call: allocating a
+ * canvas per frame is how you make a compositing chain stutter.
+ */
+let scratch = null;
+
+export function frameOf(input) {
+	if (!input) {
+		throw new Error('frameOf() needs an image, a video, a canvas or an ImageData');
+	}
+	//already pixels - including anything from `samples`, which is the common case
+	if (typeof input.data === 'object' && typeof input.width === 'number') {
+		return input;
+	}
+
+	const width = input.naturalWidth ?? input.videoWidth ?? input.width;
+	const height = input.naturalHeight ?? input.videoHeight ?? input.height;
+	if (!width || !height) {
+		//a video before its metadata arrives, which is a wait rather than a fault
+		throw new Error('that source has no frame yet - it may still be loading');
+	}
+
+	scratch ??= document.createElement('canvas');
+	const context = scratch.getContext('2d', { willReadFrequently: true });
+	if (scratch.width !== width || scratch.height !== height) {
+		scratch.width = width;
+		scratch.height = height;
+	}
+	context.drawImage(input, 0, 0);
+	return context.getImageData(0, 0, width, height);
 }
 
 /**

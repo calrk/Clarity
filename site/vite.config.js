@@ -16,6 +16,13 @@ export default defineConfig({
 	// bakes the metadata a crawler needs into index.html, from the same
 	// catalogue the palette is built from - see site/seo.js
 	plugins: [seo()],
+	server: {
+		//5173 is Vite's default and so is whatever else is already running;
+		//strictPort because the point of pinning it is knowing where the
+		//playground is, and silently hopping to 5175 gives that back up
+		port: 5174,
+		strictPort: true
+	},
 	resolve: {
 		alias: {
 			'@calrk/clarity': fileURLToPath(new URL('../src/index.ts', import.meta.url))

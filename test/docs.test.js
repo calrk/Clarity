@@ -18,6 +18,28 @@ import * as CLARITY from '../dist/clarity.js';
 
 const SOURCES_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'site', 'src', 'sources.js');
 
+const UNITS = [
+	'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+	'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+	'seventeen', 'eighteen', 'nineteen'
+];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+/**
+ * A number as the README writes it.
+ *
+ * The prose spells counts out and the table gives them as digits, so a check on
+ * one form does not cover the other - which is how the headline sat five
+ * filters behind while the table below it stayed correct.
+ */
+function inWords(n) {
+	if (n < 20) {
+		return UNITS[n];
+	}
+	const unit = n % 10;
+	return unit ? `${TENS[Math.floor(n / 10)]}-${UNITS[unit]}` : TENS[n / 10];
+}
+
 test('docs/FILTERS.md is up to date', () => {
 	assert.ok(existsSync(DOCS_PATH), 'run `npm run docs`');
 	assert.equal(
@@ -137,6 +159,20 @@ test("the README's filter table has not fallen behind", () => {
 	assert.equal(Number(counted[1]), names.length, 'the README\'s filter count is stale');
 
 	const families = new Set(names.map((name) => CLARITY.CATALOGUE[name].category));
-	const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
-	assert.equal(counted[2], words[families.size], 'the README\'s family count is stale');
+	assert.equal(counted[2], inWords(families.size), 'the README\'s family count is stale');
+});
+
+test("the README's opening sentence still counts the filters correctly", () => {
+	// The first line of the README is the one number everybody reads and the one
+	// furthest from the list it describes - the table at the bottom was being
+	// kept up to date by the test above while the headline quietly went five
+	// behind. Spelled out rather than in digits, so it needs its own check.
+	const readme = readFileSync('README.md', 'utf8');
+	const opening = /^(\S+) composable image filters/m.exec(readme);
+	assert.ok(opening, 'the README no longer opens by saying how many filters there are');
+	assert.equal(
+		opening[1].toLowerCase(),
+		inWords(Object.keys(CLARITY.CATALOGUE).length),
+		'the README\'s opening filter count is stale'
+	);
 });

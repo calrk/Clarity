@@ -1,7 +1,7 @@
 Clarity
 =======
 
-Fifty-two composable image filters for canvas — blur, edge detection, chromatic
+Fifty-seven composable image filters for canvas — blur, edge detection, chromatic
 aberration, posterising, normal maps, motion detection — running as fragment
 shaders by default, with a CPU implementation of every one of them behind it.
 

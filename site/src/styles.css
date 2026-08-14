@@ -190,6 +190,50 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 
 .sources { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
 
+/* A source and its insert control, which cannot be nested inside it. */
+.tile { position: relative; display: grid; min-width: 0; }
+.tile .source { width: 100%; }
+
+/*
+ * Build mode has nowhere to insert into, so the control is not merely hidden -
+ * it is not reachable by keyboard either.
+ */
+body[data-mode='build'] .tile-insert { display: none; }
+
+.tile-insert {
+	position: absolute;
+	top: .2rem;
+	right: .2rem;
+	z-index: 1;
+	width: 1.15rem;
+	height: 1.15rem;
+	padding: 0;
+	display: grid;
+	place-items: center;
+	border: 0;
+	border-radius: var(--radius-sm);
+	background: rgb(0 0 0 / 55%);
+	color: #fff;
+	font-size: .8rem;
+	line-height: 1;
+	cursor: pointer;
+	/*
+	 * Showing rather than revealed on hover. It was hover-only, which is the
+	 * usual instinct for a control sitting on a thumbnail - and wrong here,
+	 * because the whole value of this button is telling you that you *can* refer
+	 * to a second picture. A feature nobody knows about is not worth the pixels
+	 * it saves, and hover does not exist on touch anyway.
+	 */
+	opacity: .72;
+	transition: opacity .12s, background .12s;
+}
+
+.tile:hover .tile-insert,
+.tile-insert:hover,
+.tile-insert:focus-visible { opacity: 1; }
+.tile-insert:hover { background: var(--accent); }
+.tile-insert:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 .source {
 	position: relative;
 	appearance: none;

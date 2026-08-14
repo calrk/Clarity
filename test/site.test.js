@@ -108,10 +108,21 @@ if (!existsSync(join(dist, 'index.html'))) {
 		// from a video to a still occasionally measured the tail of the video.
 		const wanted = hash.replace(/^#/, '').split('/')[0];
 		await page.waitForFunction((id) => {
-			const buttons = document.querySelectorAll('#sources button');
+			const buttons = document.querySelectorAll('#sources button.source');
 			const expected = id || buttons[0]?.dataset.id;
 			return document.querySelector('#sources button[aria-pressed="true"]')?.dataset.id === expected;
 		}, {}, wanted);
+
+		// And back to the Build tab. A hash-only change is a same-document
+		// navigation - the reason for the wait above - so nothing reloads and the
+		// panel mode survives `open` too. Every test below this line assumes the
+		// built chain is the one on screen, and leaving that to depend on whatever
+		// ran before is how one of them ended up capturing a snippet's output as
+		// its reference for the built chain.
+		if ((await page.$eval('body', (el) => el.dataset.mode)) !== 'build') {
+			await page.click('#modeBuild');
+			await page.waitForFunction(() => document.body.dataset.mode === 'build');
+		}
 	};
 
 	/** The rendered canvas, as a hash, so "did the picture change" is answerable. */
@@ -506,16 +517,25 @@ if (!existsSync(join(dist, 'index.html'))) {
 	});
 
 	test('a chosen file joins the source list for the session', async () => {
+		// `button.source` rather than every button in the list: each tile also
+		// carries an insert control in code mode, so a bare `#sources button`
+		// counts two per still and the count means nothing.
+		const tiles = () => page.$$eval('#sources button.source', (els) => els.length);
+
 		await open('#colours');
-		const before = await page.$$eval('#sources button', (els) => els.length);
+		const before = await tiles();
 
 		const input = await page.$('#fileInput');
 		await input.uploadFile(join(here, 'fixtures', 'photo.png'));
-		await page.waitForFunction((was) => document.querySelectorAll('#sources button').length > was, {}, before);
+		await page.waitForFunction(
+			(was) => document.querySelectorAll('#sources button.source').length > was,
+			{},
+			before
+		);
 
 		// it is selected, and - the point of the whole thing - it is still there
 		// afterwards, so you can go back to it without dropping the file again
-		const { count, pressed, label } = await page.$$eval('#sources button', (els) => ({
+		const { count, pressed, label } = await page.$$eval('#sources button.source', (els) => ({
 			count: els.length,
 			pressed: els.filter((el) => el.getAttribute('aria-pressed') === 'true').length,
 			label: els.at(-1).textContent
@@ -524,15 +544,11 @@ if (!existsSync(join(dist, 'index.html'))) {
 		assert.equal(pressed, 1);
 		assert.match(label, /photo/);
 
-		await page.evaluate(() => document.querySelector('#sources button').click());
+		await page.evaluate(() => document.querySelector('#sources button.source').click());
 		await page.waitForFunction(
-			() => document.querySelector('#sources button').getAttribute('aria-pressed') === 'true'
+			() => document.querySelector('#sources button.source').getAttribute('aria-pressed') === 'true'
 		);
-		assert.equal(
-			await page.$$eval('#sources button', (els) => els.length),
-			before + 1,
-			'switching away must not drop the file from the list'
-		);
+		assert.equal(await tiles(), before + 1, 'switching away must not drop the file from the list');
 	});
 
 	test('a filter with a caveat wears it as a chip', async () => {
@@ -811,6 +827,130 @@ if (!existsSync(join(dist, 'index.html'))) {
 		await setSnippet('return new Pipeline([new Invert()]);');
 		assert.equal(await snippetError(), '');
 		assert.equal(await canvasDigest(), working);
+	});
+
+	test('samples are in scope, so a snippet can compose two pictures', async () => {
+		// The capability the drag list cannot reach. `second` has always taken an
+		// ImageData; what was missing was any way to name a picture other than the
+		// one selected.
+		await enterCodeMode();
+
+		await setSnippet(
+			[
+				'const renderer = new Renderer(canvas)',
+				'  .source(image)',
+				'  .add(new Multiply(), { second: samples.rorschach });',
+				'return renderer;'
+			].join('\n')
+		);
+		assert.equal(await snippetError(), '', 'samples.rorschach was not reachable');
+
+		const composed = await canvasDigest();
+
+		// Against the same chain with the *source* as its second input: if both
+		// gave the same picture, `samples` would not be doing anything.
+		await setSnippet(
+			[
+				'const renderer = new Renderer(canvas)',
+				'  .source(image)',
+				'  .add(new Multiply(), { second: frameOf(image) });',
+				'return renderer;'
+			].join('\n')
+		);
+		assert.equal(await snippetError(), '', 'frameOf(image) was not reachable');
+		assert.notEqual(await canvasDigest(), composed, 'the second input made no difference');
+	});
+
+	test('a sample of a different size composes rather than tearing', async () => {
+		// `colours` is 1280x1024 against `landscape`'s 1024x1024, so this is the
+		// case that used to read the second frame a row at a time out of alignment
+		// on the CPU while the shader stretched it. Both stretch now.
+		//
+		// Multiplying a picture by *itself* is the reference: the same chain with a
+		// differently-sized second frame must still produce a full frame of pixels
+		// rather than a black band where the reads ran out.
+		await enterCodeMode();
+		await setSnippet(
+			[
+				'const renderer = new Renderer(canvas)',
+				'  .source(image)',
+				'  .add(new Multiply(), { second: samples.colours });',
+				'return renderer;'
+			].join('\n')
+		);
+		assert.equal(await snippetError(), '');
+
+		const black = await page.evaluate(() => {
+			const canvas = document.getElementById('canvas');
+			const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+			let count = 0;
+			for (let i = 0; i < data.length; i += 4) {
+				if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) count++;
+			}
+			return count / (data.length / 4);
+		});
+
+		assert.ok(black < 0.25, `${(black * 100).toFixed(1)}% of the frame came out black`);
+	});
+
+	test('the insert control declares a sample as a variable', async () => {
+		await enterCodeMode();
+		await setSnippet('return new Pipeline();');
+
+		await page.click('#sources button[data-insert="rorschach"]');
+		let text = await page.$eval('#snippet', (el) => el.value);
+		assert.match(text, /const rorschach = samples\.rorschach;/, 'nothing was inserted');
+
+		// Inserting it twice would be a redeclaration, which is a syntax error
+		// rather than a convenience - so the second press selects the first one.
+		await page.click('#sources button[data-insert="rorschach"]');
+		text = await page.$eval('#snippet', (el) => el.value);
+		assert.equal(
+			text.match(/const rorschach =/g).length,
+			1,
+			'a second press declared it again'
+		);
+		assert.equal(
+			await page.$eval('#snippet', (el) => el.value.slice(el.selectionStart, el.selectionEnd)),
+			'const rorschach =',
+			'the second press should point at the declaration that already exists'
+		);
+
+		// and what it wrote actually runs
+		await setSnippet(
+			[
+				'const rorschach = samples.rorschach;',
+				'return new Renderer(canvas)',
+				'  .source(image)',
+				'  .add(new Multiply(), { second: rorschach });'
+			].join('\n')
+		);
+		assert.equal(await snippetError(), '', 'the inserted variable did not resolve');
+	});
+
+	test('only stills offer an insert control', async () => {
+		// A video that is not the current source has no frame to hand out - the
+		// page holds one video element at a time - so `samples` is stills only and
+		// offering a `+` on a video would write a line that resolves to undefined.
+		await enterCodeMode();
+		assert.equal(
+			await page.$$eval('#sources .tile', (tiles) =>
+				tiles
+					.filter((tile) => tile.querySelector('.tile-insert'))
+					.every((tile) => tile.querySelector('.source').dataset.kind === 'image')
+			),
+			true,
+			'something other than a still offered an insert control'
+		);
+		// counted rather than bounded, so it stays true as sources are added
+		const counts = await page.evaluate(() => ({
+			inserts: document.querySelectorAll('#sources .tile-insert').length,
+			stills: [...document.querySelectorAll('#sources button.source')].filter(
+				(button) => button.dataset.kind === 'image'
+			).length
+		}));
+		assert.ok(counts.stills >= 6, `only ${counts.stills} still sources - has the list shrunk?`);
+		assert.equal(counts.inserts, counts.stills, 'every still should offer exactly one');
 	});
 
 	test('Code mode leaves the built chain and the URL alone', async () => {

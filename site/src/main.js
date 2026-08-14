@@ -350,8 +350,72 @@ function buildSourceList() {
 		button.appendChild(label);
 
 		button.addEventListener('click', () => useSource(source.id));
-		list.appendChild(button);
+
+		//A button cannot contain a button, so the tile and its insert control are
+		//siblings in a wrapper rather than nested. Everything that reaches into
+		//this list therefore asks for `button.source` rather than for children.
+		const tile = document.createElement('div');
+		tile.className = 'tile';
+		tile.appendChild(button);
+
+		//Code mode only, and a separate control rather than a second meaning for
+		//the click: clicking a source already picks what the chain runs on, which
+		//is the commonest thing to want and should not need the code edited. The
+		//same gesture meaning different things in different modes reads as a bug
+		//the first time you meet it.
+		if (source.kind === 'image') {
+			const insert = document.createElement('button');
+			insert.type = 'button';
+			insert.className = 'tile-insert';
+			insert.dataset.insert = source.id;
+			insert.textContent = '+';
+			insert.title = `Declare ${source.label} as a variable`;
+			insert.setAttribute('aria-label', `Insert ${source.label} into the snippet`);
+			insert.addEventListener('click', () => insertSample(source));
+			tile.appendChild(insert);
+		}
+
+		list.appendChild(tile);
 	}
+}
+
+/** Valid identifier for a source id: `face-2` becomes `face2`, `1x` becomes `_1x`. */
+function variableName(id) {
+	const cleaned = id.replace(/[^\w$]/g, '');
+	return /^[A-Za-z_$]/.test(cleaned) ? cleaned : `_${cleaned}`;
+}
+
+/**
+ * Writes `const books = samples.books;` into the snippet.
+ *
+ * At the cursor, and through `execCommand` rather than by assigning `.value`.
+ * It is deprecated and it is also the only way to insert text into a textarea
+ * that leaves the native undo stack intact - setting `.value` wipes it, so
+ * every insert would cost you Ctrl+Z, which is worse than the deprecation.
+ */
+function insertSample(source) {
+	const editor = $('snippet');
+	const name = variableName(source.id);
+
+	//Already declared, so declaring it again is a syntax error rather than a
+	//convenience. Show them the one that exists instead - which is also the
+	//answer to double-clicking, and to wondering where it went.
+	const existing = editor.value.indexOf(`const ${name} =`);
+	if (existing >= 0) {
+		editor.focus();
+		editor.setSelectionRange(existing, existing + `const ${name} =`.length);
+		return;
+	}
+
+	const line = `const ${name} = samples.${source.id};\n`;
+	editor.focus();
+	if (!document.execCommand?.('insertText', false, line)) {
+		//no execCommand: keep the feature, lose the undo
+		const at = editor.selectionStart ?? editor.value.length;
+		editor.value = editor.value.slice(0, at) + line + editor.value.slice(at);
+		editor.setSelectionRange(at + line.length, at + line.length);
+	}
+	saveBuffer(editor.value);
 }
 
 async function useSource(id) {
@@ -379,7 +443,9 @@ async function useSource(id) {
 }
 
 function markCurrentSource() {
-	for (const button of $('sources').children) {
+	//`.source` rather than the children: each tile is a wrapper now, holding the
+	//source button and, in code mode, its insert control.
+	for (const button of $('sources').querySelectorAll('button.source')) {
 		button.setAttribute('aria-pressed', String(button.dataset.id === currentSourceId));
 	}
 }
@@ -817,8 +883,27 @@ const ScopedRenderer = bindRenderer(renderer, ScopedPipeline);
 function currentScope() {
 	return buildScope(ScopedPipeline, ScopedRenderer, {
 		canvas: $('canvas'),
-		image: currentElement ?? renderer.sourceFrame
+		image: currentElement ?? renderer.sourceFrame,
+		samples: sampleFrames()
 	});
+}
+
+/**
+ * Every still source, as pixels, by id - so a snippet can compose two pictures
+ * without either being the one that is selected.
+ *
+ * Stills only, and not for want of trying: the page holds one video element at
+ * a time, so a video that is not the current source has no frame to hand out.
+ * The selected one is reachable as `frameOf(image)`, and inside a function if
+ * it should be re-read every render rather than frozen at the moment Run was
+ * pressed.
+ *
+ * Built per run off `secondFrames`, which is already decoded for the Build
+ * tab's second-input picker - and which `openFile` refreshes, so a dropped
+ * image turns up here too.
+ */
+function sampleFrames() {
+	return Object.fromEntries(secondFrames);
 }
 
 function buildSnippetList() {
