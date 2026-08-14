@@ -646,9 +646,10 @@ const stopLoop = () => renderer.stop();
  * things that will never draw anything new, like a `Wave` parked at speed 0.
  */
 function chainIsLive() {
-	return renderer.pipeline.filters.some(
-		(filter) => filter.enabled && filter.constructor.animated(filter)
-	);
+	//`pipeline.animated` rather than a walk over `filters` here: a chain whose
+	//only moving part is inside a second input has nothing animated at the top
+	//level, and only the pipeline can see its own branches.
+	return renderer.pipeline.animated;
 }
 
 /** Starts or stops the loop to match what the source and the chain need. */

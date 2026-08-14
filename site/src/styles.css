@@ -300,7 +300,9 @@ body[data-mode='build'] .tile-insert { display: none; }
 }
 
 .resolution input {
-	flex: 1;
+	/* capped rather than filling: in code mode this panel is half the page, and
+	   two number boxes stretched across it look like a form, not a detail */
+	flex: 0 1 5.5rem;
 	min-width: 0;
 	padding: .25rem .35rem;
 	border: 1px solid var(--line);

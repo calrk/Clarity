@@ -802,6 +802,43 @@ if (!existsSync(join(dist, 'index.html'))) {
 		);
 	});
 
+	test('a snippet whose only moving part is in a branch still animates', async () => {
+		// Two things had to be true for this and neither was. The frame loop is
+		// started by asking whether anything in the chain is animated, and the
+		// cache is skipped by asking whether anything is impure - both were asked
+		// of the top-level filters only. The fog's Multiply stages are pure and
+		// still by their own reckoning; everything that moves is in the branches.
+		//
+		// The failure is silent in both directions: the loop runs and every frame
+		// is identical, or the loop never starts at all.
+		await enterCodeMode();
+		await page.evaluate(() => {
+			const picker = document.getElementById('snippetPicker');
+			picker.value = 'fog';
+			picker.dispatchEvent(new Event('change', { bubbles: true }));
+		});
+		await page.waitForFunction(() => document.getElementById('snippet').value.includes('drift'));
+		assert.equal(await snippetError(), '', 'the fog snippet did not run');
+
+		// Settle first. Taking the reference immediately catches the difference
+		// between the one-off render and the loop's first frame, which happens
+		// whether or not anything is animating - so without this wait the test
+		// passes with the cache fix reverted.
+		await new Promise((resolve) => setTimeout(resolve, 700));
+		const before = await canvasDigest();
+		let moved = false;
+		const deadline = Date.now() + 4000;
+		while (Date.now() < deadline) {
+			await new Promise((resolve) => setTimeout(resolve, 150));
+			if ((await canvasDigest()) !== before) {
+				moved = true;
+				break;
+			}
+		}
+
+		assert.equal(moved, true, 'the fog never drifted');
+	});
+
 	test('a broken snippet reports and leaves the picture alone', async () => {
 		// Half-finished is a snippet's normal state, so a failure has to be a
 		// message rather than a blank canvas - otherwise the error text is the only

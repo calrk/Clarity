@@ -189,6 +189,65 @@ export class Pipeline {
 		return this.stages.map((stage) => stage.filter);
 	}
 
+	/**
+	 * Whether anything in here will draw a different frame if asked again later -
+	 * which is what a host needs in order to decide whether to run a frame loop
+	 * over a still image.
+	 *
+	 * Branches included, and that is the whole reason this is not a one-line
+	 * `filters.some(...)` at the call site. A chain whose only moving part is a
+	 * `Translator` inside a second input has no animated filter at the top level
+	 * at all, so asking `filters` gives the confident wrong answer and the fog
+	 * sits still. Only a Pipeline can see its own branches; `filters` lists
+	 * filters and not the chains wired alongside them.
+	 *
+	 * A `second` given as a function is assumed *not* to animate. It may well -
+	 * the playground's own source picker is one - but there is nothing to
+	 * inspect, and guessing yes would run the loop forever for every chain with
+	 * a two-input filter in it.
+	 */
+	get animated(): boolean {
+		return this.stages.some((stage) => {
+			if (!stage.filter.enabled) {
+				return false;
+			}
+			if ((stage.filter.constructor as typeof Filter).animated(stage.filter)) {
+				return true;
+			}
+			return stage.second instanceof Pipeline && stage.second.animated;
+		});
+	}
+
+	/**
+	 * Whether a run right now would hand back exactly what the last one did, so
+	 * a stage using this as a second input can be served from cache.
+	 *
+	 * The same blind spot as {@link animated}, in the place where it costs more.
+	 * `Multiply` is pure, so two of them composing a pair of drifting fogs are
+	 * both cacheable by their own reckoning - the chain is served from cache
+	 * forever and the fog sits still even with the frame loop running. Purity has
+	 * to be a property of the stage *and everything wired into it*.
+	 *
+	 * A `second` given as a function is treated as stable, matching
+	 * {@link animated}: there is nothing to inspect, and assuming it changes
+	 * would stop every chain with a two-input filter in it from ever caching.
+	 * A caller who knows better calls {@link invalidate}.
+	 */
+	get stable(): boolean {
+		if (this.structureDirty) {
+			return false;
+		}
+		return this.stages.every((stage) => {
+			if (!stage.filter.enabled) {
+				return true;	//it hands the frame straight back
+			}
+			if (!isPure(stage.filter) || stage.filter.dirty) {
+				return false;
+			}
+			return !(stage.second instanceof Pipeline) || stage.second.stable;
+		});
+	}
+
 	at(index: number): Filter | undefined {
 		return this.stages[index]?.filter;
 	}
@@ -481,8 +540,15 @@ export class Pipeline {
 		for (let i = 0; i < this.stages.length; i++) {
 			const stage = this.stages[i];
 			//An impure filter has to run every frame, and a stage that has never
-			//run has nothing behind it - both mean recompute from here down.
-			if (stage.filter.dirty || !isPure(stage.filter) || !stage.computed) {
+			//run has nothing behind it - both mean recompute from here down. So
+			//does a branch that is still moving, which the filter alone cannot say:
+			//`Multiply` is pure whatever is wired into it.
+			if (
+				stage.filter.dirty ||
+				!isPure(stage.filter) ||
+				!stage.computed ||
+				(stage.second instanceof Pipeline && !stage.second.stable)
+			) {
 				return i;
 			}
 		}

@@ -516,3 +516,90 @@ test('a pipeline given no backend still owns the one it makes', () => {
 	assert.doesNotThrow(() => own.dispose());
 	assert.equal(own.usingGPU, false);
 });
+
+test('a pipeline knows whether anything in it moves, branches included', () => {
+	// The question a host asks to decide whether to run a frame loop over a still
+	// image. Answering it with `filters.some(...)` is confidently wrong for a
+	// chain whose only moving part is inside a second input - and that is not a
+	// corner case, it is what compositing two generated fields looks like.
+	const still = new CLARITY.Pipeline([new CLARITY.Invert()], { gpu: false });
+	assert.equal(still.animated, false);
+
+	const moving = new CLARITY.Pipeline([new CLARITY.Wave({ speed: 1 })], { gpu: false });
+	assert.equal(moving.animated, true);
+
+	// nothing at the top level moves here; the Translator is in the branch
+	const drift = new CLARITY.Pipeline(
+		[new CLARITY.Cloud({ seed: 1 }), new CLARITY.Translator({ horizontal: 0.2, speed: 0.1 })],
+		{ gpu: false }
+	);
+	const composed = new CLARITY.Pipeline([], { gpu: false });
+	composed.add(new CLARITY.Multiply(), { second: drift });
+
+	assert.equal(composed.filters.some((f) => f.constructor.animated(f)), false, 'the premise');
+	assert.equal(composed.animated, true, 'a moving branch has to count');
+
+	// and a bypassed stage takes its branch out with it
+	composed.at(0).enabled = false;
+	assert.equal(composed.animated, false);
+});
+
+test('a still branch does not start a frame loop', () => {
+	// The other direction, or `animated` could just answer yes for anything with
+	// a second input and nobody would notice until their battery went flat.
+	const still = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 1 })], { gpu: false });
+	const composed = new CLARITY.Pipeline([], { gpu: false });
+	composed.add(new CLARITY.Multiply(), { second: still });
+
+	assert.equal(composed.animated, false);
+
+	// a function second input is unknowable, so it is assumed still for the same
+	// reason - guessing yes would run the loop forever for every chain with a
+	// two-input filter in it
+	const guessed = new CLARITY.Pipeline([], { gpu: false });
+	guessed.add(new CLARITY.Multiply(), { second: () => makeFrame() });
+	assert.equal(guessed.animated, false);
+});
+
+test('a moving branch keeps the chain out of the cache', () => {
+	// The bug this exists for looks like nothing at all: two `Multiply` stages
+	// composing a pair of drifting fields are both pure by their own reckoning,
+	// so the chain is served from cache forever and the fog sits still - with the
+	// frame loop running the whole time, producing identical frames.
+	const clock = { now: 0 };
+	const drift = new CLARITY.Pipeline(
+		[
+			new CLARITY.Cloud({ seed: 1 }),
+			new CLARITY.Translator({ horizontal: 0.4, speed: 1, now: () => clock.now })
+		],
+		{ gpu: false }
+	);
+
+	const chain = new CLARITY.Pipeline([], { gpu: false });
+	chain.add(new CLARITY.Multiply(), { second: drift });
+
+	const source = makeFrame();
+	const first = chain.run(source);
+	assert.equal(chain.stable, false, 'a chain with a moving branch is not stable');
+
+	clock.now = 500;
+	const second = chain.run(source);
+
+	assert.equal(chain.stats.from, 0, 'the chain was served from cache while its branch moved');
+	assert.notDeepEqual([...second.data], [...first.data], 'the picture did not move');
+});
+
+test('a still chain is still served from cache', () => {
+	// The other direction. Treating every two-input stage as volatile would fix
+	// the fog by never caching anything, which is not a fix.
+	const stencil = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 2 })], { gpu: false });
+	const chain = new CLARITY.Pipeline([], { gpu: false });
+	chain.add(new CLARITY.Multiply(), { second: stencil });
+
+	const source = makeFrame();
+	chain.run(source);
+	chain.run(source);
+
+	assert.equal(chain.stable, true);
+	assert.equal(chain.stats.from, -1, 'a still chain should cost nothing to re-run');
+});

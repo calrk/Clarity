@@ -90,6 +90,46 @@ renderer.add(new Levels({ black: 20, white: 235 }));
 return renderer;`
 	},
 	{
+		id: 'fog',
+		label: 'Drifting fog',
+		note: 'Two cloud fields crossing, laid over the picture',
+		source: `// Two chains, built the same way and pointed in different directions,
+// laid over the photograph.
+//
+// A Pipeline is a valid second input, which is what makes this possible at
+// all - the drag list can only describe one straight chain, and this is
+// three of them. Each fog is a branch: it never sees the picture, it just
+// produces a frame for Multiply to combine with.
+//
+// Nothing here is special-cased. \`drift\` is an ordinary function that
+// returns a Pipeline, so "two fogs" is two calls, and "five fogs" would be
+// a loop.
+
+const drift = (horizontal, vertical, seed) => new Pipeline([
+  // Starters ignore their input, so it does not matter what a branch is
+  // fed - only that it hands back a frame the right size.
+  new Cloud({ seed, initialSize: 3, iterations: 5 }),
+  // How thick the fog is. Multiply only ever darkens, so the black point
+  // is the control that matters: raise it for a heavier bank of it.
+  new Levels({ black: 25, white: 255, gamma: 1.7 }),
+  new Blur({ radius: 8 }),
+  // The motion. Translator wraps at the edges, so a field scrolls forever
+  // with no seam - and this is the only moving part in the whole chain.
+  new Translator({ horizontal, vertical, speed: 0.05 })
+]);
+
+const across = drift(0.3, 0, 7);
+const upward = drift(0, -0.3, 21);
+
+// Multiply is associative, so the two fogs crossing is two stages rather
+// than a combining step - and each line reads the same as the other.
+// Where they overlap, the picture goes darker still.
+return new Renderer(canvas)
+  .source(image)
+  .add(new Multiply(), { second: across })
+  .add(new Multiply(), { second: upward });`
+	},
+	{
 		id: 'chain',
 		label: 'Just a chain',
 		note: 'The short form, for when the renderer is not the interesting part',
