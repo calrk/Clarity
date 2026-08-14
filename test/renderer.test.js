@@ -338,3 +338,95 @@ test('use() is a no-op on the pipeline already in place', () => {
 
 	assert.equal(renderer.stats.skipped, before, 'use() on the current pipeline threw the cache away');
 });
+
+test('resolution reads the source at a size of its own', () => {
+	// The only way to set the size of a generated frame - a chain of starters has
+	// no source whose dimensions to inherit - and the cheapest performance
+	// control there is, since every filter costs per pixel.
+	const canvas = new StubCanvas(8, 8);
+	const renderer = new CLARITY.Renderer(canvas, { gpu: false }).source(new StubCanvas(64, 48));
+
+	assert.deepEqual(
+		[renderer.render().width, renderer.render().height],
+		[64, 48],
+		'the natural size should be the default'
+	);
+
+	renderer.resolution(16, 12);
+	const smaller = renderer.render();
+	assert.deepEqual([smaller.width, smaller.height], [16, 12]);
+
+	// and the canvas follows the frame, or the picture would be drawn into a
+	// viewport still sized for the old one
+	assert.deepEqual([canvas.width, canvas.height], [16, 12]);
+
+	renderer.resolution(null);
+	const restored = renderer.render();
+	assert.deepEqual([restored.width, restored.height], [64, 48], 'null should mean natural again');
+});
+
+test('resolution takes one number for a square', () => {
+	const renderer = new CLARITY.Renderer(new StubCanvas(8, 8), { gpu: false })
+		.source(new StubCanvas(64, 48))
+		.resolution(32);
+
+	const frame = renderer.render();
+	assert.deepEqual([frame.width, frame.height], [32, 32]);
+});
+
+test('resolution resamples a frame handed over directly', () => {
+	// No canvas in the way, so no drawImage to scale through - this is the
+	// nearest-neighbour path, which is the honest answer for something that is
+	// already pixels.
+	const source = new NodeImageData(4, 4);
+	for (let i = 0; i < source.data.length; i += 4) {
+		source.data.set([255, 0, 0, 255], i);
+	}
+	//one green pixel, so the resample can be seen to have kept real values
+	source.data.set([0, 255, 0, 255], 0);
+
+	const renderer = new CLARITY.Renderer(new StubCanvas(4, 4), { gpu: false })
+		.source(source)
+		.resolution(8, 8);
+
+	const frame = renderer.render();
+	assert.deepEqual([frame.width, frame.height], [8, 8]);
+
+	// nearest, so every pixel is one of the two that were there and nothing was
+	// blended into existence between them
+	for (let i = 0; i < frame.data.length; i += 4) {
+		const pixel = [frame.data[i], frame.data[i + 1], frame.data[i + 2]].join(',');
+		assert.ok(
+			pixel === '255,0,0' || pixel === '0,255,0',
+			`resampling invented ${pixel}, which was in neither picture`
+		);
+	}
+});
+
+test('changing resolution re-reads a still source', () => {
+	// A still is read once and the same frame handed over every render, which is
+	// what lets the cache hit. That frame is the old size, and so is every stage
+	// computed from it.
+	const canvas = new StubCanvas(8, 8);
+	const renderer = new CLARITY.Renderer(canvas, { gpu: false })
+		.source(new StubCanvas(64, 48), { live: false })
+		.add(new CLARITY.Invert());
+
+	renderer.render();
+	renderer.render();
+	assert.equal(canvas.scratchReads, 1, 'a still should be read once');
+	assert.equal(renderer.stats.from, -1, 'and then cached');
+
+	renderer.resolution(32, 24);
+	renderer.render();
+	assert.equal(canvas.scratchReads, 2, 'a new resolution has to re-read the source');
+	assert.equal(renderer.stats.from, 0, 'and recompute the chain');
+
+	// setting the same resolution again is not a change, so it must not
+	// invalidate - a UI writing the current value back on every keystroke would
+	// otherwise never let the cache hit
+	renderer.render();
+	renderer.resolution(32, 24);
+	renderer.render();
+	assert.equal(renderer.stats.from, -1, 'setting the same resolution threw the cache away');
+});

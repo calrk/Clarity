@@ -10,7 +10,16 @@ import * as CLARITY from '@calrk/clarity';
 import { CATALOGUE, CATEGORY_ORDER, Pipeline, Renderer, TRAITS } from '@calrk/clarity';
 
 import { createChainView, isDualInput } from './chain.js';
-import { bindPipeline, bindRenderer, buildScope, loadBuffer, runSnippet, saveBuffer } from './code.js';
+import {
+	bindPipeline,
+	bindRenderer,
+	buildScope,
+	declarationPoint,
+	loadBuffer,
+	runSnippet,
+	saveBuffer,
+	variableName
+} from './code.js';
 import { PRESETS } from './presets.js';
 import { readHash, writeHash } from './share.js';
 import { DEFAULT_SNIPPET, SNIPPETS } from './snippets.js';
@@ -51,6 +60,16 @@ let gpuWanted = true;
 let currentSourceId = null;
 /** The live element, so a camera or video can be shut down when replaced. */
 let currentElement = null;
+/**
+ * The size the source is being read at, or null for its own.
+ *
+ * Held here as well as on the renderer because the URL has to say whether it
+ * was *asked for*: a link that pins 1024x1024 must keep meaning that even if
+ * the sample behind it is one day replaced with a picture that size anyway.
+ */
+let sourceSize = null;
+/** What the current source is when nothing overrides it, for the placeholders. */
+let naturalSize = null;
 let smoothedFrameTime = 0;
 /** Whether the *source* produces new frames; the chain can also be the moving part. */
 let sourceLive = false;
@@ -379,19 +398,13 @@ function buildSourceList() {
 	}
 }
 
-/** Valid identifier for a source id: `face-2` becomes `face2`, `1x` becomes `_1x`. */
-function variableName(id) {
-	const cleaned = id.replace(/[^\w$]/g, '');
-	return /^[A-Za-z_$]/.test(cleaned) ? cleaned : `_${cleaned}`;
-}
-
 /**
  * Writes `const books = samples.books;` into the snippet.
  *
- * At the cursor, and through `execCommand` rather than by assigning `.value`.
- * It is deprecated and it is also the only way to insert text into a textarea
- * that leaves the native undo stack intact - setting `.value` wipes it, so
- * every insert would cost you Ctrl+Z, which is worse than the deprecation.
+ * Through `execCommand` rather than by assigning `.value`. It is deprecated and
+ * it is also the only way to insert text into a textarea that leaves the native
+ * undo stack intact - setting `.value` wipes it, so every insert would cost you
+ * Ctrl+Z, which is worse than the deprecation.
  */
 function insertSample(source) {
 	const editor = $('snippet');
@@ -407,18 +420,22 @@ function insertSample(source) {
 		return;
 	}
 
+	const at = declarationPoint(editor.value);
 	const line = `const ${name} = samples.${source.id};\n`;
+
 	editor.focus();
+	//execCommand inserts at the selection, so the selection is how you choose
+	//where it goes
+	editor.setSelectionRange(at, at);
 	if (!document.execCommand?.('insertText', false, line)) {
 		//no execCommand: keep the feature, lose the undo
-		const at = editor.selectionStart ?? editor.value.length;
 		editor.value = editor.value.slice(0, at) + line + editor.value.slice(at);
 		editor.setSelectionRange(at + line.length, at + line.length);
 	}
 	saveBuffer(editor.value);
 }
 
-async function useSource(id) {
+async function useSource(id, size = null) {
 	const source = SOURCES.find((entry) => entry.id === id);
 	if (!source) return;
 
@@ -430,6 +447,14 @@ async function useSource(id) {
 		currentElement = element;
 		renderer.source(element, { live });
 
+		//Before `setSourceSize`, which needs it to fill in the placeholders and to
+		//work out the missing half of a one-sided request.
+		naturalSize = naturalSizeOf(element);
+		//A size asked for by a link travels with it; picking a source by hand
+		//starts from that source's own size, because carrying the last one over
+		//silently would resize a picture nobody asked to resize.
+		setSourceSize(size);
+
 		sourceLive = live;
 		requestFrame();
 	} catch (error) {
@@ -440,6 +465,77 @@ async function useSource(id) {
 	currentSourceId = id;
 	markCurrentSource();
 	updateShare();
+}
+
+// ---------------------------------------------------------------- resolution
+
+/** What a source is before anything overrides it. */
+function naturalSizeOf(element) {
+	if (!element) return null;
+	const width = element.naturalWidth || element.videoWidth || element.width || 0;
+	const height = element.naturalHeight || element.videoHeight || element.height || 0;
+	return width && height ? { width, height } : null;
+}
+
+/**
+ * Reads the size at, or back to its own size for null.
+ *
+ * `Renderer.resolution` ignores a value it already has, so writing the current
+ * one back is free - which matters, because the input fires on every step of a
+ * spinner and each change would otherwise throw the whole chain's cache away.
+ */
+function setSourceSize(size) {
+	sourceSize = size;
+	renderer.resolution(size?.width ?? null, size?.height ?? null);
+	showResolution();
+}
+
+function showResolution() {
+	$('resWidth').placeholder = naturalSize?.width ?? '';
+	$('resHeight').placeholder = naturalSize?.height ?? '';
+	$('resWidth').value = sourceSize ? sourceSize.width : '';
+	$('resHeight').value = sourceSize ? sourceSize.height : '';
+	$('resReset').hidden = !sourceSize;
+}
+
+/**
+ * The size the two boxes are asking for.
+ *
+ * Empty means the source's own. Filling in one and not the other means "this
+ * wide", so the other follows the aspect ratio - typing a width and getting a
+ * squashed picture would be a strange way to answer that.
+ */
+function readResolutionInputs() {
+	const clamp = (value) => Math.min(8192, Math.max(1, Math.round(value)));
+	const width = Number($('resWidth').value);
+	const height = Number($('resHeight').value);
+
+	if (!width && !height) return null;
+	if (width && height) return { width: clamp(width), height: clamp(height) };
+
+	const ratio = naturalSize ? naturalSize.width / naturalSize.height : 1;
+	return width
+		? { width: clamp(width), height: clamp(width / ratio) }
+		: { width: clamp(height * ratio), height: clamp(height) };
+}
+
+function setUpResolution() {
+	const apply = () => {
+		setSourceSize(readResolutionInputs());
+		updateShare();
+		requestFrame();
+	};
+
+	//`change` rather than `input`: this re-reads the source and recomputes every
+	//stage, and doing that per keystroke means the first digit of `1024` renders
+	//a one-pixel frame.
+	$('resWidth').addEventListener('change', apply);
+	$('resHeight').addEventListener('change', apply);
+	$('resReset').addEventListener('click', () => {
+		$('resWidth').value = '';
+		$('resHeight').value = '';
+		apply();
+	});
 }
 
 function markCurrentSource() {
@@ -508,6 +604,10 @@ async function openFile(file) {
 		currentElement = element;
 		renderer.source(element, { live });
 		currentSourceId = id;
+
+		//a dropped file arrives at its own size, like any other source picked by hand
+		naturalSize = naturalSizeOf(element);
+		setSourceSize(null);
 
 		buildSourceList();
 		//a dropped still can be a second input like any other
@@ -819,7 +919,11 @@ function updateShare() {
 	//no safe way to run one that arrived in a link - so code mode leaves the URL
 	//saying whatever the Build tab last said, and switching back finds it intact.
 	if (mode !== 'build') return;
-	history.replaceState(null, '', writeHash(currentSourceId ?? 'custom', buildPipeline.filters));
+	history.replaceState(
+		null,
+		'',
+		writeHash(currentSourceId ?? 'custom', buildPipeline.filters, sourceSize)
+	);
 }
 
 /**
@@ -832,7 +936,7 @@ function updateShare() {
  * the event, so the page cannot loop on its own writes.
  */
 async function loadFromHash() {
-	const { source, filters } = readHash();
+	const { source, size, filters } = readHash();
 
 	//`buildPipeline` rather than the renderer, which in code mode is pointed at a
 	//snippet's chain - clearing that would throw away what is on screen in
@@ -849,7 +953,11 @@ async function loadFromHash() {
 
 	const wanted = SOURCES.some((entry) => entry.id === source) ? source : SOURCES[0].id;
 	if (wanted !== currentSourceId) {
-		await useSource(wanted);
+		await useSource(wanted, size);
+	} else {
+		//same picture, and the link may still be asking for it at another size -
+		//`useSource` would reopen a webcam or restart a video for nothing
+		setSourceSize(size);
 	}
 
 	if (mode === 'build') sync();
@@ -1087,6 +1195,7 @@ async function start() {
 	buildSnippetList();
 	setUpDropzone();
 	setUpEditor();
+	setUpResolution();
 
 	document.body.dataset.mode = 'build';
 	$('snippet').value = loadBuffer() || DEFAULT_SNIPPET.source;

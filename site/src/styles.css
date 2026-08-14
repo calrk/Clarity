@@ -289,6 +289,34 @@ body[data-mode='build'] .tile-insert { display: none; }
 
 .dropzone.over { border-color: var(--accent); background: var(--accent-wash); color: var(--accent); }
 
+/* ---------- source resolution ---------- */
+
+.resolution {
+	display: flex;
+	align-items: center;
+	gap: .35rem;
+	font-size: .78rem;
+	color: var(--muted);
+}
+
+.resolution input {
+	flex: 1;
+	min-width: 0;
+	padding: .25rem .35rem;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-tint);
+	color: var(--text);
+	font-size: .78rem;
+	/* the placeholder carries the source's own size, so it has to be readable */
+	text-align: center;
+}
+
+.resolution input::placeholder { color: var(--muted); opacity: .75; }
+.resolution input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.resolution label { flex: none; }
+.resolution #resReset { flex: none; }
+
 /* ---------- palette ---------- */
 
 .search {

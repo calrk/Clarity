@@ -87,6 +87,20 @@
 				<input type="file" id="fileInput" accept="image/*,video/*" hidden>
 				<span>Drop an image or video, or <u>choose a file</u></span>
 			</label>
+			<!--
+				The size the source is read at. Every filter costs per pixel, so this
+				is the cheapest performance control on the page - and for the Blank
+				source it is the only thing that decides how big a generated frame is.
+			-->
+			<div class="resolution" id="resolution">
+				<label for="resWidth">Size</label>
+				<input id="resWidth" type="number" min="1" max="8192" step="1" inputmode="numeric"
+					aria-label="Source width in pixels">
+				<span aria-hidden="true">&times;</span>
+				<input id="resHeight" type="number" min="1" max="8192" step="1" inputmode="numeric"
+					aria-label="Source height in pixels">
+				<button class="ghost small" id="resReset" type="button" hidden>Reset</button>
+			</div>
 		</section>
 
 		<section class="panel grow" id="palettePanel">

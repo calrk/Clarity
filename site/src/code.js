@@ -91,6 +91,60 @@ export function bindPipeline(defaults) {
 	};
 }
 
+/** Valid identifier for a source id: `face-2` becomes `face2`, `1x` becomes `_1x`. */
+export function variableName(id) {
+	const cleaned = String(id).replace(/[^\w$]/g, '');
+	return /^[A-Za-z_$]/.test(cleaned) ? cleaned : `_${cleaned}`;
+}
+
+/**
+ * Where a declaration should go: the top of the code, under any comment that
+ * opens the file.
+ *
+ * The cursor is the obvious answer and the wrong one. It is wherever you last
+ * were, which is usually the middle of the chain you are writing, and dropping
+ * a `const` there is at best untidy and at worst a syntax error inside an
+ * expression. Declarations belong at the top - and every snippet here opens
+ * with a paragraph explaining itself, so the top means *under that*.
+ *
+ * Only a run of `//` lines and blank lines counts, and only before any code:
+ * the first line that is neither ends the preamble. A comment further down is
+ * explaining what is beneath it, and inserting above that would attach the
+ * explanation to the wrong thing.
+ *
+ * @returns character offset to insert at
+ */
+export function declarationPoint(text) {
+	const lines = text.split('\n');
+	let at = 0;
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (trimmed.startsWith('//')) {
+			at++;
+			continue;
+		}
+		if (trimmed === '') {
+			continue;	//a gap inside the preamble, or the one after it
+		}
+		break;	//code
+	}
+
+	//Past the blank lines between the preamble and the code, so a declaration
+	//lands with the code rather than glued to the prose.
+	while (at < lines.length && lines[at].trim() === '') {
+		at++;
+	}
+
+	if (at === 0) {
+		return 0;
+	}
+
+	//the joined lines, plus the newline that ends the last of them
+	const offset = lines.slice(0, at).join('\n').length + 1;
+	return Math.min(offset, text.length);
+}
+
 /**
  * Any source as an ImageData, whatever it started as.
  *

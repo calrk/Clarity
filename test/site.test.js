@@ -106,7 +106,10 @@ if (!existsSync(join(dist, 'index.html'))) {
 		// the old page's readout. Waiting for the source picker to agree is what
 		// makes `open('#x')` mean "the page is showing x". Without it, switching
 		// from a video to a still occasionally measured the tail of the video.
-		const wanted = hash.replace(/^#/, '').split('/')[0];
+		//`@640x480` on the source segment is a size, not part of the id - the same
+		//split `readHash` does, and the reason this needs it is that the wait below
+		//compares against `data-id`
+		const wanted = hash.replace(/^#/, '').split('/')[0].split('@')[0];
 		await page.waitForFunction((id) => {
 			const buttons = document.querySelectorAll('#sources button.source');
 			const expected = id || buttons[0]?.dataset.id;
@@ -670,6 +673,20 @@ if (!existsSync(join(dist, 'index.html'))) {
 	/** Whether an element takes up space, hidden by itself or by an ancestor. */
 	const isVisible = (selector) => page.$eval(selector, (el) => el.getClientRects().length > 0);
 
+	/** Types a size into the two boxes and commits it. */
+	const setResolution = async (width, height) => {
+		await page.evaluate((w, h) => {
+			const set = (id, value) => {
+				const input = document.getElementById(id);
+				input.value = value === '' ? '' : String(value);
+			};
+			set('resWidth', w);
+			set('resHeight', h);
+			document.getElementById('resWidth').dispatchEvent(new Event('change', { bubbles: true }));
+		}, width, height);
+		await new Promise((resolve) => setTimeout(resolve, 120));
+	};
+
 	/** Switches source in the page, without the reload that `open` does. */
 	const chooseSource = async (id) => {
 		await page.click(`#sources button[data-id="${id}"]`);
@@ -985,6 +1002,90 @@ if (!existsSync(join(dist, 'index.html'))) {
 			await page.$eval('#snippet', (el) => el.value),
 			/a-marker-that-survives/,
 			'the editor came back empty'
+		);
+	});
+
+	test('the source can be read at a size of your choosing', async () => {
+		await open('#landscape');
+		assert.equal(await page.$eval('#mSize', (el) => el.textContent), '1024 × 1024');
+
+		// the boxes start empty, showing the source's own size as the placeholder
+		assert.deepEqual(
+			await page.evaluate(() => [
+				document.getElementById('resWidth').value,
+				document.getElementById('resWidth').placeholder
+			]),
+			['', '1024']
+		);
+
+		await setResolution(320, 240);
+		assert.equal(await page.$eval('#mSize', (el) => el.textContent), '320 × 240');
+
+		// and it travels in the link, because a resized picture is a different
+		// picture and a chain tuned for one is not tuned for the other
+		assert.match(await page.evaluate(() => location.hash), /^#landscape@320x240/);
+
+		await page.click('#resReset');
+		await page.waitForFunction(() => document.getElementById('mSize').textContent === '1024 × 1024');
+		assert.equal(
+			await page.evaluate(() => location.hash),
+			'#landscape',
+			'the size should leave the URL when it is back to the natural one'
+		);
+	});
+
+	test('one dimension is enough, and the other follows the shape', async () => {
+		// Typing a width and getting a squashed picture would be a strange way to
+		// answer "how wide".
+		await open('#books');
+		const natural = await page.$eval('#mSize', (el) => el.textContent);
+		assert.equal(natural, '1536 × 1024', 'books is the non-square sample this needs');
+
+		await setResolution(768, '');
+		assert.equal(await page.$eval('#mSize', (el) => el.textContent), '768 × 512');
+	});
+
+	test('a resized link reproduces the picture it was copied from', async () => {
+		// The whole point of the hash. A size that only lived in the boxes would
+		// make every shared link of a resized chain wrong.
+		await open('#landscape@256x256/Pixelate,size=8');
+		assert.equal(await page.$eval('#mSize', (el) => el.textContent), '256 × 256');
+		const resized = await canvasDigest();
+
+		await open('#landscape/Pixelate,size=8');
+		assert.notEqual(await canvasDigest(), resized, 'the size in the link did nothing');
+
+		await open('#landscape@256x256/Pixelate,size=8');
+		assert.equal(await canvasDigest(), resized, 'the same link gave a different picture');
+	});
+
+	test('the insert control writes under the comment block, not at the cursor', async () => {
+		// The cursor is wherever you last were, which is usually the middle of the
+		// chain - and a `const` dropped into an expression is a syntax error.
+		await enterCodeMode();
+		await setSnippet(['// a note about this', '//', '// and more', '', 'return new Pipeline();'].join('\n'));
+
+		// park the cursor somewhere unhelpful, which is the state this replaces
+		await page.evaluate(() => {
+			const editor = document.getElementById('snippet');
+			editor.focus();
+			const at = editor.value.indexOf('new Pipeline');
+			editor.setSelectionRange(at, at);
+		});
+
+		await page.click('#sources button[data-insert="books"]');
+
+		assert.equal(
+			await page.$eval('#snippet', (el) => el.value),
+			[
+				'// a note about this',
+				'//',
+				'// and more',
+				'',
+				'const books = samples.books;',
+				'return new Pipeline();'
+			].join('\n'),
+			'the declaration did not land under the preamble'
 		);
 	});
 
