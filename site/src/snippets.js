@@ -130,6 +130,52 @@ return new Renderer(canvas)
   .add(new Multiply(), { second: upward });`
 	},
 	{
+		id: 'comic',
+		label: 'Comic book',
+		note: 'Flat colour with black ink over it, both drawn from the same photo',
+		source: `// Flat colour, with the ink laid over the top by a Multiply.
+//
+// The ink is a branch, and a branch is handed the outer chain's *source* -
+// not the frame at the point it is used. That is what this needs: the
+// outlines have to come from the photograph, because by the time the main
+// chain reaches the Multiply it is already flat colour with no edges left
+// to find.
+//
+// Which is why the smoothing and the posterise appear twice. It is not
+// repetition for its own sake - both chains have to flatten the picture the
+// same way, or the ink lands somewhere the colour boundaries are not.
+
+const flatten = { radius: 6, similarity: 60, iterations: 3 };
+
+const ink = new Pipeline([
+  new Bilateral(flatten),
+  new Posteriser({ colours: 6 }),
+  // Posterising *before* looking for edges is what makes them findable: a
+  // band boundary is a cliff, where the original photograph only has a
+  // gentle slope. Take this out and the ink nearly disappears.
+  new GradientThreshold(),
+  // Thicken the line. Dilate grows light regions, and at this point the
+  // lines are still white on black.
+  new Morphology({ radius: 2 }),
+  // Now black on white, which is what Multiply needs - it can only darken,
+  // so the paper has to be white or it darkens the whole picture.
+  new Invert(),
+  // The anti-aliasing, and the whole answer to jagged outlines. A threshold
+  // can only write black or white, so its edges are hard by construction;
+  // blurring the line map gives the greys back and Multiply turns them into
+  // a soft edge. Do not reach for Morphology 'open' here - a one-pixel line
+  // is exactly the small light speck it exists to remove, and it will erase
+  // the ink entirely.
+  new Blur({ radius: 2 })
+]);
+
+return new Renderer(canvas)
+  .source(image)
+  .add(new Bilateral(flatten))
+  .add(new Posteriser({ colours: 6 }))
+  .add(new Multiply(), { second: ink });`
+	},
+	{
 		id: 'chain',
 		label: 'Just a chain',
 		note: 'The short form, for when the renderer is not the interesting part',
