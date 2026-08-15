@@ -48,6 +48,12 @@ interface Stage {
 	filter: Filter;
 	second?: SecondInput;
 	first?: SecondInput;
+	/**
+	 * Which version of each branch this stage last consumed - see
+	 * {@link Pipeline.version}. Undefined until the stage has read one.
+	 */
+	firstVersion?: number;
+	secondVersion?: number;
 	/** Output of this stage on the last run, when it is safe to reuse. */
 	cached?: ImageData;
 	/**
@@ -136,6 +142,9 @@ export class Pipeline {
 	 * branch to be thrown away takes the others down with it.
 	 */
 	private borrowedBackend = false;
+
+	/** See {@link version}. */
+	private runVersion = 0;
 
 	stats: PipelineStats = emptyStats();
 
@@ -270,8 +279,35 @@ export class Pipeline {
 			if (!isPure(stage.filter) || stage.filter.dirty) {
 				return false;
 			}
-			return branches(stage).every((branch) => branch.stable);
+			return !branchMoved(stage);
 		});
+	}
+
+	/**
+	 * How many times this pipeline has produced a new frame.
+	 *
+	 * The counterpart to {@link stable}, and the reason one is not enough.
+	 * `stable` looks forward - "would running me again match what I last
+	 * produced" - which is the right question for a caller deciding whether to
+	 * bother. It is the wrong question for a stage that consumed this pipeline
+	 * on an *earlier* run, because it is answered relative to this pipeline's
+	 * last run rather than the consumer's.
+	 *
+	 * The two come apart the moment one branch feeds two places, which is not
+	 * exotic - a matte and its inverse is the ordinary case. The first consumer
+	 * runs the branch, which clears the dirty flags that made it unstable; the
+	 * second consumer then asks `stable`, is told yes, and is served the frame it
+	 * cached *last* time. A dissolve composited that way shows a matte from this
+	 * frame against an inverse from the one before, and the two no longer cover
+	 * each other.
+	 *
+	 * A version is not relative to anything, so a stage can record what it read
+	 * and compare. Bumped whenever a run recomputed a stage - which over-reports
+	 * when a recompute happens to land on identical pixels, exactly as `stable`
+	 * already does.
+	 */
+	get version(): number {
+		return this.runVersion;
 	}
 
 	at(index: number): Filter | undefined {
@@ -403,7 +439,7 @@ export class Pipeline {
 			//often a branch pipeline's own cached output, and a filter is entitled
 			//to mutate what it is handed.
 			if (this.stages[i].first !== undefined) {
-				frame = cloneImageData(resolveSecond(this.stages[i].first!, source));
+				frame = cloneImageData(this.resolve(this.stages[i], 'first', source));
 			}
 
 			const runEnd = backend ? this.endOfGPURun(i, backend) : i;
@@ -421,7 +457,7 @@ export class Pipeline {
 						filter: stage.filter,
 						second: stage.second === undefined
 							? undefined
-							: resolveSecond(stage.second, source)
+							: this.resolve(stage, 'second', source)
 					})),
 					frame
 				);
@@ -455,7 +491,7 @@ export class Pipeline {
 			frame = stage.second === undefined
 				? stage.filter.process(frame)
 				//`process` matches the second frame to this one - see Filter.process
-				: stage.filter.process([frame, resolveSecond(stage.second, source)]);
+				: stage.filter.process([frame, this.resolve(stage, 'second', source)]);
 
 			timings[i] = defaultClock() - at;
 			stage.filter.dirty = false;
@@ -485,6 +521,33 @@ export class Pipeline {
 			fallbacks,
 			transfers
 		};
+
+		//Reached only when something was recomputed - the fully-cached run returns
+		//above, and has by definition produced nothing new to tell anyone about.
+		this.runVersion++;
+
+		return frame;
+	}
+
+	/**
+	 * Reads one of a stage's wired-in inputs, and notes which version it got.
+	 *
+	 * The note is the whole point - every call site that reads a branch goes
+	 * through here so that none of them can forget, because a stage that reads a
+	 * branch without recording it is a stage that will happily serve a stale
+	 * frame forever. See {@link version}.
+	 */
+	private resolve(stage: Stage, side: 'first' | 'second', source: ImageData): ImageData {
+		const input = stage[side]!;
+		const frame = resolveSecond(input, source);
+
+		if (input instanceof Pipeline) {
+			if (side === 'first') {
+				stage.firstVersion = input.version;
+			} else {
+				stage.secondVersion = input.version;
+			}
+		}
 
 		return frame;
 	}
@@ -598,7 +661,7 @@ export class Pipeline {
 				stage.filter.dirty ||
 				!isPure(stage.filter) ||
 				!stage.computed ||
-				branches(stage).some((branch) => !branch.stable)
+				branchMoved(stage)
 			) {
 				return i;
 			}
@@ -614,16 +677,43 @@ function isPure(filter: Filter): boolean {
 
 /**
  * The chains wired into a stage - which is what `filters` cannot see, and the
- * reason `animated`, `stable` and `earliestStale` all have to ask.
+ * reason `animated` has to ask.
  *
  * Only Pipelines: a `second` or `first` given as a function is opaque, and the
- * two properties that use this document what is assumed of one.
+ * properties that use this document what is assumed of one.
  */
 function branches(stage: Stage): Pipeline[] {
 	const found: Pipeline[] = [];
 	if (stage.first instanceof Pipeline) found.push(stage.first);
 	if (stage.second instanceof Pipeline) found.push(stage.second);
 	return found;
+}
+
+/** Whether either branch has moved, or is about to, since this stage read it. */
+function branchMoved(stage: Stage): boolean {
+	return (
+		moved(stage.first, stage.firstVersion) || moved(stage.second, stage.secondVersion)
+	);
+}
+
+/**
+ * Two questions, and a stage is stale if either answers yes.
+ *
+ * `stable` looks forward: running this branch again would produce something
+ * new, so whatever we cached is already out of date. The version looks back: it
+ * has *already* produced something new since we last read it, which is what
+ * happens when another stage got there first this frame and cleaned the dirty
+ * flags on the way past.
+ *
+ * Asking only the first is the bug {@link Pipeline.version} describes. Asking
+ * only the second never starts anything moving, because a branch that has not
+ * run yet is still on the version we last saw.
+ */
+function moved(input: SecondInput | undefined, seen: number | undefined): boolean {
+	if (!(input instanceof Pipeline)) {
+		return false;
+	}
+	return !input.stable || input.version !== seen;
 }
 
 /**

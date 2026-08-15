@@ -888,6 +888,83 @@ if (!existsSync(join(dist, 'index.html'))) {
 		assert.equal(moved, true, 'the fog never drifted');
 	});
 
+	test('a snippet can drive a property every frame, and the loop runs for it', async () => {
+		// The third kind of motion. The source can be the moving part, and so can
+		// the chain - this is neither: every filter here is still and pure, and the
+		// thing that changes is a number set from the callback.
+		//
+		// Which is exactly why the loop has to be told. `pipeline.animated` is a
+		// confident no for this chain, and a callback that fires once is not an
+		// animation.
+		await enterCodeMode();
+		await setSnippet(
+			[
+				'const cut = new ValueThreshold({ threshold: 128 });',
+				'everyFrame(() => {',
+				'  cut.setProperty("threshold", 128 + Math.round(100 * Math.sin(performance.now() / 400)));',
+				'});',
+				'return new Renderer(canvas).source(image).add(new Desaturate()).add(cut);'
+			].join('\n')
+		);
+		assert.equal(await snippetError(), '', 'the everyFrame snippet did not run');
+
+		const before = await canvasDigest();
+		let moved = false;
+		const deadline = Date.now() + 4000;
+		while (Date.now() < deadline) {
+			await new Promise((resolve) => setTimeout(resolve, 120));
+			if ((await canvasDigest()) !== before) {
+				moved = true;
+				break;
+			}
+		}
+		assert.equal(moved, true, 'the property never moved, so the loop never ran');
+
+		// A callback belongs to the run that registered it. Leaving it attached
+		// would keep the loop running over a still picture for the rest of the
+		// session, driving filters that are no longer in the chain.
+		//
+		// Asserted on the loop rather than on the canvas, which cannot see this:
+		// the orphaned callback drives a filter that has left the chain, so the
+		// picture sits still either way while the page renders it sixty times a
+		// second forever. The frame-time tooltip is the one thing on the page that
+		// distinguishes a looping chain from one that rendered once.
+		await setSnippet('return new Renderer(canvas).source(image).add(new Invert());');
+		assert.equal(await snippetError(), '');
+		await new Promise((resolve) => setTimeout(resolve, 700));
+
+		assert.match(
+			await page.$eval('#mFrame', (el) => el.title),
+			/Median of/,
+			'the loop is still running after the snippet that wanted it was replaced'
+		);
+	});
+
+	test('an everyFrame callback that throws stops rather than throwing forever', async () => {
+		// Sixty identical errors a second, and a picture that carries on moving,
+		// is not a diagnosis. Dropping the callback makes it one message about a
+		// loop that has stopped - which is what happened.
+		await enterCodeMode();
+		await setSnippet(
+			[
+				'let n = 0;',
+				'everyFrame(() => { if (++n > 2) { throw new Error("deliberate"); } });',
+				'return new Renderer(canvas).source(image).add(new Invert());'
+			].join('\n')
+		);
+		await new Promise((resolve) => setTimeout(resolve, 600));
+
+		assert.match(await snippetError(), /everyFrame.*deliberate/);
+
+		// and it really has stopped, rather than being reported once per frame
+		const count = await page.evaluate(() => {
+			const panel = document.getElementById('snippetError');
+			return panel.textContent;
+		});
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		assert.equal(await snippetError(), count, 'the callback is still running and still throwing');
+	});
+
 	test('a broken snippet reports and leaves the picture alone', async () => {
 		// Half-finished is a snippet's normal state, so a failure has to be a
 		// message rather than a blank canvas - otherwise the error text is the only

@@ -29,7 +29,14 @@ import './styles.css';
 const $ = (id) => document.getElementById(id);
 
 const canvas = $('canvas');
-const renderer = new Renderer(canvas, { onFrame: showStats });
+const renderer = new Renderer(canvas, {
+	onFrame: (output) => {
+		showStats(output);
+		//After the readout rather than before, so a snippet that throws cannot
+		//take the backend badge and the frame time down with it.
+		runSnippetFrame(output);
+	}
+});
 
 /** Second-input frames for the dual-input filters, by stage. */
 const seconds = new Map();
@@ -50,6 +57,21 @@ const buildPipeline = renderer.pipeline;
 let mode = 'build';
 /** The chain the last successful snippet returned, so it can be disposed. */
 let codePipeline = null;
+/**
+ * What the current snippet asked to run every frame, via `everyFrame`.
+ *
+ * A chain can be the moving part, and so can the source - this is the third
+ * way, and the only one where the motion is not in the pipeline at all. It is
+ * how you animate a *property*: a Blend ratio sweeping back and forth is not
+ * something any filter can express, because no filter knows it is being
+ * blended.
+ *
+ * Held here rather than on the renderer, whose `onFrame` belongs to the page.
+ * A snippet assigning that directly would take the stats readout with it, and
+ * would outlive the run that set it - this is cleared before every run and on
+ * the way back to Build.
+ */
+let snippetFrame = null;
 /**
  * Whether shaders are wanted, tracked here rather than read back off the
  * renderer: `renderer.gpu` delegates to whichever pipeline is current, so in
@@ -649,7 +671,38 @@ function chainIsLive() {
 	//`pipeline.animated` rather than a walk over `filters` here: a chain whose
 	//only moving part is inside a second input has nothing animated at the top
 	//level, and only the pipeline can see its own branches.
-	return renderer.pipeline.animated;
+	//
+	//And a snippet driving a property from `everyFrame` has nothing animated
+	//anywhere - every filter in it is still and pure, and the thing that moves
+	//is the code. Asking the pipeline gives a confident no and the callback is
+	//never called a second time, which looks exactly like a snippet that does
+	//not work.
+	return renderer.pipeline.animated || snippetFrame !== null;
+}
+
+/**
+ * Runs whatever the snippet registered, once, and unregisters it if it throws.
+ *
+ * A callback that throws does so every frame, sixty times a second, and the
+ * error panel would show the same line forever while the picture kept moving.
+ * Dropping it after the first throw makes the failure a single message about a
+ * loop that has stopped, which is what happened.
+ */
+function runSnippetFrame(output) {
+	if (!snippetFrame) return;
+	try {
+		snippetFrame(output);
+	} catch (error) {
+		snippetFrame = null;
+		showSnippetError(`everyFrame: ${error.name ?? 'Error'}: ${error.message ?? error}`);
+		matchLoop(sourceLive);
+	}
+}
+
+function showSnippetError(message) {
+	const panel = $('snippetError');
+	panel.hidden = message === '';
+	panel.textContent = message;
 }
 
 /** Starts or stops the loop to match what the source and the chain need. */
@@ -993,7 +1046,8 @@ function currentScope() {
 	return buildScope(ScopedPipeline, ScopedRenderer, {
 		canvas: $('canvas'),
 		image: currentElement ?? renderer.sourceFrame,
-		samples: sampleFrames()
+		samples: sampleFrames(),
+		everyFrame
 	});
 }
 
@@ -1013,6 +1067,32 @@ function currentScope() {
  */
 function sampleFrames() {
 	return Object.fromEntries(secondFrames);
+}
+
+/**
+ * Runs `fn` after every frame the page draws - and tells the page there will be
+ * frames.
+ *
+ * The escape hatch for the one kind of motion a chain cannot describe. A filter
+ * that animates does so because it reads the clock itself, which covers a wave
+ * or a drifting field but not "sweep this Blend from one picture to the other
+ * and back": no filter knows it is being blended, so nothing in the chain can
+ * own that number. Here it is a `setProperty` in a callback, which is what
+ * `RendererOptions.onFrame` was added for.
+ *
+ * Registering also starts the frame loop, which is not a side effect so much as
+ * the point - a still source and a still chain render once, and a callback that
+ * fires once is not an animation.
+ *
+ * One at a time: calling it again replaces the last one, because a snippet is
+ * re-run on every edit and accumulating callbacks would mean a chain driven by
+ * every version of itself you had typed.
+ */
+function everyFrame(fn) {
+	if (typeof fn !== 'function') {
+		throw new TypeError(`everyFrame() needs a function, got ${fn === null ? 'null' : typeof fn}`);
+	}
+	snippetFrame = fn;
 }
 
 function buildSnippetList() {
@@ -1050,10 +1130,17 @@ function runCode() {
 	//screen with whatever it managed to build. Remembering the chain lets a
 	//failure put the last working picture back.
 	const before = renderer.pipeline;
+	//Cleared before the run rather than after a failure, so the callback from the
+	//*previous* snippet cannot survive into this one and drive filters that are
+	//no longer in the chain.
+	snippetFrame = null;
 	const result = runSnippet(source, currentScope());
 	const error = $('snippetError');
 
 	if (result.error) {
+		//and a snippet that registered one and then threw does not get to keep it:
+		//the chain it was written against is about to be put back
+		snippetFrame = null;
 		error.hidden = false;
 		error.textContent = result.error;
 		if (renderer.pipeline !== before) {
@@ -1100,6 +1187,9 @@ function setMode(next) {
 	$('modeCode').setAttribute('aria-pressed', String(next === 'code'));
 
 	if (next === 'build') {
+		//the built chain is not the snippet's to animate, and leaving this set
+		//would run the loop over it forever
+		snippetFrame = null;
 		renderer.use(buildPipeline);
 		sync();
 		return;

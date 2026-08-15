@@ -67,6 +67,70 @@ const renderer = new Renderer(canvas)
 return renderer;`
 	},
 	{
+		id: 'strength',
+		label: 'Half strength',
+		note: 'Any chain, dialled back to a percentage of itself',
+		source: `// The thing a list of filters cannot say. A chain is at full strength or
+// it is not there, and "I want about half of that" has no place to live -
+// there is no dial, because the amount is not a property of any of the
+// filters involved.
+//
+// It is a two-input filter. Put the effect in a branch, leave the
+// photograph in the chain, and Blend between them.
+//
+// \`ratio\` is how much of the *first* frame survives, and the first frame
+// here is the untouched picture - so 0.35 is a 65% effect. Change it and
+// re-run; that number is the whole snippet.
+
+const effect = new Pipeline([
+  new Bilateral({ radius: 6, similarity: 60, iterations: 3 }),
+  new Posteriser({ colours: 6 }),
+  new hsvShifter({ saturation: 1.4 })
+]);
+
+return new Renderer(canvas)
+  .source(image)
+  .add(new Blend({ ratio: 0.35 }), { second: effect });`
+	},
+	{
+		id: 'normals',
+		label: 'Height to normals',
+		note: 'A greyscale picture read as a surface, and lit as one',
+		source: `// Pick the Height map source above to see this properly, though any
+// picture works - it is only ever reading brightness as altitude.
+//
+// NormalGenerator writes a tangent-space normal map in the OpenGL
+// convention: red is the surface tilting left and right, green up and
+// down, blue how much it faces you. Flat is (128, 128, 255), which is the
+// lavender that fills most of the result.
+//
+// The two steps before it matter more than the settings on it.
+//
+// Desaturate first, because height is one number and a colour is three -
+// left to itself the generator would read the red channel and call it the
+// landscape. Then Blur, because a normal is a *slope*, and a slope is the
+// difference between neighbouring pixels: photographic noise one shade
+// deep becomes a cliff face. Take the blur out and the surface reads as
+// crumpled foil rather than ground.
+
+const renderer = new Renderer(canvas)
+  .source(image)
+  .add(new Desaturate())
+  .add(new Blur({ radius: 2 }))
+  .add(new NormalGenerator({ intensity: 0.8 }))
+  // Below 1 flattens the result, above 1 exaggerates it - and it is a
+  // rescale of a finished normal map rather than a second read of the
+  // heights, so it stays a unit vector and stays valid.
+  .add(new NormalIntensity({ intensity: 1.2 }));
+
+// The rest of the family, worth knowing about: NormalFlip swaps or negates
+// the axes, for engines that disagree about which way green points -
+// DirectX wants it the other way up. Contourer draws height as contour
+// lines instead, which is the fastest way to see what the blur above did.
+
+return renderer;`
+	},
+	{
 		id: 'computed',
 		label: 'Computed',
 		note: 'A chain whose length is worked out rather than typed',
@@ -182,6 +246,67 @@ return new Renderer(canvas)
   .add(new Bilateral(flatten))
   .add(new Posteriser({ colours: 6 }))
   .add(new Multiply(), { second: ink });`
+	},
+	{
+		id: 'dissolve',
+		label: 'Dissolve',
+		note: 'Two pictures trading places through a cloud, back and forth',
+		source: `// A dissolve, which is a crossfade that happens in a different place at
+// a different time - the shape of the transition is a picture in its own
+// right, and here it is a ridged cloud, so one image eats the other along
+// its valleys.
+//
+// Neither picture is the selected source. \`samples\` holds every still by
+// id, so the chain here is scenery: it sets the size everything else is
+// matched to, and nothing else.
+
+const first = samples.face;
+const second = samples.landscape;
+
+// The shape of the transition. Ridged folding gives hills and valleys
+// rather than smooth blobs, which is what makes the edge look torn
+// instead of blurred.
+const field = new Pipeline([
+  new Cloud({ seed: 5, fold: 'ridged', initialSize: 3, iterations: 5 }),
+  new Blur({ radius: 6 })
+]);
+
+// The moving part, and the only one. Everything above and below is still.
+const cut = new ValueThreshold({ threshold: 128 });
+
+// Threshold, then blur. That order is the whole trick: a threshold can
+// only write black or white, so the sweep is clean and complete - at 0
+// the matte is entirely white and at 255 entirely black - and the blur
+// afterwards puts a soft edge back on it. Blur first and the extremes
+// stop being reachable, so the transition never finishes.
+const matte = new Pipeline()
+  .add(cut, { first: field })
+  .add(new Blur({ radius: 3 }));
+
+const inverse = new Pipeline()
+  .add(new Invert(), { first: matte });
+
+// Multiply keeps a picture where its matte is white and blacks out the
+// rest, so two of them cover the frame between them and Add puts the
+// halves together. The matte's soft edge is what makes the seam a
+// crossfade rather than a cut.
+const front = new Pipeline().add(new Multiply(), { first, second: matte });
+const back = new Pipeline().add(new Multiply(), { first: second, second: inverse });
+
+// No filter can own this number, which is why it lives out here: nothing
+// in the chain knows it is being dissolved. \`everyFrame\` runs after each
+// frame the page draws, and registering it is also what starts the loop.
+//
+// A sine rather than a sawtooth so it turns around at each end instead of
+// snapping back, and so it slows as it arrives.
+everyFrame(() => {
+  const t = (Math.sin(performance.now() / 2500) + 1) / 2;
+  cut.setProperty('threshold', Math.round(t * 255));
+});
+
+return new Renderer(canvas)
+  .source(image)
+  .add(new Add(), { first: front, second: back });`
 	},
 	{
 		id: 'chain',

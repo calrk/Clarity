@@ -352,6 +352,77 @@ test('a first frame replaces what the stage before produced, without removing it
 	assert.deepEqual(bytes(replacement), bytes(makeFrame(42)));
 });
 
+test('a branch read twice in one run is not mistaken for unchanged', () => {
+	// A matte and its inverse, which is the ordinary shape of a dissolve and the
+	// smallest thing that breaks `stable`.
+	//
+	// `stable` looks forward - "would running me again match what I last
+	// produced" - and that is answered relative to the *branch's* last run. The
+	// first consumer runs the matte, which clears the dirty flag that made it
+	// unstable; the second consumer then asks, is told yes, and is served the
+	// frame it cached on the previous run. The two halves are then a frame apart
+	// and stop covering each other.
+	//
+	// Invisible in every way that matters: no error, no missing frame, just a
+	// composite that is subtly wrong while anything is moving and perfect the
+	// moment it stops.
+	const cut = new CLARITY.ValueThreshold({ threshold: 60 });
+	const matte = new CLARITY.Pipeline([new CLARITY.Desaturate(), cut], { gpu: false });
+	const inverse = new CLARITY.Pipeline([], { gpu: false })
+		.add(new CLARITY.Invert(), { first: matte });
+
+	const chain = new CLARITY.Pipeline([], { gpu: false })
+		.add(new CLARITY.Add(), { first: matte, second: inverse });
+
+	const source = makeFrame();
+	chain.run(source);
+
+	//Upwards, and that direction is not incidental. Lowering the threshold only
+	//ever lights more pixels, so a stale inverse lands where the fresh matte is
+	//already white and `Add` clamps the mistake away at 255 - the test passes
+	//while the bug is present. Raising it puts black against black, which
+	//nothing rounds off.
+	cut.setProperty('threshold', 200);
+	const out = chain.run(source);
+
+	//and a guard against the whole thing going quietly vacuous: if the two
+	//thresholds ever stop disagreeing on this frame, there is no stale frame to
+	//catch and every assertion below passes for the wrong reason
+	const lit = (frame) => [...frame.data].filter((_, i) => i % 4 === 0 && frame.data[i] > 128).length;
+	assert.notEqual(
+		lit(new CLARITY.Pipeline([new CLARITY.Desaturate(), new CLARITY.ValueThreshold({ threshold: 60 })], { gpu: false }).run(makeFrame())),
+		lit(new CLARITY.Pipeline([new CLARITY.Desaturate(), new CLARITY.ValueThreshold({ threshold: 200 })], { gpu: false }).run(makeFrame())),
+		'the two thresholds produce the same matte, so this test proves nothing'
+	);
+
+	//A matte and its inverse cover each other exactly, at any threshold. Any
+	//pixel that is not 255 is one where the two halves disagreed about which
+	//frame they were in.
+	let uncovered = 0;
+	for (let i = 0; i < out.data.length; i += 4) {
+		if (out.data[i] !== 255) uncovered++;
+	}
+	assert.equal(uncovered, 0, `${uncovered} pixels were not covered by matte + inverse`);
+});
+
+test('a fully cached run tells nobody anything happened', () => {
+	// The other direction. A version that bumped on every run would make every
+	// consumer of a branch recompute forever, which is the same as having no
+	// cache at all - and would look like a performance regression rather than a
+	// correctness one, so nothing would fail.
+	const branch = new CLARITY.Pipeline([new CLARITY.Desaturate()], { gpu: false });
+	const chain = new CLARITY.Pipeline([], { gpu: false })
+		.add(new CLARITY.Multiply(), { second: branch });
+
+	const source = makeFrame();
+	chain.run(source);
+	const settled = branch.version;
+
+	chain.run(source);
+	assert.equal(branch.version, settled, 'a cached branch bumped its version');
+	assert.equal(chain.stats.from, -1, 'the chain re-ran over a branch that had not moved');
+});
+
 test('a moving branch counts whichever input it is wired into', () => {
 	// `animated` and `stable` both have to look at `first` for exactly the reason
 	// they look at `second`: nothing at the top level moves, and the picture is

@@ -1056,7 +1056,7 @@ new Blend({ ratio: 0.35 });
 
 | Property | Type | Range | Default | |
 |---|---|---|---|---|
-| `ratio` | float | 0–1 | `0.5` | 0 is all of the first image, 1 is all of the second. |
+| `ratio` | float | 0–1 | `0.5` | 1 is all of the first image, 0 is all of the second. |
 
 ### Mask
 
