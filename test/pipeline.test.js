@@ -296,6 +296,101 @@ test('a second input given as a function is called each run', () => {
 	assert.equal(calls, 2);
 });
 
+test('a stage can take its first frame from the options too', () => {
+	// What makes a two-input filter even-handed. Without this, combining two
+	// generated branches means one of them has to be the chain and the other the
+	// argument, which reads as though they were different kinds of thing.
+	const left = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 3 })], { gpu: false });
+	const right = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 9 })], { gpu: false });
+
+	const chain = new CLARITY.Pipeline([], { gpu: false })
+		.add(new CLARITY.Multiply(), { first: left, second: right });
+
+	const source = makeFrame();
+	const actual = chain.run(source);
+
+	const expected = new CLARITY.Multiply().process([
+		new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 3 })], { gpu: false }).run(makeFrame()),
+		new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 9 })], { gpu: false }).run(makeFrame())
+	]);
+
+	assert.deepEqual(bytes(actual), bytes(expected));
+
+	// and the source really is out of it: the same chain over a different
+	// picture draws the same thing, which is not true of a `second` alone
+	assert.deepEqual(bytes(chain.run(makeFrame(77))), bytes(expected));
+});
+
+test('a first frame replaces what the stage before produced, without removing it', () => {
+	// The bit worth pinning, because it is the surprising half. This is still a
+	// chain - `first` does not delete the stages above it, it stops one stage
+	// listening to them. Anything with a side effect up there still has it.
+	const counted = new CLARITY.Invert();
+	let ran = 0;
+	const original = counted.doProcess.bind(counted);
+	counted.doProcess = (frame) => {
+		ran++;
+		return original(frame);
+	};
+
+	const replacement = makeFrame(42);
+	const chain = new CLARITY.Pipeline([], { gpu: false })
+		.add(counted)
+		.add(new CLARITY.Desaturate({}), { first: replacement });
+
+	const actual = chain.run(makeFrame());
+
+	assert.equal(ran, 1, 'the stage above should still have run');
+	assert.deepEqual(
+		bytes(actual),
+		bytes(new CLARITY.Desaturate({}).process(makeFrame(42))),
+		'the Invert above it should have made no difference to the output'
+	);
+
+	// the frame handed over is not the caller's, or a filter that mutated its
+	// input would quietly corrupt whatever supplied it
+	assert.deepEqual(bytes(replacement), bytes(makeFrame(42)));
+});
+
+test('a moving branch counts whichever input it is wired into', () => {
+	// `animated` and `stable` both have to look at `first` for exactly the reason
+	// they look at `second`: nothing at the top level moves, and the picture is
+	// supposed to. Wiring the fog into the first input rather than the second is
+	// not a reason for the frame loop to stop.
+	const clock = { now: 0 };
+	const drift = new CLARITY.Pipeline(
+		[
+			new CLARITY.Cloud({ seed: 1 }),
+			new CLARITY.Translator({ horizontal: 0.4, speed: 1, now: () => clock.now })
+		],
+		{ gpu: false }
+	);
+	const still = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 2 })], { gpu: false });
+
+	const chain = new CLARITY.Pipeline([], { gpu: false });
+	chain.add(new CLARITY.Multiply(), { first: drift, second: still });
+
+	assert.equal(chain.filters.some((f) => f.constructor.animated(f)), false, 'the premise');
+	assert.equal(chain.animated, true, 'a moving first input has to count');
+
+	const source = makeFrame();
+	const before = chain.run(source);
+	assert.equal(chain.stable, false);
+
+	clock.now = 500;
+	const after = chain.run(source);
+	assert.equal(chain.stats.from, 0, 'the chain was cached while its first input moved');
+	assert.notDeepEqual(bytes(after), bytes(before), 'the picture did not move');
+
+	// and the other direction, or this would just be "never cache anything"
+	const settled = new CLARITY.Pipeline([], { gpu: false });
+	settled.add(new CLARITY.Multiply(), { first: still, second: still });
+	settled.run(source);
+	settled.run(source);
+	assert.equal(settled.animated, false);
+	assert.equal(settled.stats.from, -1, 'a still chain should cost nothing to re-run');
+});
+
 test('stateful and varying filters are declared, and nothing else is', () => {
 	const stateful = ['Ghoster', 'MotionDetector', 'DifferenceDetector'];
 	// Only the ones that read the *clock*. Noise, Cloud and Voronoi used to be

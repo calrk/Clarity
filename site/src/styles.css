@@ -56,7 +56,19 @@
 	--accent: var(--mint);
 	--accent-wash: #1d2c2a;
 	--shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 28px -14px rgb(0 0 0 / 60%);
+
+	/*
+		Overridden alongside the variables, or the toggle only repaints the half of
+		the page we draw ourselves. Scrollbars, focus rings and the popup a <select>
+		opens are the browser's, and `light dark` on :root means they follow the
+		*system* - so asking for dark on a light machine left a white dropdown over
+		a dark page. Both directions, for the reason the variables are declared
+		twice.
+	*/
+	color-scheme: dark;
 }
+
+:root[data-theme='light'] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 
@@ -132,6 +144,30 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 .ghost:hover { color: var(--text); border-color: var(--muted); }
 .ghost.small { padding: .22rem .5rem; font-size: .76rem; }
 .ghost.wide { width: 100%; margin-top: .5rem; }
+
+/*
+	A <select> wearing `.ghost` needs the two things `.ghost` deliberately does
+	not have. The list it opens is drawn by the browser, from the *select's* own
+	computed colours - so `background: transparent` and `color: var(--muted)`,
+	which are exactly right for a button sitting on a panel, become pale grey
+	text on whatever is behind the popup. It was legible only under the hover
+	bar, which supplies its own colours.
+
+	`option` is set as well rather than left to inherit: Chrome on Windows and
+	Linux honours it, macOS and Safari ignore it and use the select's, and
+	setting both is the only way to be right on all of them.
+*/
+select.ghost {
+	background: var(--panel);
+	color: var(--text);
+}
+
+select.ghost:hover { background: var(--bg-tint); }
+
+option {
+	background: var(--panel);
+	color: var(--text);
+}
 
 /* ---------- layout ---------- */
 

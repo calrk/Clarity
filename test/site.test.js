@@ -754,6 +754,55 @@ if (!existsSync(join(dist, 'index.html'))) {
 		}
 	});
 
+	test('the snippet picker is legible in both themes', async () => {
+		// The list a <select> opens is drawn by the browser out of the select's own
+		// computed colours, so `.ghost` - transparent, muted text - rendered it as
+		// pale grey on whatever was behind it, readable only under the hover bar.
+		// The popup is OS chrome and cannot be screenshotted, but the two colours
+		// it is built from can be read, and they are the whole bug.
+		await enterCodeMode();
+
+		/** WCAG contrast of an element's own text against its own background. */
+		const contrastOf = (selector) =>
+			page.$eval(selector, (el) => {
+				const parse = (value) => (value.match(/[\d.]+/g) ?? []).map(Number);
+				const luminance = ([r, g, b]) => {
+					const channel = (c) => {
+						const v = c / 255;
+						return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+					};
+					return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+				};
+
+				const style = getComputedStyle(el);
+				const background = parse(style.backgroundColor);
+				const text = parse(style.color);
+				//alpha defaults to 1 when rgb() omits it; a transparent background is
+				//the original bug, so it is reported rather than treated as opaque
+				const alpha = background[3] ?? 1;
+				const a = luminance(background);
+				const b = luminance(text);
+				const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+				return { alpha, ratio, scheme: getComputedStyle(document.documentElement).colorScheme };
+			});
+
+		for (const theme of ['light', 'dark']) {
+			await page.evaluate((value) => {
+				document.documentElement.dataset.theme = value;
+			}, theme);
+
+			const { alpha, ratio, scheme } = await contrastOf('#snippetPicker');
+
+			assert.equal(alpha, 1, `the ${theme} picker has no background of its own to draw on`);
+			assert.ok(ratio >= 4.5, `the ${theme} picker reads at ${ratio.toFixed(2)}:1, needs 4.5`);
+			// and the browser has to be told which way the page went, or it draws
+			// the popup's own chrome for the system theme instead of the chosen one
+			assert.equal(scheme, theme, `the ${theme} theme did not reach the native controls`);
+		}
+
+		await page.evaluate(() => delete document.documentElement.dataset.theme);
+	});
+
 	test('every shipped snippet compiles and changes the picture', async () => {
 		// The examples/ folder rotted for years because nothing ran it. These are
 		// documentation, so they get what the generated docs get: an example that
@@ -913,6 +962,55 @@ if (!existsSync(join(dist, 'index.html'))) {
 		);
 		assert.equal(await snippetError(), '', 'frameOf(image) was not reachable');
 		assert.notEqual(await canvasDigest(), composed, 'the second input made no difference');
+	});
+
+	test('a first input replaces the frame on the GPU as well as the CPU', async () => {
+		// The run boundary, which only exists on this backend. A shader run shares
+		// one uploaded frame ping-ponged between two targets, so a stage that
+		// throws that frame away for another one cannot live inside it - it has to
+		// begin a run of its own.
+		//
+		// Get that wrong and `first` is silently ignored on the GPU while the CPU
+		// honours it, which is the worst shape a bug can have: the picture is only
+		// wrong on machines with a working WebGL2, and the Node tests all pass.
+		//
+		// So the assertion is that the stage in front makes *no difference*. It is
+		// an Invert, which is about as visible as a filter gets - if `first` were
+		// being skipped, these two would not be close, let alone identical.
+		await enterCodeMode();
+		assert.equal(
+			await page.$eval('#backendBadge', (el) => el.textContent),
+			'GPU',
+			'this test says nothing unless the shaders are actually running'
+		);
+
+		const chain = (lead) =>
+			[
+				'const stamp = new Pipeline([new Cloud({ seed: 4 }), new GradientMap({ ramp: "ice" })]);',
+				'return new Renderer(canvas)',
+				'  .source(image)',
+				lead,
+				'  .add(new Blur({ radius: 2 }), { first: stamp });'
+			]
+				.filter(Boolean)
+				.join('\n');
+
+		await setSnippet(chain('  .add(new Invert())'));
+		assert.equal(await snippetError(), '', 'the chain with a lead-in did not run');
+		const withLead = await canvasDigest();
+
+		await setSnippet(chain(null));
+		assert.equal(await snippetError(), '', 'the chain without a lead-in did not run');
+
+		assert.equal(await canvasDigest(), withLead, 'the discarded stage reached the picture');
+
+		// The control, or the above would pass just as well on a `first` that was
+		// never read at all: without it the Invert is the whole picture.
+		await setSnippet(
+			'return new Renderer(canvas).source(image).add(new Invert()).add(new Blur({ radius: 2 }));'
+		);
+		assert.equal(await snippetError(), '');
+		assert.notEqual(await canvasDigest(), withLead, 'first drew the source anyway');
 	});
 
 	test('a sample of a different size composes rather than tearing', async () => {

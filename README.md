@@ -223,6 +223,20 @@ new Pipeline()
 which is fed the outer run's *source*, so it branches off the input rather than
 continuing the chain.
 
+`first` is the same thing for the other input, and replaces the frame arriving
+from the stage before. It is what makes these filters even-handed: without it,
+combining two branches means one of them has to be the chain and the other the
+argument, though nothing about them differs.
+
+```js
+const fog = new Pipeline()
+	.add(new Multiply(), { first: across, second: upward });
+```
+
+A stage with a `first` ignores whatever reached it — the stages above still run,
+they just stop being read — so in practice it goes on the first stage of a
+chain, where there is nothing above it to ignore.
+
 Filtering an `<img>`
 --------------------
 

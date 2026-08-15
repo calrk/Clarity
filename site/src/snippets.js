@@ -96,10 +96,10 @@ return renderer;`
 		source: `// Two chains, built the same way and pointed in different directions,
 // laid over the photograph.
 //
-// A Pipeline is a valid second input, which is what makes this possible at
-// all - the drag list can only describe one straight chain, and this is
-// three of them. Each fog is a branch: it never sees the picture, it just
-// produces a frame for Multiply to combine with.
+// A Pipeline is a valid input on either side of a two-input filter, which
+// is what makes this possible at all - the drag list can only describe one
+// straight chain, and this is three of them. Each fog is a branch: it never
+// sees the picture, it just produces a frame for Multiply to combine with.
 //
 // Nothing here is special-cased. \`drift\` is an ordinary function that
 // returns a Pipeline, so "two fogs" is two calls, and "five fogs" would be
@@ -121,13 +121,21 @@ const drift = (horizontal, vertical, seed) => new Pipeline([
 const across = drift(0.3, 0, 7);
 const upward = drift(0, -0.3, 21);
 
-// Multiply is associative, so the two fogs crossing is two stages rather
-// than a combining step - and each line reads the same as the other.
-// Where they overlap, the picture goes darker still.
+// The two fogs crossing. Neither of them is "the chain" and the other one
+// an argument - they are peers, and \`first\` is what lets the code say so.
+// Without it one of the two has to be written differently from the other
+// for no reason but where it sits.
+//
+// The picture is not involved at this point, which is the giveaway: a
+// stage with a \`first\` ignores whatever reached it and starts again.
+const fog = new Pipeline()
+  .add(new Multiply(), { first: across, second: upward });
+
+// And now the photograph, with the weather laid over it. Multiply only
+// darkens, so this is the pass that puts the fog in front.
 return new Renderer(canvas)
   .source(image)
-  .add(new Multiply(), { second: across })
-  .add(new Multiply(), { second: upward });`
+  .add(new Multiply(), { second: fog });`
 	},
 	{
 		id: 'comic',

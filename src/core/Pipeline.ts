@@ -17,11 +17,37 @@ export type SecondInput = ImageData | Pipeline | (() => ImageData);
 export interface StageOptions {
 	/** Second frame, for the two-input filters (`Add`, `Blend`, `Mask`, ...). */
 	second?: SecondInput;
+	/**
+	 * First frame, replacing the one arriving from the stage before.
+	 *
+	 * The chain's input is normally whatever the previous stage produced, which
+	 * is what makes it a chain. This says otherwise: take the frame from here
+	 * instead. Everything upstream still runs - it is only this stage that stops
+	 * listening - so in practice it is used on the first stage of a chain, where
+	 * there is nothing upstream to ignore.
+	 *
+	 * That is what makes a two-input filter symmetric. Without it, combining two
+	 * generated branches means one of them has to be the chain and the other the
+	 * argument, which reads as though they were different kinds of thing:
+	 *
+	 * ```js
+	 * // lopsided: `across` is the chain, `upward` is wired into it
+	 * renderer.add(new Multiply(), { second: upward });
+	 *
+	 * // even-handed: both are branches, and the source is not involved
+	 * renderer.add(new Multiply(), { first: across, second: upward });
+	 * ```
+	 *
+	 * Resolved exactly like {@link second}, so a nested Pipeline here is handed
+	 * the outer run's source too.
+	 */
+	first?: SecondInput;
 }
 
 interface Stage {
 	filter: Filter;
 	second?: SecondInput;
+	first?: SecondInput;
 	/** Output of this stage on the last run, when it is safe to reuse. */
 	cached?: ImageData;
 	/**
@@ -214,7 +240,7 @@ export class Pipeline {
 			if ((stage.filter.constructor as typeof Filter).animated(stage.filter)) {
 				return true;
 			}
-			return stage.second instanceof Pipeline && stage.second.animated;
+			return branches(stage).some((branch) => branch.animated);
 		});
 	}
 
@@ -244,7 +270,7 @@ export class Pipeline {
 			if (!isPure(stage.filter) || stage.filter.dirty) {
 				return false;
 			}
-			return !(stage.second instanceof Pipeline) || stage.second.stable;
+			return branches(stage).every((branch) => branch.stable);
 		});
 	}
 
@@ -257,7 +283,7 @@ export class Pipeline {
 	}
 
 	add(filter: Filter, options: StageOptions = {}): this {
-		this.stages.push({ filter, second: options.second });
+		this.stages.push({ filter, second: options.second, first: options.first });
 		this.structureDirty = true;
 		return this;
 	}
@@ -265,7 +291,8 @@ export class Pipeline {
 	insert(index: number, filter: Filter, options: StageOptions = {}): this {
 		this.stages.splice(clampIndex(index, this.stages.length), 0, {
 			filter,
-			second: options.second
+			second: options.second,
+			first: options.first
 		});
 		this.structureDirty = true;
 		return this;
@@ -368,6 +395,17 @@ export class Pipeline {
 		let i = from;
 
 		while (i < this.stages.length) {
+			//A stage with a `first` does not read the chain, it replaces it. Done
+			//here rather than inside either branch below because `frame` is both the
+			//CPU path's input and what the GPU path uploads.
+			//
+			//Cloned for the same reason the cached frame above is: this is very
+			//often a branch pipeline's own cached output, and a filter is entitled
+			//to mutate what it is handed.
+			if (this.stages[i].first !== undefined) {
+				frame = cloneImageData(resolveSecond(this.stages[i].first!, source));
+			}
+
 			const runEnd = backend ? this.endOfGPURun(i, backend) : i;
 
 			if (runEnd > i || (backend && this.onGPU(this.stages[i].filter, backend))) {
@@ -490,11 +528,19 @@ export class Pipeline {
 		return backend !== null && gpuBlocker(filter) === null;
 	}
 
-	/** Index of the last stage in the shader run starting at `start`. */
+	/**
+	 * Index of the last stage in the shader run starting at `start`.
+	 *
+	 * A stage with a `first` ends the run before it. Everything in a shader run
+	 * shares one uploaded frame ping-ponged between two targets, and a stage that
+	 * discards that frame for another one cannot be expressed in it - so it
+	 * begins a run of its own, paying one readback to do so.
+	 */
 	private endOfGPURun(start: number, backend: GLBackend): number {
 		let end = start;
 		while (
 			end + 1 < this.stages.length &&
+			this.stages[end + 1].first === undefined &&
 			this.onGPU(this.stages[end + 1].filter, backend)
 		) {
 			end++;
@@ -528,6 +574,11 @@ export class Pipeline {
 		//the run begins.
 		let start = stale;
 		while (start > 0 && this.onGPU(this.stages[start].filter, backend)) {
+			//`first` begins a run, so there is nothing to walk back into - and
+			//walking past it would recompute stages whose output it discards
+			if (this.stages[start].first !== undefined) {
+				break;
+			}
 			if (!this.onGPU(this.stages[start - 1].filter, backend)) {
 				break;
 			}
@@ -547,7 +598,7 @@ export class Pipeline {
 				stage.filter.dirty ||
 				!isPure(stage.filter) ||
 				!stage.computed ||
-				(stage.second instanceof Pipeline && !stage.second.stable)
+				branches(stage).some((branch) => !branch.stable)
 			) {
 				return i;
 			}
@@ -559,6 +610,20 @@ export class Pipeline {
 
 function isPure(filter: Filter): boolean {
 	return (filter.constructor as typeof Filter).pure;
+}
+
+/**
+ * The chains wired into a stage - which is what `filters` cannot see, and the
+ * reason `animated`, `stable` and `earliestStale` all have to ask.
+ *
+ * Only Pipelines: a `second` or `first` given as a function is opaque, and the
+ * two properties that use this document what is assumed of one.
+ */
+function branches(stage: Stage): Pipeline[] {
+	const found: Pipeline[] = [];
+	if (stage.first instanceof Pipeline) found.push(stage.first);
+	if (stage.second instanceof Pipeline) found.push(stage.second);
+	return found;
 }
 
 /**
