@@ -15,7 +15,7 @@ export interface ExecuteResult {
 	onGPU: number[];
 	/** Indices that fell back to the CPU, and why. */
 	fallbacks: { index: number; filter: string; reason: string }[];
-	/** How many times the frame crossed the CPU/GPU boundary. */
+	/** Full frames crossing the CPU/GPU boundary - see `PipelineStats.transfers`. */
 	transfers: number;
 }
 
@@ -138,7 +138,18 @@ export function executeChain(
 		//is an exact one-to-one sample rather than a stretch the CPU has to imitate.
 		//Sizes are checked per stage rather than once for the run, because a filter
 		//with an `outputSize` changes them part way through one.
-		const secondTexture = second ? backend.uploadSecond(resampleTo(second, width, height)) : null;
+		//
+		//Counted. This went uncounted for as long as second inputs have existed,
+		//which mattered once chains started composing: a second frame is a whole
+		//frame crossing the bus, and a chain of branches is mostly second inputs.
+		//`transfers` is the number the project uses to decide whether a GPU change
+		//is worth making, so one that quietly ignored half the traffic was
+		//understating exactly the case it was being consulted about.
+		let secondTexture: WebGLTexture | null = null;
+		if (second) {
+			secondTexture = backend.uploadSecond(resampleTo(second, width, height));
+			result.transfers++;
+		}
 		const originalTexture = keepOriginal(backend, passes!, gpuTarget ? gpuTarget.texture : gpuTexture!, width, height);
 		const { width: outWidth, height: outHeight } =
 			(filter.constructor as typeof Filter).outputSize(filter, width, height);

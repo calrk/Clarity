@@ -89,7 +89,16 @@ export interface PipelineStats {
 	onGPU: number[];
 	/** Stages that had to run on the CPU, and why. */
 	fallbacks: { index: number; filter: string; reason: string }[];
-	/** Times the frame crossed between CPU memory and a texture. */
+	/**
+	 * Times a full frame crossed between CPU memory and a texture - the frame
+	 * being processed, and any second input uploaded alongside it.
+	 *
+	 * Two crossings are deliberately not counted, both because they are bounded
+	 * rather than frame-sized: the thumbnail `samples` filters read back before
+	 * their shader runs, and the small data textures `Filter.data` supplies for
+	 * palettes and ramps. Neither scales with the picture, which is the thing
+	 * this number exists to warn about.
+	 */
 	transfers: number;
 }
 
@@ -207,12 +216,38 @@ export class Pipeline {
 		return this.gpuWanted;
 	}
 
+	/**
+	 * Setting this reaches the branches too, because "run this chain on the CPU"
+	 * that leaves most of the work on the GPU is not an answer to anything.
+	 *
+	 * It was the top-level pipeline only, and the effect was to make the question
+	 * unaskable: `new Renderer(canvas, { gpu: false })` on a composed chain left
+	 * every branch on shaders, and the playground's backend badge did the same in
+	 * code mode - a CPU/GPU comparison of a branching chain came back with both
+	 * sides timing identically, which is a believable answer and a wrong one.
+	 *
+	 * It does overrule a branch that asked for a backend of its own. That is the
+	 * right way round for the two callers there are - a badge is somebody
+	 * deciding, and a `gpu` option on the outer chain is somebody describing the
+	 * whole thing - and a branch that must differ can be set again afterwards.
+	 */
 	set gpu(wanted: boolean) {
-		if (wanted === this.gpuWanted) {
-			return;
-		}
+		//Not guarded on the current value: a branch can disagree with its parent,
+		//having been built separately or set directly, and returning early here
+		//would leave it disagreeing forever. The branches' own setters stop the
+		//recursion from doing any work where nothing changed.
+		const changed = wanted !== this.gpuWanted;
 		this.gpuWanted = wanted;
-		this.invalidate();
+
+		for (const stage of this.stages) {
+			for (const branch of branches(stage)) {
+				branch.gpu = wanted;
+			}
+		}
+
+		if (changed) {
+			this.invalidate();
+		}
 	}
 
 	get length(): number {

@@ -965,6 +965,46 @@ if (!existsSync(join(dist, 'index.html'))) {
 		assert.equal(await snippetError(), count, 'the callback is still running and still throwing');
 	});
 
+	test('a second input is counted as the transfer it is', async () => {
+		// `transfers` is the number this project consults before deciding whether a
+		// GPU change is worth making, and it ignored second inputs entirely - so it
+		// undercounted precisely the case it was being consulted about, since a
+		// composed chain is mostly second inputs.
+		//
+		// A one-stage chain is two crossings: the frame up, the result back. Give
+		// the stage a second frame and it is three.
+		await enterCodeMode();
+
+		// Read off the pipeline rather than the backend badge. The badge reports
+		// whatever the page last rendered, which depends on the test before this
+		// one; `gpu: true` here says what this chain needs and `stats.backend`
+		// confirms it got it, so the count below cannot be a CPU run's zero.
+		const statsFor = async (stage) => {
+			await setSnippet(
+				[
+					'const chain = new Pipeline([], { gpu: true })' + stage + ';',
+					'chain.run(frameOf(image));',
+					'window.__stats = { transfers: chain.stats.transfers, backend: chain.stats.backend };',
+					'return chain;'
+				].join('\n')
+			);
+			assert.equal(await snippetError(), '', `the ${stage} chain did not run`);
+			return page.evaluate(() => window.__stats);
+		};
+
+		const plain = await statsFor('.add(new Invert())');
+		assert.equal(plain.backend, 'gpu', 'nothing crosses anything on the CPU path');
+		assert.equal(plain.transfers, 2, 'one frame up, one back');
+
+		const composed = await statsFor('.add(new Multiply(), { second: samples.rorschach })');
+		assert.equal(composed.backend, 'gpu', 'the two-input stage fell back to the CPU');
+		assert.equal(
+			composed.transfers,
+			3,
+			'the second frame crossed the bus without being counted'
+		);
+	});
+
 	test('a broken snippet reports and leaves the picture alone', async () => {
 		// Half-finished is a snippet's normal state, so a failure has to be a
 		// message rather than a blank canvas - otherwise the error text is the only

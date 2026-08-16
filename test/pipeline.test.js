@@ -352,6 +352,39 @@ test('a first frame replaces what the stage before produced, without removing it
 	assert.deepEqual(bytes(replacement), bytes(makeFrame(42)));
 });
 
+test('switching backend takes the branches with it', () => {
+	// "Run this chain on the CPU" that leaves most of the work on the GPU is not
+	// an answer to anything - and the failure is a believable wrong number rather
+	// than an error, because a CPU/GPU comparison of a branching chain comes back
+	// with both sides timing the same.
+	const deep = new CLARITY.Pipeline([new CLARITY.Invert()]);
+	const nested = new CLARITY.Pipeline([]).add(new CLARITY.Multiply(), { second: deep });
+	const other = new CLARITY.Pipeline([new CLARITY.Desaturate()]);
+
+	const chain = new CLARITY.Pipeline([])
+		.add(new CLARITY.Multiply(), { first: other, second: nested });
+
+	assert.equal(chain.gpu, true, 'the premise');
+
+	chain.gpu = false;
+	assert.equal(other.gpu, false, 'a first input kept its own backend');
+	assert.equal(nested.gpu, false, 'a second input kept its own backend');
+	assert.equal(deep.gpu, false, 'a branch of a branch kept its own backend');
+
+	chain.gpu = true;
+	assert.equal(deep.gpu, true, 'and back again');
+
+	// A branch built with a mind of its own is overruled, which is the right way
+	// round for the two callers there are - and it has to happen even though the
+	// parent's own value is unchanged, or the two disagree forever.
+	const stubborn = new CLARITY.Pipeline([new CLARITY.Invert()], { gpu: false });
+	const outer = new CLARITY.Pipeline([]).add(new CLARITY.Multiply(), { second: stubborn });
+	assert.equal(outer.gpu, true, 'the premise: the parent already wants the GPU');
+
+	outer.gpu = true;
+	assert.equal(stubborn.gpu, true, 'a no-op on the parent skipped the branches');
+});
+
 test('a branch read twice in one run is not mistaken for unchanged', () => {
 	// A matte and its inverse, which is the ordinary shape of a dissolve and the
 	// smallest thing that breaks `stable`.

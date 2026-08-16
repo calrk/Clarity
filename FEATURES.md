@@ -1252,28 +1252,29 @@ The answer to jagged outlines turned out to be blurring the *line map* after inv
 
 **Every nested `Pipeline` round-trips through CPU memory.** `resolveSecond` hands back an `ImageData`, so a branch ends with a `readPixels` and its consumer immediately uploads the same 4 MB back. At 1024² that is a synchronous stall per branch per frame, and it prices *composition itself* — the thing #17 exists to make possible.
 
-### The numbers, and why they understate it
+### The evidence
 
-Identical pixel work, arranged two ways:
+**The controlled comparison, repeated five times.** Identical filters, identical pixels, arranged flat and then split across four pipelines:
 
-| | time | reported transfers |
+| | time, across runs | transfers |
 |---|---|---|
-| 8 filters, one pipeline | 110.6 ms | 2 |
-| the same 8 filters, four pipelines | 134.7 ms | 8 |
+| 8 filters, one pipeline | 110.6 · 81.0 · 72.5 · 65.4 · 71.1 ms | 2 |
+| the same 8 filters, four pipelines | 134.7 · 124.3 · 108.4 · 120.8 · 122.2 ms | 8 |
 
-And the Dissolve snippet, folded down by hand:
+The absolutes wander — this is SwiftShader in a headless VM and the first run or two are still warming — but the two sets **never overlap**, and once warm the split version costs about 1.6× the flat one for exactly the same work. Six extra crossings is the only difference.
 
-| | time | reported transfers |
-|---|---|---|
-| as written — 5 pipelines | 133.5 ms | 8 |
-| `front` folded into the main chain — 4 | 120.6 ms | 6 |
-| `inverse` folded into `back` too — 3 | 106.2 ms | 4 |
+**The transfer counts are the part worth trusting**, because they are exact rather than timed. The Dissolve does **11 crossings a frame** across its five pipelines, and 7 when folded to three.
 
-**Three things make that 20% a floor rather than a ceiling.**
+### What did not survive repetition
 
-- **The measurements are SwiftShader**, which flatters the result badly. It makes the *filters* absurdly slow — 110 ms for eight inverts, which real hardware does in well under a millisecond — while `readPixels` stays a genuine stall everywhere. Remove the software-rasteriser tax from the filter half and transfers dominate almost entirely.
-- **`stats.transfers` does not count second-input uploads.** `execute.ts:141` calls `uploadSecond` without touching the counter, which only increments in `toGPU`/`toCPU`. So every table above undercounts by one upload per two-input stage per frame. **Fix the counter first** — this whole entry is a performance argument, and it should not be argued from a number that is wrong.
-- **A cached branch still gets re-uploaded.** This is the one that matters most, because it is the case that *looks* solved. In the Dissolve, the cloud field is fully cached — `from: -1`, zero recomputation, exactly as intended. Its 4 MB is then cloned and pushed across the bus **every single frame anyway**, because the cache holds pixels and the GPU wants a texture. The expensive generator is free and the picture of it is not.
+An earlier version of this entry claimed folding the Dissolve's five pipelines to three took 20% off, from a single run of each. **Repeated five times, that is noise**: the five-pipeline and three-pipeline versions overlap, and the four-pipeline intermediate is consistently the *slowest* of the three. The saving is real in the sense that fewer crossings is strictly less work — but it is not measurable here, because folding a branch also changes what caches and what recomputes, so it is not the clean A/B the table above is. **Only the controlled comparison should be cited.**
+
+Which is the same discipline #12 is held to, and it applies here too: the number that decides whether to build this has to come from real hardware and the playground's `Compare backends`, not from a software rasteriser.
+
+### Why the case is still strong
+
+- **SwiftShader flatters the split version.** It makes the *filters* absurdly slow — tens of milliseconds for eight inverts, which real hardware does in well under one — while `readPixels` stays a genuine stall everywhere. Take the software-rasteriser tax off the filter half and transfers dominate far more, not less.
+- **A cached branch is still re-uploaded**, and this is the case that *looks* solved. In the Dissolve the cloud field is fully cached — `from: -1`, zero recomputation, exactly as intended. Its 4 MB is then cloned and pushed across the bus **every single frame anyway**, because the cache holds pixels and the GPU wants a texture. The expensive generator is free to compute and not free to use.
 
 That last point is the real shape of the feature: caching a branch currently means *not recomputing* it. It should also mean *not moving* it.
 
@@ -1292,12 +1293,12 @@ Four things make it more than a type change:
 
 **This does nothing for the CPU path**, which is most of what the test suite exercises, so it needs its own benchmark rather than a golden image. It does nothing for a single straight chain either — that already uploads once and reads back once, which is optimal.
 
-What it changes is the cost of *branching*, which is currently steep enough to be worth restructuring around. The rule that fell out of measuring the Dissolve is a workaround, not a design: **a branch is only worth its own Pipeline if something reads it twice.** `matte` earns that; `front` and `inverse` were each a whole Pipeline wrapping a single filter, written that way for symmetry, and each cost two round trips a frame. Nobody should have to know that.
+What it changes is the cost of *branching*. There is a tempting rule here — **a branch is only worth its own Pipeline if something reads it twice** — and it is sound as bookkeeping: `matte` is read twice and earns it, while `front` and `inverse` were each a whole Pipeline wrapping a single filter, written that way for symmetry, and each costs crossings nothing reads. But per the section above, folding them is not *measurably* faster here, so it is a tidiness argument until real hardware says otherwise. Do not restructure snippets for it. The point of #18 is that nobody should have to know the rule at all.
 
-### Two smaller things found alongside it, both worth fixing first
+### ~~Two smaller things found alongside it~~ ✓ both fixed
 
-- **`renderer.gpu` does not reach branches.** `Renderer.ts:115` sets `this.pipeline.gpu`, and a branch is a different Pipeline — so `new Renderer(canvas, { gpu: false })` in a snippet leaves every branch on the GPU, and the backend badge has the same hole in code mode. It is why a CPU/GPU comparison of the Dissolve first came back with both backends timing the same.
-- **The transfer counter**, above. Cheap, and everything here depends on it.
+- **The transfer counter** now counts second-input uploads. `execute.ts` called `uploadSecond` without touching it, so it undercounted by one upload per two-input stage per frame — understating precisely the case it was being consulted about, since a composed chain is mostly second inputs. The Dissolve was reporting 8 crossings a frame and doing 11. Nothing in the suite asserted on `transfers` at all, which is how it drifted; a browser test now pins that a two-input stage costs three crossings and a one-input stage two. The thumbnail readback for `samples` filters and the small data textures for palettes stay uncounted **on purpose** — they are bounded rather than frame-sized, and the documentation now says so.
+- **`renderer.gpu` now reaches branches.** `Renderer.ts:115` sets `this.pipeline.gpu`, and a branch is a different Pipeline — so `new Renderer(canvas, { gpu: false })` left every branch on shaders and the backend badge had the same hole in code mode. It is why a CPU/GPU comparison of the Dissolve first came back with both backends timing identically, which is a believable answer and a wrong one. The setter recurses, and deliberately does not return early when its own value is unchanged: a branch built separately can disagree with its parent, and an early return would leave it disagreeing forever.
 
 ---
 
@@ -1326,14 +1327,16 @@ What it changes is the cost of *branching*, which is currently steep enough to b
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
-| 18 | Branch results stay on the GPU | Medium | Medium–High — the only entry here with measurements behind it. Composition currently costs a 4 MB round trip per branch per frame, and a *cached* branch is still re-uploaded every frame, so the cloud in the Dissolve is free to compute and not free to use. Fix the transfer counter first, since this is a performance argument built on a number that undercounts |
+| 18 | Branch results stay on the GPU | Medium | Medium–High — the only entry here with a controlled measurement behind it: the same eight filters split across four pipelines cost ~1.6× one pipeline, across five runs that never overlap, for six extra crossings. A *cached* branch is still re-uploaded every frame, so the cloud in the Dissolve is free to compute and not free to use. The two small fixes it turned up are done |
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**#18 has something the others do not: a measurement.** Everything else in this table is argued from expected value, and #12 is explicitly parked until somebody produces a number. #18 arrived with one — 20% off the Dissolve by hand-folding branches, on a software rasteriser that understates it, from a counter that undercounts. It is also the only open entry that makes an *existing* shipped feature better rather than adding a new surface, since #17's whole point is composing chains and composition is what currently costs.
+**#18 has something the others do not: a controlled measurement.** Everything else here is argued from expected value, and #12 is explicitly parked until somebody produces a number. #18 has one — the same eight filters split across four pipelines cost about 1.6× one pipeline, over five runs whose ranges never overlap, with six extra crossings as the only difference. It is also the only open entry that makes an *existing* shipped feature better rather than adding a new surface, since #17's whole point is composing chains and composition is what currently costs.
 
-Do the two small fixes at the end of #18 regardless of whether the rest follows. The transfer counter being wrong is a correctness problem in the one number the project uses to make performance decisions, and `renderer.gpu` not reaching branches makes the backend badge lie in code mode.
+**It is worth reading how that number nearly went in wrong.** The first version of #18 quoted 20% off the Dissolve from a single run of each arrangement; repeating it five times showed the ranges overlapping and the intermediate arrangement coming out slowest of the three. The controlled comparison survived repetition and the convenient one did not — on a project that already tells itself not to build #12 without a number, the lesson is that one run is not a number.
+
+The two small fixes #18 turned up are done, and were worth doing on their own account: the transfer counter was wrong in the one number the project uses to make performance decisions, and `renderer.gpu` not reaching branches made the backend badge lie in code mode.
 
 **#14 otherwise.** #9 is finished — the 2014 wishlist is closed, and the last four filters cost far less than their Medium ratings suggested because the ground had shifted under them: `Skeletiser` turned out to be a shader, `Bilateral` got its iterations from machinery `Convolver` already had, and the drift tests from #11 meant none of them could land undocumented. What is left of that entry is a custom 3×3 kernel and a `.cube` importer, neither of which anybody has asked for.
 
