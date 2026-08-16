@@ -23,6 +23,14 @@ export default defineConfig({
 		port: 5174,
 		strictPort: true
 	},
+	//`npm run site:preview` defaults to 4173, which every other project's
+	//preview also asks for - eight of these had stacked up on 4173 upwards,
+	//each one silently climbing past the last. strictPort turns a second run
+	//into an error rather than another orphan
+	preview: {
+		port: 4174,
+		strictPort: true
+	},
 	resolve: {
 		alias: {
 			'@calrk/clarity': fileURLToPath(new URL('../src/index.ts', import.meta.url))

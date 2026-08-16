@@ -303,13 +303,21 @@ vec3 yuv2rgb(vec3 yuv){
 	);
 }
 
-/** SkinDetector's integer BT.601 YCbCr, including its rounding to bytes. */
+/**
+ * SkinDetector's integer BT.601 YCbCr, in float.
+ *
+ * This used to round to bytes, to match a CPU path that stashed the result in a
+ * Uint8ClampedArray on its way to the threshold. SkinDetector now scales the
+ * chroma offset by up to 3x before comparing it, which would turn that half-unit
+ * of rounding into one and a half - enough to flip pixels across the boundary and
+ * put the two paths out of step. Both sides carry the float now.
+ */
 vec3 rgb2ycbcr(vec3 rgb){
-	return toByte3(vec3(
+	return vec3(
 		 16.0 + ( 66.0 * rgb.r + 129.0 * rgb.g +  25.0 * rgb.b) / 256.0,
 		128.0 + (-38.0 * rgb.r -  74.0 * rgb.g + 112.0 * rgb.b) / 256.0,
 		128.0 + (112.0 * rgb.r -  94.0 * rgb.g -  18.0 * rgb.b) / 256.0
-	));
+	);
 }
 `;
 

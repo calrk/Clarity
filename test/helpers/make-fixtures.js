@@ -142,7 +142,36 @@ const clean = build(W, H, (x, y) => {
 //     nearest leaves every dim value fixed where it stands.
 const black = build(W, H, () => [0, 0, 0]);
 
-const fixtures = { photo, edges, heightmap, alpha, odd, second, binary, clean, moved, black };
+// 11. A skin-tone range, for SkinDetector. Its only golden case was `photo`,
+//     which contains no skin - the reference image was 3072 black pixels, so the
+//     test passed whatever the filter did to skin and went green through a bug
+//     that stopped it detecting the darker half of the range entirely.
+//
+//     Ten columns, one per Monk Skin Tone step, pale on the left to deep on the
+//     right. The top five rows darken each column to 45% to stand in for shadow,
+//     which is where a chroma threshold gives out first. The bottom four rows are
+//     things that must stay black, so the reference shows both halves of the
+//     decision rather than only the generous one.
+const MST = [
+	[246, 237, 228], [243, 231, 219], [247, 234, 208], [234, 218, 186], [215, 189, 150],
+	[160, 126, 86], [130, 92, 67], [96, 65, 52], [58, 49, 42], [41, 36, 32]
+];
+const NOT_SKIN = [
+	[0, 0, 0], [128, 128, 128], [255, 255, 255], [90, 140, 210],
+	[70, 120, 50], [30, 45, 110], [200, 200, 190], [60, 60, 60],
+	[178, 74, 56], [240, 140, 30]
+];
+const skintones = build(W, H, (x, y) => {
+	const column = Math.min(MST.length - 1, Math.floor((x / W) * MST.length));
+	const band = Math.floor((y / H) * 9);
+	if (band < 5) {
+		const exposure = 1 - band * 0.1375;
+		return MST[column].map((c) => c * exposure);
+	}
+	return NOT_SKIN[(column + (band - 5) * 3) % NOT_SKIN.length];
+});
+
+const fixtures = { photo, edges, heightmap, alpha, odd, second, binary, clean, moved, black, skintones };
 
 for (const [name, image] of Object.entries(fixtures)) {
 	const path = join(out, `${name}.png`);

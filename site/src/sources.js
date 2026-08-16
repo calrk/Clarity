@@ -12,12 +12,14 @@ import face from './samples/face.jpg';
 import books from './samples/books.jpg';
 import rorschach from './samples/rorschach.jpg';
 import faceVideo from './samples/face.mp4';
+import face2Video from './samples/face2.mp4';
 import crystal from './samples/crystal.mp4';
 import box from './samples/box.mp4';
 //A video cannot be its own thumbnail without decoding it first, so each has a
 //poster still. `videoThumbnail` covers the dropped-file case, where there is no
 //poster to ship.
 import faceVideoThumb from './samples/face-thumbnail.jpg';
+import face2VideoThumb from './samples/face2-thumbnail.jpg';
 import crystalThumb from './samples/crystal-thumbnail.jpg';
 import boxThumb from './samples/box-thumbnail.jpg';
 
@@ -54,6 +56,13 @@ export const SOURCES = [
 	// these, the only moving source was the webcam, so every one of them opened
 	// with a permission prompt.
 	{ id: 'facevideo', label: 'Face (video)', kind: 'video', url: faceVideo, thumb: faceVideoThumb, glyph: '▶' },
+	// SkinDetector thresholds a fixed box in Cb/Cr, and chroma is an un-normalised
+	// offset from neutral grey - so the same hue at a lower luminance sits closer
+	// to the middle of that box's edge. Dark skin clears the Cr > 133 bound by
+	// about 2, which is inside what chroma subsampling alone moves it by, where
+	// the lighter face above clears it by 15. One face is not a test suite, but
+	// with only the one you cannot see the filter fail at all.
+	{ id: 'face2video', label: 'Face 2 (video)', kind: 'video', url: face2Video, thumb: face2VideoThumb, glyph: '▶' },
 	{ id: 'crystal', label: 'Crystal', kind: 'video', url: crystal, thumb: crystalThumb, glyph: '▶' },
 	// Bright object, dark ground, camera held still. ScreenBurn takes the
 	// age-weighted maximum, so it needs something bright to leave a scar, and

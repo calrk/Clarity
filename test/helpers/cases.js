@@ -230,6 +230,10 @@ export const cases = [
 	{ filter: 'EdgeDetector', input: 'edges', options: {}, gpu: KERNEL },
 	{ filter: 'EdgeDetector', name: 'fast', input: 'edges', options: { fast: true }, gpu: KERNEL },
 	{ filter: 'SkinDetector', input: 'photo', options: {}, gpu: BOUNDARY },
+	// `photo` has no skin in it, so the case above pins an all-black reference and
+	// says nothing about whether the filter detects anything. This one runs the
+	// tone range - see the `skintones` fixture.
+	{ filter: 'SkinDetector', name: 'tones', input: 'skintones', options: {}, gpu: BOUNDARY },
 	// stateful: needs a frame sequence, so the runner feeds it `passes` frames
 	{ filter: 'MotionDetector', input: ['clean', 'moved'], sequence: true, options: { frameCount: 1 }, gpu: POINTWISE },
 
