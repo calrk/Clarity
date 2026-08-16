@@ -2,7 +2,7 @@
 
 Clarity is a canvas image-filter library from 2014 — 41 filters across eight categories, all pure-JS `ImageData` loops, concatenated by Gulp 3 into one `CLARITY` global. The filter-chain design still holds up; everything around it (build, GPU, examples, tests) had aged out.
 
-**Features #1–#8 are all done**, along with #11, and with #13, #15 and #16 which were added later. What follows is the record: what was built, and the decisions that were not obvious at the time. **Four are still open — #9, #10, #12 and #14** — and all four are additive rather than gaps: the library is built, tested, documented and published without them.
+**Features #1–#8 are all done**, along with #11, and with #13, #15, #16 and #17 which were added later. What follows is the record: what was built, and the decisions that were not obvious at the time. **Three are still open — #10, #12 and #14** — and all three are additive rather than gaps: the library is built, tested, documented and published without them.
 
 Each shipped entry keeps its original write-up in a collapsed block underneath, because the *reasoning* is the part worth keeping and it is often the part that turned out to be wrong.
 
@@ -13,8 +13,8 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
 | Filters clean | 31 of 41, 4 hard crashes | 52 of 52, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 105/106 parity cases as shaders - the sequential half of `Dither` is CPU-only by design |
-| Tests | none | 649, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
-| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and fourteen presets |
+| Tests | none | 783, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam, seventeen presets, and a code panel whose nine snippets are themselves tests |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
 
@@ -1175,6 +1175,77 @@ This is an afternoon, and it does not make the library better. What it does is m
 
 ---
 
+## ~~17. The Code Panel — A Chain You Write Rather Than Assemble~~ ✓
+
+**Done.** A second mode in the playground: an editor on the left, the picture on the right, the sources in a row above both. It runs what you type and points the page at whatever chain you hand back.
+
+**The reason it is worth having is that it reaches a capability that already existed and had nowhere to be said.** `StageOptions.second` has always taken an `ImageData`, a function, or a whole `Pipeline`, so chains have always composed — but a drag list can only describe one straight line, because that is the only shape a list has. Nothing in the UI could express two clouds crossing, and nothing in the UI could express a chain whose *length* is computed. Both are now examples that ship.
+
+The panel is deliberately **not a second playground**. The stage, the sources and the readout are shared; one `data-mode` attribute on `<body>` drives every difference, so switching is a single write and nothing can end up half-swapped.
+
+### Session-only, and why that is a security decision rather than a limitation
+
+A snippet runs through `new Function` **in this page**, unsandboxed. That would be indefensible if code could arrive from a URL — a shared link executing a stranger's JavaScript on this origin is precisely why playgrounds use a null-origin iframe. So nothing here is shareable: the buffer holds what you typed or an example that shipped with the page, and it goes no further than `localStorage`. If sharing is ever added, `runSnippet` is the one function that has to move into a frame.
+
+### Written the way an application would be
+
+`new Renderer(canvas).source(image).add(...)` is the first example in the README, so it is what the panel takes. `Renderer` is bound to the page's renderer and `Pipeline` to the page's GL context — a browser allows only a handful of live WebGL2 contexts, and a snippet re-run on every keystroke, each building a chain and two branches, exhausts them. The failure is not an error: the oldest contexts are silently killed and chains go black.
+
+Subclassed rather than wrapped in a factory, so `new Pipeline([...])` in a snippet is the same expression it would be in an app and `instanceof` still holds. **A snippet must stay paste-able**, which is also the argument that settled the API question below.
+
+### `StageOptions.first`
+
+A two-input filter was lopsided: combining two branches meant one had to be the chain and the other the argument, though nothing about them differed. `first` replaces the frame arriving from the stage before, so `{ first: across, second: upward }` reads evenly.
+
+The temptation was a playground DSL — `multiply(a, b)` — and it was refused for one reason: **a snippet that cannot be pasted into an application is not documentation, it is a dialect.** Every example here has to be code you can lift.
+
+Three places had to learn about it, and two were only findable by looking:
+
+- `animated` and `stable` already looked into a `second` for a moving branch. A moving branch on the *first* input is not a reason for the frame loop to stop.
+- **A stage with a `first` ends a shader run before it.** A GPU run shares one uploaded frame ping-ponged between two targets, and a stage that throws that frame away for another cannot live inside one. Missing that made `first` silently ignored on the GPU while the CPU honoured it — the worst shape a bug can have, since the picture is only wrong on machines with working WebGL2 and every Node test passes.
+
+### `everyFrame` — the third kind of motion
+
+The source can be the moving part. So can the chain. This is neither: it animates a **property**, and no filter can own that number because nothing in a chain knows it is being blended. `RendererOptions.onFrame` was added for exactly this; the panel exposes it as `everyFrame`.
+
+Registering one also **starts the loop**, which is not a side effect but the point — every filter in such a chain is still and pure, so `pipeline.animated` is a confident no, and a callback that fires once is not an animation. It is cleared before every run and on the way back to Build, or it drives filters that have left the chain and keeps the page rendering a still picture sixty times a second for the rest of the session.
+
+### The bugs, which are the real return on the feature
+
+Composing chains for real found four things the drag list could never have reached:
+
+- **A chain could not see into its own branches, twice over.** `animated` asked only the top-level filters, so a fog whose only moving part is a `Translator` inside a second input never started the loop. `stable` asked the same way, so the two `Multiply` stages composing it were both pure by their own reckoning and the chain was served from cache forever — with the loop running the whole time, producing identical frames. Silent in both directions.
+- **CPU and GPU disagreed on a mismatched second input.** White × white came out 75% black on the CPU while the shader stretched to fit. Reachable in the Build tab with two clicks, since the bundled samples are not all the same size.
+- **`stable` answers the wrong question for a shared branch.** It means "would running me again match what I last produced" — relative to the *branch's* last run, not the *consumer's*. A matte feeding both a `Multiply` and its own inverse breaks that: the first consumer runs the matte, clearing the dirty flag that made it unstable, and the second is then told nothing has changed and served the frame it cached one render ago. The composite showed a matte from this frame against an inverse from the last, and only while something moved — perfect the instant it stopped. Fixed with a version counter each stage records per branch, because a version is not relative to anything.
+- **`Blend`'s `ratio` was documented backwards**, in the one place it costs most: the string is the tooltip, the generated reference and the site's filter list. Both implementations have always computed `first * ratio + second * (1 - ratio)`.
+
+### The snippets are tests
+
+A preset is a chain and shows a *look*; a snippet is code and shows the API. That makes them documentation, which means they rot — the eight example pages this playground replaced did not fail loudly, they quietly stopped working and nobody noticed for years. So `test/site.test.js` runs every one in the real page and asserts it returns something that changes pixels. **An example that cannot compile fails the build.**
+
+Nine ship: Cartoon, Generated, Half strength, Height to normals, Computed, Drifting fog, Comic book, Dissolve, and the bare-Pipeline short form.
+
+### What was learned by looking at pictures rather than reading code
+
+The comic-book recipe was settled by rendering variants through the real page and inspecting each one, and three of the findings contradicted the obvious guess:
+
+- **Posterising *before* looking for edges is what makes them findable** — a band boundary is a cliff where the photograph only has a gentle slope. Removing it, which was my own first suggestion, nearly erased the ink.
+- **`Morphology` in `open` mode erases the ink completely.** A one-pixel line is exactly the small light speck that operation exists to remove.
+- **Supersampling does not help.** Every radius is denominated in pixels, so rendering at 2× halves the relative effect of every filter in the chain and the speckle comes straight back.
+
+The answer to jagged outlines turned out to be blurring the *line map* after inverting it: a threshold can only write black or white, so its edges are hard by construction.
+
+<details>
+<summary>Open questions this leaves</summary>
+
+- **Multiple outputs.** The height-map flow is the case that wants it, because there the *intermediate* is the point and showing only the last frame hides what is being taught. The shape that fits: a function handing back a fresh canvas, so renderers are still declared normally and the panel grids however many were asked for. The real work is the readout, which describes one pipeline and would have to pick or aggregate.
+- **No `over` composite.** `ChromaKey` writes a real alpha channel — the only filter that does — but the dual-input set is Add, Subtract, Difference, Blend, Mask, Multiply. So a subject can be keyed and then has nothing to be laid on. The most standard flow there is, one filter away.
+- **Masking an effect to part of the picture**, which needs the three-stage composite (`Mask` the effect, `Mask` the original by the inverted matte, `Add`) and is much easier to teach once a matte can be shown in its own pane.
+
+</details>
+
+---
+
 ## Rough Priority Order
 
 ### Shipped, in the order it happened
@@ -1193,6 +1264,7 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
 | 16 | Presets in the playground | Low | Sixteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
+| 17 | Code panel in the playground | Medium | A chain you write rather than assemble, and the only place the library's composition has ever been sayable; `StageOptions.first` and `everyFrame` came with it, and building it found four bugs — two of them chains that could not see into their own branches, and one a shared branch served a frame from the previous render |
 | ✓ | Filter wishlist — 20 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`, `Bilateral`, `Skeletiser`, `Crackulate`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Done** |
 
 ### Open
@@ -1206,6 +1278,8 @@ This is an afternoon, and it does not make the library better. What it does is m
 **#14 next.** #9 is finished — the 2014 wishlist is closed, and the last four filters cost far less than their Medium ratings suggested because the ground had shifted under them: `Skeletiser` turned out to be a shader, `Bilateral` got its iterations from machinery `Convolver` already had, and the drift tests from #11 meant none of them could land undocumented. What is left of that entry is a custom 3×3 kernel and a `.cube` importer, neither of which anybody has asked for.
 
 So #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
+
+**#17 changes what a new filter owes as well.** The snippets are run by the browser suite, so a filter that belongs in a composition now has a second place it can be made findable — and unlike a preset, a snippet can show *why* the combination works rather than only what it looks like. Neither is compulsory; both are cheaper than a filter nobody finds.
 
 **#16 shipped ahead of the rest of #9, which changes what #9 owes.** Every filter added from here should arrive with the question "what does this combine with?" answered — a new preset in `site/src/presets.js` where there is a good answer, and nothing where there is not. The list is the cheapest place in the project to make a new filter findable.
 
