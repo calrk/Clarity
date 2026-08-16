@@ -10,24 +10,88 @@ import * as CLARITY from '@calrk/clarity';
 import { CATALOGUE, CATEGORY_ORDER, Pipeline, Renderer, TRAITS } from '@calrk/clarity';
 
 import { createChainView, isDualInput } from './chain.js';
+import {
+	bindPipeline,
+	bindRenderer,
+	buildScope,
+	declarationPoint,
+	loadBuffer,
+	runSnippet,
+	saveBuffer,
+	variableName
+} from './code.js';
 import { PRESETS } from './presets.js';
 import { readHash, writeHash } from './share.js';
+import { DEFAULT_SNIPPET, SNIPPETS } from './snippets.js';
 import { SOURCES, addSource, loadFile, loadImage, openSource } from './sources.js';
 import './styles.css';
 
 const $ = (id) => document.getElementById(id);
 
 const canvas = $('canvas');
-const renderer = new Renderer(canvas, { onFrame: showStats });
+const renderer = new Renderer(canvas, {
+	onFrame: (output) => {
+		showStats(output);
+		//After the readout rather than before, so a snippet that throws cannot
+		//take the backend badge and the frame time down with it.
+		runSnippetFrame(output);
+	}
+});
 
 /** Second-input frames for the dual-input filters, by stage. */
 const seconds = new Map();
 /** Source frames the dual-input filters can choose between. */
 let secondFrames = new Map();
 
+/**
+ * The drag-list chain, held separately from `renderer.pipeline`.
+ *
+ * In code mode the renderer is pointed at a chain a snippet returned, so
+ * `renderer.pipeline` stops being the one the Build tab is editing. Everything
+ * that maintains the built chain goes through this instead, and switching back
+ * restores it rather than rebuilding it from the URL.
+ */
+const buildPipeline = renderer.pipeline;
+
+/** 'build' or 'code'. */
+let mode = 'build';
+/** The chain the last successful snippet returned, so it can be disposed. */
+let codePipeline = null;
+/**
+ * What the current snippet asked to run every frame, via `everyFrame`.
+ *
+ * A chain can be the moving part, and so can the source - this is the third
+ * way, and the only one where the motion is not in the pipeline at all. It is
+ * how you animate a *property*: a Blend ratio sweeping back and forth is not
+ * something any filter can express, because no filter knows it is being
+ * blended.
+ *
+ * Held here rather than on the renderer, whose `onFrame` belongs to the page.
+ * A snippet assigning that directly would take the stats readout with it, and
+ * would outlive the run that set it - this is cleared before every run and on
+ * the way back to Build.
+ */
+let snippetFrame = null;
+/**
+ * Whether shaders are wanted, tracked here rather than read back off the
+ * renderer: `renderer.gpu` delegates to whichever pipeline is current, so in
+ * code mode it would answer for a chain that is replaced on every run.
+ */
+let gpuWanted = true;
+
 let currentSourceId = null;
 /** The live element, so a camera or video can be shut down when replaced. */
 let currentElement = null;
+/**
+ * The size the source is being read at, or null for its own.
+ *
+ * Held here as well as on the renderer because the URL has to say whether it
+ * was *asked for*: a link that pins 1024x1024 must keep meaning that even if
+ * the sample behind it is one day replaced with a picture that size anyway.
+ */
+let sourceSize = null;
+/** What the current source is when nothing overrides it, for the placeholders. */
+let naturalSize = null;
 let smoothedFrameTime = 0;
 /** Whether the *source* produces new frames; the chain can also be the moving part. */
 let sourceLive = false;
@@ -327,11 +391,73 @@ function buildSourceList() {
 		button.appendChild(label);
 
 		button.addEventListener('click', () => useSource(source.id));
-		list.appendChild(button);
+
+		//A button cannot contain a button, so the tile and its insert control are
+		//siblings in a wrapper rather than nested. Everything that reaches into
+		//this list therefore asks for `button.source` rather than for children.
+		const tile = document.createElement('div');
+		tile.className = 'tile';
+		tile.appendChild(button);
+
+		//Code mode only, and a separate control rather than a second meaning for
+		//the click: clicking a source already picks what the chain runs on, which
+		//is the commonest thing to want and should not need the code edited. The
+		//same gesture meaning different things in different modes reads as a bug
+		//the first time you meet it.
+		if (source.kind === 'image') {
+			const insert = document.createElement('button');
+			insert.type = 'button';
+			insert.className = 'tile-insert';
+			insert.dataset.insert = source.id;
+			insert.textContent = '+';
+			insert.title = `Declare ${source.label} as a variable`;
+			insert.setAttribute('aria-label', `Insert ${source.label} into the snippet`);
+			insert.addEventListener('click', () => insertSample(source));
+			tile.appendChild(insert);
+		}
+
+		list.appendChild(tile);
 	}
 }
 
-async function useSource(id) {
+/**
+ * Writes `const books = samples.books;` into the snippet.
+ *
+ * Through `execCommand` rather than by assigning `.value`. It is deprecated and
+ * it is also the only way to insert text into a textarea that leaves the native
+ * undo stack intact - setting `.value` wipes it, so every insert would cost you
+ * Ctrl+Z, which is worse than the deprecation.
+ */
+function insertSample(source) {
+	const editor = $('snippet');
+	const name = variableName(source.id);
+
+	//Already declared, so declaring it again is a syntax error rather than a
+	//convenience. Show them the one that exists instead - which is also the
+	//answer to double-clicking, and to wondering where it went.
+	const existing = editor.value.indexOf(`const ${name} =`);
+	if (existing >= 0) {
+		editor.focus();
+		editor.setSelectionRange(existing, existing + `const ${name} =`.length);
+		return;
+	}
+
+	const at = declarationPoint(editor.value);
+	const line = `const ${name} = samples.${source.id};\n`;
+
+	editor.focus();
+	//execCommand inserts at the selection, so the selection is how you choose
+	//where it goes
+	editor.setSelectionRange(at, at);
+	if (!document.execCommand?.('insertText', false, line)) {
+		//no execCommand: keep the feature, lose the undo
+		editor.value = editor.value.slice(0, at) + line + editor.value.slice(at);
+		editor.setSelectionRange(at + line.length, at + line.length);
+	}
+	saveBuffer(editor.value);
+}
+
+async function useSource(id, size = null) {
 	const source = SOURCES.find((entry) => entry.id === id);
 	if (!source) return;
 
@@ -342,6 +468,14 @@ async function useSource(id) {
 		const { element, live } = await openSource(source);
 		currentElement = element;
 		renderer.source(element, { live });
+
+		//Before `setSourceSize`, which needs it to fill in the placeholders and to
+		//work out the missing half of a one-sided request.
+		naturalSize = naturalSizeOf(element);
+		//A size asked for by a link travels with it; picking a source by hand
+		//starts from that source's own size, because carrying the last one over
+		//silently would resize a picture nobody asked to resize.
+		setSourceSize(size);
 
 		sourceLive = live;
 		requestFrame();
@@ -355,8 +489,81 @@ async function useSource(id) {
 	updateShare();
 }
 
+// ---------------------------------------------------------------- resolution
+
+/** What a source is before anything overrides it. */
+function naturalSizeOf(element) {
+	if (!element) return null;
+	const width = element.naturalWidth || element.videoWidth || element.width || 0;
+	const height = element.naturalHeight || element.videoHeight || element.height || 0;
+	return width && height ? { width, height } : null;
+}
+
+/**
+ * Reads the size at, or back to its own size for null.
+ *
+ * `Renderer.resolution` ignores a value it already has, so writing the current
+ * one back is free - which matters, because the input fires on every step of a
+ * spinner and each change would otherwise throw the whole chain's cache away.
+ */
+function setSourceSize(size) {
+	sourceSize = size;
+	renderer.resolution(size?.width ?? null, size?.height ?? null);
+	showResolution();
+}
+
+function showResolution() {
+	$('resWidth').placeholder = naturalSize?.width ?? '';
+	$('resHeight').placeholder = naturalSize?.height ?? '';
+	$('resWidth').value = sourceSize ? sourceSize.width : '';
+	$('resHeight').value = sourceSize ? sourceSize.height : '';
+	$('resReset').hidden = !sourceSize;
+}
+
+/**
+ * The size the two boxes are asking for.
+ *
+ * Empty means the source's own. Filling in one and not the other means "this
+ * wide", so the other follows the aspect ratio - typing a width and getting a
+ * squashed picture would be a strange way to answer that.
+ */
+function readResolutionInputs() {
+	const clamp = (value) => Math.min(8192, Math.max(1, Math.round(value)));
+	const width = Number($('resWidth').value);
+	const height = Number($('resHeight').value);
+
+	if (!width && !height) return null;
+	if (width && height) return { width: clamp(width), height: clamp(height) };
+
+	const ratio = naturalSize ? naturalSize.width / naturalSize.height : 1;
+	return width
+		? { width: clamp(width), height: clamp(width / ratio) }
+		: { width: clamp(height * ratio), height: clamp(height) };
+}
+
+function setUpResolution() {
+	const apply = () => {
+		setSourceSize(readResolutionInputs());
+		updateShare();
+		requestFrame();
+	};
+
+	//`change` rather than `input`: this re-reads the source and recomputes every
+	//stage, and doing that per keystroke means the first digit of `1024` renders
+	//a one-pixel frame.
+	$('resWidth').addEventListener('change', apply);
+	$('resHeight').addEventListener('change', apply);
+	$('resReset').addEventListener('click', () => {
+		$('resWidth').value = '';
+		$('resHeight').value = '';
+		apply();
+	});
+}
+
 function markCurrentSource() {
-	for (const button of $('sources').children) {
+	//`.source` rather than the children: each tile is a wrapper now, holding the
+	//source button and, in code mode, its insert control.
+	for (const button of $('sources').querySelectorAll('button.source')) {
 		button.setAttribute('aria-pressed', String(button.dataset.id === currentSourceId));
 	}
 }
@@ -420,6 +627,10 @@ async function openFile(file) {
 		renderer.source(element, { live });
 		currentSourceId = id;
 
+		//a dropped file arrives at its own size, like any other source picked by hand
+		naturalSize = naturalSizeOf(element);
+		setSourceSize(null);
+
 		buildSourceList();
 		//a dropped still can be a second input like any other
 		await loadSecondFrames();
@@ -457,9 +668,41 @@ const stopLoop = () => renderer.stop();
  * things that will never draw anything new, like a `Wave` parked at speed 0.
  */
 function chainIsLive() {
-	return renderer.pipeline.filters.some(
-		(filter) => filter.enabled && filter.constructor.animated(filter)
-	);
+	//`pipeline.animated` rather than a walk over `filters` here: a chain whose
+	//only moving part is inside a second input has nothing animated at the top
+	//level, and only the pipeline can see its own branches.
+	//
+	//And a snippet driving a property from `everyFrame` has nothing animated
+	//anywhere - every filter in it is still and pure, and the thing that moves
+	//is the code. Asking the pipeline gives a confident no and the callback is
+	//never called a second time, which looks exactly like a snippet that does
+	//not work.
+	return renderer.pipeline.animated || snippetFrame !== null;
+}
+
+/**
+ * Runs whatever the snippet registered, once, and unregisters it if it throws.
+ *
+ * A callback that throws does so every frame, sixty times a second, and the
+ * error panel would show the same line forever while the picture kept moving.
+ * Dropping it after the first throw makes the failure a single message about a
+ * loop that has stopped, which is what happened.
+ */
+function runSnippetFrame(output) {
+	if (!snippetFrame) return;
+	try {
+		snippetFrame(output);
+	} catch (error) {
+		snippetFrame = null;
+		showSnippetError(`everyFrame: ${error.name ?? 'Error'}: ${error.message ?? error}`);
+		matchLoop(sourceLive);
+	}
+}
+
+function showSnippetError(message) {
+	const panel = $('snippetError');
+	panel.hidden = message === '';
+	panel.textContent = message;
 }
 
 /** Starts or stops the loop to match what the source and the chain need. */
@@ -726,7 +969,15 @@ function updateCode() {
 // ---------------------------------------------------------------- share
 
 function updateShare() {
-	history.replaceState(null, '', writeHash(currentSourceId ?? 'custom', renderer.pipeline.filters));
+	//The hash describes the *built* chain. A snippet is not shareable - there is
+	//no safe way to run one that arrived in a link - so code mode leaves the URL
+	//saying whatever the Build tab last said, and switching back finds it intact.
+	if (mode !== 'build') return;
+	history.replaceState(
+		null,
+		'',
+		writeHash(currentSourceId ?? 'custom', buildPipeline.filters, sourceSize)
+	);
 }
 
 /**
@@ -739,24 +990,250 @@ function updateShare() {
  * the event, so the page cannot loop on its own writes.
  */
 async function loadFromHash() {
-	const { source, filters } = readHash();
+	const { source, size, filters } = readHash();
 
-	renderer.clear();
+	//`buildPipeline` rather than the renderer, which in code mode is pointed at a
+	//snippet's chain - clearing that would throw away what is on screen in
+	//response to a hash the Build tab owns.
+	buildPipeline.clear();
 	seconds.clear();
 
 	for (const filter of filters) {
 		if (isDualInput(filter.constructor.name)) {
 			seconds.set(filter, 'source');
 		}
-		renderer.add(filter, stageOptions(filter));
+		buildPipeline.add(filter, stageOptions(filter));
 	}
 
 	const wanted = SOURCES.some((entry) => entry.id === source) ? source : SOURCES[0].id;
 	if (wanted !== currentSourceId) {
-		await useSource(wanted);
+		await useSource(wanted, size);
+	} else {
+		//same picture, and the link may still be asking for it at another size -
+		//`useSource` would reopen a webcam or restart a video for nothing
+		setSourceSize(size);
 	}
 
-	sync();
+	if (mode === 'build') sync();
+}
+
+// ---------------------------------------------------------------- code mode
+
+/**
+ * A Pipeline sharing this page's one GL context.
+ *
+ * The options are read fresh on every construction rather than captured, so a
+ * snippet run after the backend badge is clicked gets the current answer.
+ * Sharing the backend is what stops each run - and each branch inside a run -
+ * opening its own WebGL context.
+ */
+const ScopedPipeline = bindPipeline(() => ({
+	backend: buildPipeline.backend,
+	gpu: gpuWanted
+}));
+
+const ScopedRenderer = bindRenderer(renderer, ScopedPipeline);
+
+/**
+ * What a snippet can see, rebuilt per run.
+ *
+ * `image` is whatever source is selected right now, so it cannot be captured
+ * once - and building the scope is a few dozen property reads against a run
+ * that is about to compile and execute JavaScript, so there is nothing to save
+ * by being clever about it.
+ */
+function currentScope() {
+	return buildScope(ScopedPipeline, ScopedRenderer, {
+		canvas: $('canvas'),
+		image: currentElement ?? renderer.sourceFrame,
+		samples: sampleFrames(),
+		everyFrame
+	});
+}
+
+/**
+ * Every still source, as pixels, by id - so a snippet can compose two pictures
+ * without either being the one that is selected.
+ *
+ * Stills only, and not for want of trying: the page holds one video element at
+ * a time, so a video that is not the current source has no frame to hand out.
+ * The selected one is reachable as `frameOf(image)`, and inside a function if
+ * it should be re-read every render rather than frozen at the moment Run was
+ * pressed.
+ *
+ * Built per run off `secondFrames`, which is already decoded for the Build
+ * tab's second-input picker - and which `openFile` refreshes, so a dropped
+ * image turns up here too.
+ */
+function sampleFrames() {
+	return Object.fromEntries(secondFrames);
+}
+
+/**
+ * Runs `fn` after every frame the page draws - and tells the page there will be
+ * frames.
+ *
+ * The escape hatch for the one kind of motion a chain cannot describe. A filter
+ * that animates does so because it reads the clock itself, which covers a wave
+ * or a drifting field but not "sweep this Blend from one picture to the other
+ * and back": no filter knows it is being blended, so nothing in the chain can
+ * own that number. Here it is a `setProperty` in a callback, which is what
+ * `RendererOptions.onFrame` was added for.
+ *
+ * Registering also starts the frame loop, which is not a side effect so much as
+ * the point - a still source and a still chain render once, and a callback that
+ * fires once is not an animation.
+ *
+ * One at a time: calling it again replaces the last one, because a snippet is
+ * re-run on every edit and accumulating callbacks would mean a chain driven by
+ * every version of itself you had typed.
+ */
+function everyFrame(fn) {
+	if (typeof fn !== 'function') {
+		throw new TypeError(`everyFrame() needs a function, got ${fn === null ? 'null' : typeof fn}`);
+	}
+	snippetFrame = fn;
+}
+
+function buildSnippetList() {
+	const picker = $('snippetPicker');
+	for (const snippet of SNIPPETS) {
+		const option = document.createElement('option');
+		option.value = snippet.id;
+		option.textContent = `${snippet.label} — ${snippet.note}`;
+		picker.append(option);
+	}
+
+	picker.addEventListener('change', () => {
+		const snippet = SNIPPETS.find((entry) => entry.id === picker.value);
+		if (!snippet) return;
+		$('snippet').value = snippet.source;
+		picker.value = '';
+		runCode();
+	});
+}
+
+/**
+ * Runs what is in the editor, and renders it if it worked.
+ *
+ * A failure leaves the previous chain on screen rather than blanking the
+ * canvas. A snippet is a thing being written, so half-finished is its normal
+ * state, and losing the picture on every keystroke-triggered run would make the
+ * error message the only feedback there is.
+ */
+function runCode() {
+	const source = $('snippet').value;
+	saveBuffer(source);
+
+	//`new Renderer(...)` points the page at a fresh chain as it is constructed,
+	//so a snippet that throws half way through has already replaced what was on
+	//screen with whatever it managed to build. Remembering the chain lets a
+	//failure put the last working picture back.
+	const before = renderer.pipeline;
+	//Cleared before the run rather than after a failure, so the callback from the
+	//*previous* snippet cannot survive into this one and drive filters that are
+	//no longer in the chain.
+	snippetFrame = null;
+	const result = runSnippet(source, currentScope());
+	const error = $('snippetError');
+
+	if (result.error) {
+		//and a snippet that registered one and then threw does not get to keep it:
+		//the chain it was written against is about to be put back
+		snippetFrame = null;
+		error.hidden = false;
+		error.textContent = result.error;
+		if (renderer.pipeline !== before) {
+			renderer.pipeline.dispose();
+			renderer.use(before);
+			requestFrame();
+		}
+		return false;
+	}
+
+	error.hidden = true;
+	error.textContent = '';
+
+	const previous = codePipeline;
+	codePipeline = result.pipeline;
+	//`gpu` is not forced here: the binding already applies the page's preference
+	//as a default, and overwriting it would silently undo a snippet that asked
+	//for `{ gpu: false }` on purpose. The badge still overrides, because that is
+	//somebody deciding rather than a default being applied.
+	//
+	//a no-op when the snippet declared a Renderer, since that wired it up as it
+	//was constructed - and the whole job when it returned a bare Pipeline
+	renderer.use(codePipeline);
+
+	//`use` deliberately leaves the outgoing chain alone, because it cannot know
+	//who else holds it. This one is ours and nothing else will free it - and it
+	//borrows the page's context, so disposing it releases the caches without
+	//touching the GL context the next run needs.
+	if (previous && previous !== codePipeline) {
+		previous.dispose();
+	}
+
+	smoothedFrameTime = 0;
+	requestFrame();
+	return true;
+}
+
+function setMode(next) {
+	if (next === mode) return;
+	mode = next;
+
+	document.body.dataset.mode = next;
+	$('modeBuild').setAttribute('aria-pressed', String(next === 'build'));
+	$('modeCode').setAttribute('aria-pressed', String(next === 'code'));
+
+	if (next === 'build') {
+		//the built chain is not the snippet's to animate, and leaving this set
+		//would run the loop over it forever
+		snippetFrame = null;
+		renderer.use(buildPipeline);
+		sync();
+		return;
+	}
+
+	//An empty buffer on first visit is a blank page with no clue what to type
+	if (!$('snippet').value.trim()) {
+		$('snippet').value = DEFAULT_SNIPPET.source;
+	}
+	if (!runCode()) {
+		//the snippet is broken, so there is nothing to render - but the canvas is
+		//still showing the built chain, which would be a lie about what is running
+		renderer.use(codePipeline ?? new ScopedPipeline());
+		requestFrame();
+	}
+}
+
+function setUpEditor() {
+	const editor = $('snippet');
+
+	editor.addEventListener('keydown', (event) => {
+		if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+			event.preventDefault();
+			runCode();
+			return;
+		}
+		//Tab indents rather than leaving the field. Escape first, so the editor is
+		//never a keyboard trap - which is the reason browsers make Tab do that.
+		if (event.key === 'Tab' && !event.shiftKey) {
+			event.preventDefault();
+			const { selectionStart: from, selectionEnd: to, value } = editor;
+			editor.value = `${value.slice(0, from)}\t${value.slice(to)}`;
+			editor.selectionStart = editor.selectionEnd = from + 1;
+		}
+	});
+
+	//so a reload does not lose work even if the snippet was never run
+	editor.addEventListener('input', () => saveBuffer(editor.value));
+
+	$('runSnippet').addEventListener('click', () => runCode());
+	$('resetSnippet').addEventListener('click', () => {
+		editor.value = DEFAULT_SNIPPET.source;
+		runCode();
+	});
 }
 
 // ---------------------------------------------------------------- glue
@@ -806,7 +1283,15 @@ async function start() {
 	buildPalette();
 	buildSourceList();
 	buildPresetList();
+	buildSnippetList();
 	setUpDropzone();
+	setUpEditor();
+	setUpResolution();
+
+	document.body.dataset.mode = 'build';
+	$('snippet').value = loadBuffer() || DEFAULT_SNIPPET.source;
+	$('modeBuild').addEventListener('click', () => setMode('build'));
+	$('modeCode').addEventListener('click', () => setMode('code'));
 
 	$('paletteSearch').addEventListener('input', (event) => buildPalette(event.target.value));
 	$('clearChain').addEventListener('click', () => {
@@ -819,7 +1304,10 @@ async function start() {
 	$('rerollButton').addEventListener('click', () => reroll(seeded()));
 	$('benchButton').addEventListener('click', benchmark);
 	$('backendBadge').addEventListener('click', () => {
-		renderer.gpu = !renderer.gpu;
+		gpuWanted = !gpuWanted;
+		//both chains, so switching modes does not switch backend with it
+		buildPipeline.gpu = gpuWanted;
+		if (codePipeline) codePipeline.gpu = gpuWanted;
 		smoothedFrameTime = 0;
 		requestFrame();
 	});

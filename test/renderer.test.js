@@ -254,3 +254,179 @@ test('onFrame can animate a property, and the change lands on the next frame', (
 	renderer.render();
 	assert.equal(translator.getProperty('horizontal'), 0.5);
 });
+
+test('use() swaps the whole chain, second inputs and all', () => {
+	// `add` cannot reproduce a chain that arrives whole, because `filters` lists
+	// filters without the frames wired alongside them. That is the gap use()
+	// fills, so the second input is the part worth asserting.
+	const canvas = new StubCanvas(8, 8);
+	const renderer = new CLARITY.Renderer(canvas, { gpu: false });
+	renderer.source(frameOf(8, 8));
+
+	const before = renderer.render();
+
+	const white = new NodeImageData(8, 8);
+	white.data.fill(255);
+
+	const replacement = new CLARITY.Pipeline([], { gpu: false });
+	replacement.add(new CLARITY.Multiply(), { second: white });
+
+	renderer.use(replacement);
+	assert.equal(renderer.pipeline, replacement, 'the renderer kept its old pipeline');
+
+	const after = renderer.render();
+
+	// multiplying by white is the identity on colour, so this proves the second
+	// input arrived rather than merely that something changed: with no second
+	// frame the stage would throw or produce black.
+	for (let i = 0; i < after.data.length; i += 4) {
+		assert.equal(after.data[i], before.data[i], `red differs at ${i}`);
+		assert.equal(after.data[i + 1], before.data[i + 1], `green differs at ${i}`);
+		assert.equal(after.data[i + 2], before.data[i + 2], `blue differs at ${i}`);
+	}
+});
+
+test('use() does not dispose the pipeline it replaces', () => {
+	// The outgoing chain may be shared, or about to be swapped back in. Both are
+	// the caller's business, and a renderer quietly disposing one it was handed
+	// would destroy a GL context still in use elsewhere.
+	//
+	// This needs a pipeline that *owns* a backend, which a CPU-only one does not:
+	// with no context to release, dispose() is only a cache clear, and use()
+	// invalidates the incoming chain anyway - so the difference is invisible.
+	// Standing in for GLBackend.create is the only way to own one in Node.
+	let disposed = 0;
+	const stub = { lost: false, dispose: () => disposed++ };
+	const create = CLARITY.GLBackend.create;
+	CLARITY.GLBackend.create = () => stub;
+
+	let owning;
+	try {
+		owning = new CLARITY.Pipeline([new CLARITY.Invert()]);
+		assert.equal(owning.backend, stub, 'the pipeline did not take the stub backend');
+	} finally {
+		CLARITY.GLBackend.create = create;
+	}
+
+	const renderer = new CLARITY.Renderer(new StubCanvas(8, 8), owning);
+	renderer.source(frameOf(8, 8));
+	renderer.use(new CLARITY.Pipeline([], { gpu: false }));
+
+	assert.equal(disposed, 0, 'use() disposed the pipeline it replaced');
+	// and the caller still can, which is the point of leaving it to them
+	owning.dispose();
+	assert.equal(disposed, 1, 'the owner could not dispose its own backend');
+});
+
+test('use() is a no-op on the pipeline already in place', () => {
+	// It invalidates the incoming chain, and re-invalidating the current one on
+	// every call would quietly turn a repeated `use` into a cache clear.
+	const renderer = new CLARITY.Renderer(new StubCanvas(8, 8), { gpu: false });
+	renderer.source(frameOf(8, 8));
+	renderer.add(new CLARITY.Blur({ radius: 2 }));
+
+	//twice, to reach the steady state - the first render has nothing to skip,
+	//so comparing against it would only measure the cold start
+	renderer.render();
+	renderer.render();
+
+	const before = renderer.stats.skipped;
+	assert.ok(before > 0, 'nothing was being cached, so this could not detect a clear');
+
+	renderer.use(renderer.pipeline);
+	renderer.render();
+
+	assert.equal(renderer.stats.skipped, before, 'use() on the current pipeline threw the cache away');
+});
+
+test('resolution reads the source at a size of its own', () => {
+	// The only way to set the size of a generated frame - a chain of starters has
+	// no source whose dimensions to inherit - and the cheapest performance
+	// control there is, since every filter costs per pixel.
+	const canvas = new StubCanvas(8, 8);
+	const renderer = new CLARITY.Renderer(canvas, { gpu: false }).source(new StubCanvas(64, 48));
+
+	assert.deepEqual(
+		[renderer.render().width, renderer.render().height],
+		[64, 48],
+		'the natural size should be the default'
+	);
+
+	renderer.resolution(16, 12);
+	const smaller = renderer.render();
+	assert.deepEqual([smaller.width, smaller.height], [16, 12]);
+
+	// and the canvas follows the frame, or the picture would be drawn into a
+	// viewport still sized for the old one
+	assert.deepEqual([canvas.width, canvas.height], [16, 12]);
+
+	renderer.resolution(null);
+	const restored = renderer.render();
+	assert.deepEqual([restored.width, restored.height], [64, 48], 'null should mean natural again');
+});
+
+test('resolution takes one number for a square', () => {
+	const renderer = new CLARITY.Renderer(new StubCanvas(8, 8), { gpu: false })
+		.source(new StubCanvas(64, 48))
+		.resolution(32);
+
+	const frame = renderer.render();
+	assert.deepEqual([frame.width, frame.height], [32, 32]);
+});
+
+test('resolution resamples a frame handed over directly', () => {
+	// No canvas in the way, so no drawImage to scale through - this is the
+	// nearest-neighbour path, which is the honest answer for something that is
+	// already pixels.
+	const source = new NodeImageData(4, 4);
+	for (let i = 0; i < source.data.length; i += 4) {
+		source.data.set([255, 0, 0, 255], i);
+	}
+	//one green pixel, so the resample can be seen to have kept real values
+	source.data.set([0, 255, 0, 255], 0);
+
+	const renderer = new CLARITY.Renderer(new StubCanvas(4, 4), { gpu: false })
+		.source(source)
+		.resolution(8, 8);
+
+	const frame = renderer.render();
+	assert.deepEqual([frame.width, frame.height], [8, 8]);
+
+	// nearest, so every pixel is one of the two that were there and nothing was
+	// blended into existence between them
+	for (let i = 0; i < frame.data.length; i += 4) {
+		const pixel = [frame.data[i], frame.data[i + 1], frame.data[i + 2]].join(',');
+		assert.ok(
+			pixel === '255,0,0' || pixel === '0,255,0',
+			`resampling invented ${pixel}, which was in neither picture`
+		);
+	}
+});
+
+test('changing resolution re-reads a still source', () => {
+	// A still is read once and the same frame handed over every render, which is
+	// what lets the cache hit. That frame is the old size, and so is every stage
+	// computed from it.
+	const canvas = new StubCanvas(8, 8);
+	const renderer = new CLARITY.Renderer(canvas, { gpu: false })
+		.source(new StubCanvas(64, 48), { live: false })
+		.add(new CLARITY.Invert());
+
+	renderer.render();
+	renderer.render();
+	assert.equal(canvas.scratchReads, 1, 'a still should be read once');
+	assert.equal(renderer.stats.from, -1, 'and then cached');
+
+	renderer.resolution(32, 24);
+	renderer.render();
+	assert.equal(canvas.scratchReads, 2, 'a new resolution has to re-read the source');
+	assert.equal(renderer.stats.from, 0, 'and recompute the chain');
+
+	// setting the same resolution again is not a change, so it must not
+	// invalidate - a UI writing the current value back on every keystroke would
+	// otherwise never let the cache hit
+	renderer.render();
+	renderer.resolution(32, 24);
+	renderer.render();
+	assert.equal(renderer.stats.from, -1, 'setting the same resolution threw the cache away');
+});

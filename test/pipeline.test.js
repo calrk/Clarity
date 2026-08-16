@@ -296,6 +296,205 @@ test('a second input given as a function is called each run', () => {
 	assert.equal(calls, 2);
 });
 
+test('a stage can take its first frame from the options too', () => {
+	// What makes a two-input filter even-handed. Without this, combining two
+	// generated branches means one of them has to be the chain and the other the
+	// argument, which reads as though they were different kinds of thing.
+	const left = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 3 })], { gpu: false });
+	const right = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 9 })], { gpu: false });
+
+	const chain = new CLARITY.Pipeline([], { gpu: false })
+		.add(new CLARITY.Multiply(), { first: left, second: right });
+
+	const source = makeFrame();
+	const actual = chain.run(source);
+
+	const expected = new CLARITY.Multiply().process([
+		new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 3 })], { gpu: false }).run(makeFrame()),
+		new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 9 })], { gpu: false }).run(makeFrame())
+	]);
+
+	assert.deepEqual(bytes(actual), bytes(expected));
+
+	// and the source really is out of it: the same chain over a different
+	// picture draws the same thing, which is not true of a `second` alone
+	assert.deepEqual(bytes(chain.run(makeFrame(77))), bytes(expected));
+});
+
+test('a first frame replaces what the stage before produced, without removing it', () => {
+	// The bit worth pinning, because it is the surprising half. This is still a
+	// chain - `first` does not delete the stages above it, it stops one stage
+	// listening to them. Anything with a side effect up there still has it.
+	const counted = new CLARITY.Invert();
+	let ran = 0;
+	const original = counted.doProcess.bind(counted);
+	counted.doProcess = (frame) => {
+		ran++;
+		return original(frame);
+	};
+
+	const replacement = makeFrame(42);
+	const chain = new CLARITY.Pipeline([], { gpu: false })
+		.add(counted)
+		.add(new CLARITY.Desaturate({}), { first: replacement });
+
+	const actual = chain.run(makeFrame());
+
+	assert.equal(ran, 1, 'the stage above should still have run');
+	assert.deepEqual(
+		bytes(actual),
+		bytes(new CLARITY.Desaturate({}).process(makeFrame(42))),
+		'the Invert above it should have made no difference to the output'
+	);
+
+	// the frame handed over is not the caller's, or a filter that mutated its
+	// input would quietly corrupt whatever supplied it
+	assert.deepEqual(bytes(replacement), bytes(makeFrame(42)));
+});
+
+test('switching backend takes the branches with it', () => {
+	// "Run this chain on the CPU" that leaves most of the work on the GPU is not
+	// an answer to anything - and the failure is a believable wrong number rather
+	// than an error, because a CPU/GPU comparison of a branching chain comes back
+	// with both sides timing the same.
+	const deep = new CLARITY.Pipeline([new CLARITY.Invert()]);
+	const nested = new CLARITY.Pipeline([]).add(new CLARITY.Multiply(), { second: deep });
+	const other = new CLARITY.Pipeline([new CLARITY.Desaturate()]);
+
+	const chain = new CLARITY.Pipeline([])
+		.add(new CLARITY.Multiply(), { first: other, second: nested });
+
+	assert.equal(chain.gpu, true, 'the premise');
+
+	chain.gpu = false;
+	assert.equal(other.gpu, false, 'a first input kept its own backend');
+	assert.equal(nested.gpu, false, 'a second input kept its own backend');
+	assert.equal(deep.gpu, false, 'a branch of a branch kept its own backend');
+
+	chain.gpu = true;
+	assert.equal(deep.gpu, true, 'and back again');
+
+	// A branch built with a mind of its own is overruled, which is the right way
+	// round for the two callers there are - and it has to happen even though the
+	// parent's own value is unchanged, or the two disagree forever.
+	const stubborn = new CLARITY.Pipeline([new CLARITY.Invert()], { gpu: false });
+	const outer = new CLARITY.Pipeline([]).add(new CLARITY.Multiply(), { second: stubborn });
+	assert.equal(outer.gpu, true, 'the premise: the parent already wants the GPU');
+
+	outer.gpu = true;
+	assert.equal(stubborn.gpu, true, 'a no-op on the parent skipped the branches');
+});
+
+test('a branch read twice in one run is not mistaken for unchanged', () => {
+	// A matte and its inverse, which is the ordinary shape of a dissolve and the
+	// smallest thing that breaks `stable`.
+	//
+	// `stable` looks forward - "would running me again match what I last
+	// produced" - and that is answered relative to the *branch's* last run. The
+	// first consumer runs the matte, which clears the dirty flag that made it
+	// unstable; the second consumer then asks, is told yes, and is served the
+	// frame it cached on the previous run. The two halves are then a frame apart
+	// and stop covering each other.
+	//
+	// Invisible in every way that matters: no error, no missing frame, just a
+	// composite that is subtly wrong while anything is moving and perfect the
+	// moment it stops.
+	const cut = new CLARITY.ValueThreshold({ threshold: 60 });
+	const matte = new CLARITY.Pipeline([new CLARITY.Desaturate(), cut], { gpu: false });
+	const inverse = new CLARITY.Pipeline([], { gpu: false })
+		.add(new CLARITY.Invert(), { first: matte });
+
+	const chain = new CLARITY.Pipeline([], { gpu: false })
+		.add(new CLARITY.Add(), { first: matte, second: inverse });
+
+	const source = makeFrame();
+	chain.run(source);
+
+	//Upwards, and that direction is not incidental. Lowering the threshold only
+	//ever lights more pixels, so a stale inverse lands where the fresh matte is
+	//already white and `Add` clamps the mistake away at 255 - the test passes
+	//while the bug is present. Raising it puts black against black, which
+	//nothing rounds off.
+	cut.setProperty('threshold', 200);
+	const out = chain.run(source);
+
+	//and a guard against the whole thing going quietly vacuous: if the two
+	//thresholds ever stop disagreeing on this frame, there is no stale frame to
+	//catch and every assertion below passes for the wrong reason
+	const lit = (frame) => [...frame.data].filter((_, i) => i % 4 === 0 && frame.data[i] > 128).length;
+	assert.notEqual(
+		lit(new CLARITY.Pipeline([new CLARITY.Desaturate(), new CLARITY.ValueThreshold({ threshold: 60 })], { gpu: false }).run(makeFrame())),
+		lit(new CLARITY.Pipeline([new CLARITY.Desaturate(), new CLARITY.ValueThreshold({ threshold: 200 })], { gpu: false }).run(makeFrame())),
+		'the two thresholds produce the same matte, so this test proves nothing'
+	);
+
+	//A matte and its inverse cover each other exactly, at any threshold. Any
+	//pixel that is not 255 is one where the two halves disagreed about which
+	//frame they were in.
+	let uncovered = 0;
+	for (let i = 0; i < out.data.length; i += 4) {
+		if (out.data[i] !== 255) uncovered++;
+	}
+	assert.equal(uncovered, 0, `${uncovered} pixels were not covered by matte + inverse`);
+});
+
+test('a fully cached run tells nobody anything happened', () => {
+	// The other direction. A version that bumped on every run would make every
+	// consumer of a branch recompute forever, which is the same as having no
+	// cache at all - and would look like a performance regression rather than a
+	// correctness one, so nothing would fail.
+	const branch = new CLARITY.Pipeline([new CLARITY.Desaturate()], { gpu: false });
+	const chain = new CLARITY.Pipeline([], { gpu: false })
+		.add(new CLARITY.Multiply(), { second: branch });
+
+	const source = makeFrame();
+	chain.run(source);
+	const settled = branch.version;
+
+	chain.run(source);
+	assert.equal(branch.version, settled, 'a cached branch bumped its version');
+	assert.equal(chain.stats.from, -1, 'the chain re-ran over a branch that had not moved');
+});
+
+test('a moving branch counts whichever input it is wired into', () => {
+	// `animated` and `stable` both have to look at `first` for exactly the reason
+	// they look at `second`: nothing at the top level moves, and the picture is
+	// supposed to. Wiring the fog into the first input rather than the second is
+	// not a reason for the frame loop to stop.
+	const clock = { now: 0 };
+	const drift = new CLARITY.Pipeline(
+		[
+			new CLARITY.Cloud({ seed: 1 }),
+			new CLARITY.Translator({ horizontal: 0.4, speed: 1, now: () => clock.now })
+		],
+		{ gpu: false }
+	);
+	const still = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 2 })], { gpu: false });
+
+	const chain = new CLARITY.Pipeline([], { gpu: false });
+	chain.add(new CLARITY.Multiply(), { first: drift, second: still });
+
+	assert.equal(chain.filters.some((f) => f.constructor.animated(f)), false, 'the premise');
+	assert.equal(chain.animated, true, 'a moving first input has to count');
+
+	const source = makeFrame();
+	const before = chain.run(source);
+	assert.equal(chain.stable, false);
+
+	clock.now = 500;
+	const after = chain.run(source);
+	assert.equal(chain.stats.from, 0, 'the chain was cached while its first input moved');
+	assert.notDeepEqual(bytes(after), bytes(before), 'the picture did not move');
+
+	// and the other direction, or this would just be "never cache anything"
+	const settled = new CLARITY.Pipeline([], { gpu: false });
+	settled.add(new CLARITY.Multiply(), { first: still, second: still });
+	settled.run(source);
+	settled.run(source);
+	assert.equal(settled.animated, false);
+	assert.equal(settled.stats.from, -1, 'a still chain should cost nothing to re-run');
+});
+
 test('stateful and varying filters are declared, and nothing else is', () => {
 	const stateful = ['Ghoster', 'MotionDetector', 'DifferenceDetector'];
 	// Only the ones that read the *clock*. Noise, Cloud and Voronoi used to be
@@ -486,4 +685,120 @@ test('but a filter still forgets when it, or the chain, changes', () => {
 	pipeline.add(new CLARITY.Invert({}));
 	pipeline.run(makeFrame());
 	assert.equal(ghoster.frames.length, 1, 'editing the chain restarts it too');
+});
+
+test('a borrowed backend is not disposed by the borrower', () => {
+	// A browser allows only a handful of live WebGL contexts, so several
+	// pipelines on one page share. Sharing is only safe if the first branch to
+	// be thrown away leaves the context alone - otherwise disposing a nested
+	// pipeline takes down the one that lent it.
+	//
+	// No WebGL in Node, so the backend is a stand-in. What is being tested is
+	// the ownership rule, which is pure bookkeeping.
+	let disposed = 0;
+	const shared = { lost: false, dispose: () => disposed++ };
+
+	const borrower = new CLARITY.Pipeline([], { backend: shared });
+	borrower.dispose();
+	assert.equal(disposed, 0, 'the borrower disposed a context it did not create');
+
+	// and the lender still can
+	shared.dispose();
+	assert.equal(disposed, 1);
+});
+
+test('a pipeline given no backend still owns the one it makes', () => {
+	// The other half of the rule. Without WebGL there is nothing to create, so
+	// this asserts the flag rather than the disposal: a pipeline that was never
+	// lent anything must not think it borrowed.
+	const own = new CLARITY.Pipeline([], { gpu: false });
+	assert.doesNotThrow(() => own.dispose());
+	assert.equal(own.usingGPU, false);
+});
+
+test('a pipeline knows whether anything in it moves, branches included', () => {
+	// The question a host asks to decide whether to run a frame loop over a still
+	// image. Answering it with `filters.some(...)` is confidently wrong for a
+	// chain whose only moving part is inside a second input - and that is not a
+	// corner case, it is what compositing two generated fields looks like.
+	const still = new CLARITY.Pipeline([new CLARITY.Invert()], { gpu: false });
+	assert.equal(still.animated, false);
+
+	const moving = new CLARITY.Pipeline([new CLARITY.Wave({ speed: 1 })], { gpu: false });
+	assert.equal(moving.animated, true);
+
+	// nothing at the top level moves here; the Translator is in the branch
+	const drift = new CLARITY.Pipeline(
+		[new CLARITY.Cloud({ seed: 1 }), new CLARITY.Translator({ horizontal: 0.2, speed: 0.1 })],
+		{ gpu: false }
+	);
+	const composed = new CLARITY.Pipeline([], { gpu: false });
+	composed.add(new CLARITY.Multiply(), { second: drift });
+
+	assert.equal(composed.filters.some((f) => f.constructor.animated(f)), false, 'the premise');
+	assert.equal(composed.animated, true, 'a moving branch has to count');
+
+	// and a bypassed stage takes its branch out with it
+	composed.at(0).enabled = false;
+	assert.equal(composed.animated, false);
+});
+
+test('a still branch does not start a frame loop', () => {
+	// The other direction, or `animated` could just answer yes for anything with
+	// a second input and nobody would notice until their battery went flat.
+	const still = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 1 })], { gpu: false });
+	const composed = new CLARITY.Pipeline([], { gpu: false });
+	composed.add(new CLARITY.Multiply(), { second: still });
+
+	assert.equal(composed.animated, false);
+
+	// a function second input is unknowable, so it is assumed still for the same
+	// reason - guessing yes would run the loop forever for every chain with a
+	// two-input filter in it
+	const guessed = new CLARITY.Pipeline([], { gpu: false });
+	guessed.add(new CLARITY.Multiply(), { second: () => makeFrame() });
+	assert.equal(guessed.animated, false);
+});
+
+test('a moving branch keeps the chain out of the cache', () => {
+	// The bug this exists for looks like nothing at all: two `Multiply` stages
+	// composing a pair of drifting fields are both pure by their own reckoning,
+	// so the chain is served from cache forever and the fog sits still - with the
+	// frame loop running the whole time, producing identical frames.
+	const clock = { now: 0 };
+	const drift = new CLARITY.Pipeline(
+		[
+			new CLARITY.Cloud({ seed: 1 }),
+			new CLARITY.Translator({ horizontal: 0.4, speed: 1, now: () => clock.now })
+		],
+		{ gpu: false }
+	);
+
+	const chain = new CLARITY.Pipeline([], { gpu: false });
+	chain.add(new CLARITY.Multiply(), { second: drift });
+
+	const source = makeFrame();
+	const first = chain.run(source);
+	assert.equal(chain.stable, false, 'a chain with a moving branch is not stable');
+
+	clock.now = 500;
+	const second = chain.run(source);
+
+	assert.equal(chain.stats.from, 0, 'the chain was served from cache while its branch moved');
+	assert.notDeepEqual([...second.data], [...first.data], 'the picture did not move');
+});
+
+test('a still chain is still served from cache', () => {
+	// The other direction. Treating every two-input stage as volatile would fix
+	// the fog by never caching anything, which is not a fix.
+	const stencil = new CLARITY.Pipeline([new CLARITY.Cloud({ seed: 2 })], { gpu: false });
+	const chain = new CLARITY.Pipeline([], { gpu: false });
+	chain.add(new CLARITY.Multiply(), { second: stencil });
+
+	const source = makeFrame();
+	chain.run(source);
+	chain.run(source);
+
+	assert.equal(chain.stable, true);
+	assert.equal(chain.stats.from, -1, 'a still chain should cost nothing to re-run');
 });

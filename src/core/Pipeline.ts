@@ -17,11 +17,43 @@ export type SecondInput = ImageData | Pipeline | (() => ImageData);
 export interface StageOptions {
 	/** Second frame, for the two-input filters (`Add`, `Blend`, `Mask`, ...). */
 	second?: SecondInput;
+	/**
+	 * First frame, replacing the one arriving from the stage before.
+	 *
+	 * The chain's input is normally whatever the previous stage produced, which
+	 * is what makes it a chain. This says otherwise: take the frame from here
+	 * instead. Everything upstream still runs - it is only this stage that stops
+	 * listening - so in practice it is used on the first stage of a chain, where
+	 * there is nothing upstream to ignore.
+	 *
+	 * That is what makes a two-input filter symmetric. Without it, combining two
+	 * generated branches means one of them has to be the chain and the other the
+	 * argument, which reads as though they were different kinds of thing:
+	 *
+	 * ```js
+	 * // lopsided: `across` is the chain, `upward` is wired into it
+	 * renderer.add(new Multiply(), { second: upward });
+	 *
+	 * // even-handed: both are branches, and the source is not involved
+	 * renderer.add(new Multiply(), { first: across, second: upward });
+	 * ```
+	 *
+	 * Resolved exactly like {@link second}, so a nested Pipeline here is handed
+	 * the outer run's source too.
+	 */
+	first?: SecondInput;
 }
 
 interface Stage {
 	filter: Filter;
 	second?: SecondInput;
+	first?: SecondInput;
+	/**
+	 * Which version of each branch this stage last consumed - see
+	 * {@link Pipeline.version}. Undefined until the stage has read one.
+	 */
+	firstVersion?: number;
+	secondVersion?: number;
 	/** Output of this stage on the last run, when it is safe to reuse. */
 	cached?: ImageData;
 	/**
@@ -57,7 +89,16 @@ export interface PipelineStats {
 	onGPU: number[];
 	/** Stages that had to run on the CPU, and why. */
 	fallbacks: { index: number; filter: string; reason: string }[];
-	/** Times the frame crossed between CPU memory and a texture. */
+	/**
+	 * Times a full frame crossed between CPU memory and a texture - the frame
+	 * being processed, and any second input uploaded alongside it.
+	 *
+	 * Two crossings are deliberately not counted, both because they are bounded
+	 * rather than frame-sized: the thumbnail `samples` filters read back before
+	 * their shader runs, and the small data textures `Filter.data` supplies for
+	 * palettes and ramps. Neither scales with the picture, which is the thing
+	 * this number exists to warn about.
+	 */
 	transfers: number;
 }
 
@@ -99,17 +140,29 @@ export class Pipeline {
 	private structureDirty = true;
 
 	/** null when GPU is switched off, or when WebGL2 could not be had. */
-	private backend: GLBackend | null = null;
+	private glBackend: GLBackend | null = null;
 	private gpuWanted: boolean;
 	private backendTried = false;
+	/**
+	 * Whether the backend came from somewhere else, and so is not ours to
+	 * destroy. A browser allows only a handful of live WebGL contexts, so
+	 * sharing one is the sane thing for several pipelines on a page to do - but
+	 * it means {@link dispose} must release only what it created, or the first
+	 * branch to be thrown away takes the others down with it.
+	 */
+	private borrowedBackend = false;
+
+	/** See {@link version}. */
+	private runVersion = 0;
 
 	stats: PipelineStats = emptyStats();
 
 	constructor(filters: Filter[] = [], options: PipelineOptions = {}) {
 		this.gpuWanted = options.gpu !== false;
 		if (options.backend) {
-			this.backend = options.backend;
+			this.glBackend = options.backend;
 			this.backendTried = true;
+			this.borrowedBackend = true;
 		}
 		for (const filter of filters) {
 			this.add(filter);
@@ -122,26 +175,32 @@ export class Pipeline {
 	 * Deferred rather than built in the constructor so that constructing a
 	 * Pipeline never touches WebGL - a headless caller, or a test, should not
 	 * pay for a GL context it will not use.
+	 *
+	 * Public so that a second pipeline can be built against the same context
+	 * rather than opening another. Reading it *creates* the context, which is
+	 * the point - a caller asking to share one is a caller that has decided it
+	 * wants the GPU. Pass the result as {@link PipelineOptions.backend}, and the
+	 * borrower will leave it alone when it is disposed.
 	 */
-	private get gl(): GLBackend | null {
+	get backend(): GLBackend | null {
 		if (!this.gpuWanted) {
 			return null;
 		}
 		if (!this.backendTried) {
 			this.backendTried = true;
-			this.backend = GLBackend.create();
+			this.glBackend = GLBackend.create();
 		}
-		if (this.backend?.lost) {
+		if (this.glBackend?.lost) {
 			//A lost context cannot be recovered by using it harder. Drop to the CPU
 			//and stay there rather than producing black frames.
-			this.backend = null;
+			this.glBackend = null;
 		}
-		return this.backend;
+		return this.glBackend;
 	}
 
 	/** Whether shaders will actually be used. */
 	get usingGPU(): boolean {
-		return this.gl !== null;
+		return this.backend !== null;
 	}
 
 	/**
@@ -157,12 +216,38 @@ export class Pipeline {
 		return this.gpuWanted;
 	}
 
+	/**
+	 * Setting this reaches the branches too, because "run this chain on the CPU"
+	 * that leaves most of the work on the GPU is not an answer to anything.
+	 *
+	 * It was the top-level pipeline only, and the effect was to make the question
+	 * unaskable: `new Renderer(canvas, { gpu: false })` on a composed chain left
+	 * every branch on shaders, and the playground's backend badge did the same in
+	 * code mode - a CPU/GPU comparison of a branching chain came back with both
+	 * sides timing identically, which is a believable answer and a wrong one.
+	 *
+	 * It does overrule a branch that asked for a backend of its own. That is the
+	 * right way round for the two callers there are - a badge is somebody
+	 * deciding, and a `gpu` option on the outer chain is somebody describing the
+	 * whole thing - and a branch that must differ can be set again afterwards.
+	 */
 	set gpu(wanted: boolean) {
-		if (wanted === this.gpuWanted) {
-			return;
-		}
+		//Not guarded on the current value: a branch can disagree with its parent,
+		//having been built separately or set directly, and returning early here
+		//would leave it disagreeing forever. The branches' own setters stop the
+		//recursion from doing any work where nothing changed.
+		const changed = wanted !== this.gpuWanted;
 		this.gpuWanted = wanted;
-		this.invalidate();
+
+		for (const stage of this.stages) {
+			for (const branch of branches(stage)) {
+				branch.gpu = wanted;
+			}
+		}
+
+		if (changed) {
+			this.invalidate();
+		}
 	}
 
 	get length(): number {
@@ -174,6 +259,92 @@ export class Pipeline {
 		return this.stages.map((stage) => stage.filter);
 	}
 
+	/**
+	 * Whether anything in here will draw a different frame if asked again later -
+	 * which is what a host needs in order to decide whether to run a frame loop
+	 * over a still image.
+	 *
+	 * Branches included, and that is the whole reason this is not a one-line
+	 * `filters.some(...)` at the call site. A chain whose only moving part is a
+	 * `Translator` inside a second input has no animated filter at the top level
+	 * at all, so asking `filters` gives the confident wrong answer and the fog
+	 * sits still. Only a Pipeline can see its own branches; `filters` lists
+	 * filters and not the chains wired alongside them.
+	 *
+	 * A `second` given as a function is assumed *not* to animate. It may well -
+	 * the playground's own source picker is one - but there is nothing to
+	 * inspect, and guessing yes would run the loop forever for every chain with
+	 * a two-input filter in it.
+	 */
+	get animated(): boolean {
+		return this.stages.some((stage) => {
+			if (!stage.filter.enabled) {
+				return false;
+			}
+			if ((stage.filter.constructor as typeof Filter).animated(stage.filter)) {
+				return true;
+			}
+			return branches(stage).some((branch) => branch.animated);
+		});
+	}
+
+	/**
+	 * Whether a run right now would hand back exactly what the last one did, so
+	 * a stage using this as a second input can be served from cache.
+	 *
+	 * The same blind spot as {@link animated}, in the place where it costs more.
+	 * `Multiply` is pure, so two of them composing a pair of drifting fogs are
+	 * both cacheable by their own reckoning - the chain is served from cache
+	 * forever and the fog sits still even with the frame loop running. Purity has
+	 * to be a property of the stage *and everything wired into it*.
+	 *
+	 * A `second` given as a function is treated as stable, matching
+	 * {@link animated}: there is nothing to inspect, and assuming it changes
+	 * would stop every chain with a two-input filter in it from ever caching.
+	 * A caller who knows better calls {@link invalidate}.
+	 */
+	get stable(): boolean {
+		if (this.structureDirty) {
+			return false;
+		}
+		return this.stages.every((stage) => {
+			if (!stage.filter.enabled) {
+				return true;	//it hands the frame straight back
+			}
+			if (!isPure(stage.filter) || stage.filter.dirty) {
+				return false;
+			}
+			return !branchMoved(stage);
+		});
+	}
+
+	/**
+	 * How many times this pipeline has produced a new frame.
+	 *
+	 * The counterpart to {@link stable}, and the reason one is not enough.
+	 * `stable` looks forward - "would running me again match what I last
+	 * produced" - which is the right question for a caller deciding whether to
+	 * bother. It is the wrong question for a stage that consumed this pipeline
+	 * on an *earlier* run, because it is answered relative to this pipeline's
+	 * last run rather than the consumer's.
+	 *
+	 * The two come apart the moment one branch feeds two places, which is not
+	 * exotic - a matte and its inverse is the ordinary case. The first consumer
+	 * runs the branch, which clears the dirty flags that made it unstable; the
+	 * second consumer then asks `stable`, is told yes, and is served the frame it
+	 * cached *last* time. A dissolve composited that way shows a matte from this
+	 * frame against an inverse from the one before, and the two no longer cover
+	 * each other.
+	 *
+	 * A version is not relative to anything, so a stage can record what it read
+	 * and compare. Bumped whenever a run recomputed a stage - which over-reports
+	 * when a recompute happens to land on identical pixels, exactly as `stable`
+	 * already does.
+	 */
+	get version(): number {
+		return this.runVersion;
+	}
+
 	at(index: number): Filter | undefined {
 		return this.stages[index]?.filter;
 	}
@@ -183,7 +354,7 @@ export class Pipeline {
 	}
 
 	add(filter: Filter, options: StageOptions = {}): this {
-		this.stages.push({ filter, second: options.second });
+		this.stages.push({ filter, second: options.second, first: options.first });
 		this.structureDirty = true;
 		return this;
 	}
@@ -191,7 +362,8 @@ export class Pipeline {
 	insert(index: number, filter: Filter, options: StageOptions = {}): this {
 		this.stages.splice(clampIndex(index, this.stages.length), 0, {
 			filter,
-			second: options.second
+			second: options.second,
+			first: options.first
 		});
 		this.structureDirty = true;
 		return this;
@@ -240,10 +412,19 @@ export class Pipeline {
 		return this;
 	}
 
-	/** Releases the GL context. Safe to call on a CPU-only pipeline. */
+	/**
+	 * Releases the GL context. Safe to call on a CPU-only pipeline.
+	 *
+	 * A *borrowed* backend is left running, because whoever lent it is still
+	 * using it. Reading `this.glBackend` directly rather than the getter, so
+	 * disposing a pipeline that never touched the GPU does not open a context in
+	 * order to close it.
+	 */
 	dispose(): void {
-		this.backend?.dispose();
-		this.backend = null;
+		if (!this.borrowedBackend) {
+			this.glBackend?.dispose();
+		}
+		this.glBackend = null;
 		this.invalidate();
 	}
 
@@ -256,7 +437,7 @@ export class Pipeline {
 	 * cheap.
 	 */
 	run(source: ImageData): ImageData {
-		const backend = this.gl;
+		const backend = this.backend;
 		this.dropStaleHistory(backend);
 		const from = this.firstStaleStage(source, backend);
 		const timings = new Array<number>(this.stages.length).fill(0);
@@ -285,6 +466,17 @@ export class Pipeline {
 		let i = from;
 
 		while (i < this.stages.length) {
+			//A stage with a `first` does not read the chain, it replaces it. Done
+			//here rather than inside either branch below because `frame` is both the
+			//CPU path's input and what the GPU path uploads.
+			//
+			//Cloned for the same reason the cached frame above is: this is very
+			//often a branch pipeline's own cached output, and a filter is entitled
+			//to mutate what it is handed.
+			if (this.stages[i].first !== undefined) {
+				frame = cloneImageData(this.resolve(this.stages[i], 'first', source));
+			}
+
 			const runEnd = backend ? this.endOfGPURun(i, backend) : i;
 
 			if (runEnd > i || (backend && this.onGPU(this.stages[i].filter, backend))) {
@@ -300,7 +492,7 @@ export class Pipeline {
 						filter: stage.filter,
 						second: stage.second === undefined
 							? undefined
-							: resolveSecond(stage.second, source)
+							: this.resolve(stage, 'second', source)
 					})),
 					frame
 				);
@@ -333,7 +525,8 @@ export class Pipeline {
 
 			frame = stage.second === undefined
 				? stage.filter.process(frame)
-				: stage.filter.process([frame, resolveSecond(stage.second, source)]);
+				//`process` matches the second frame to this one - see Filter.process
+				: stage.filter.process([frame, this.resolve(stage, 'second', source)]);
 
 			timings[i] = defaultClock() - at;
 			stage.filter.dirty = false;
@@ -363,6 +556,33 @@ export class Pipeline {
 			fallbacks,
 			transfers
 		};
+
+		//Reached only when something was recomputed - the fully-cached run returns
+		//above, and has by definition produced nothing new to tell anyone about.
+		this.runVersion++;
+
+		return frame;
+	}
+
+	/**
+	 * Reads one of a stage's wired-in inputs, and notes which version it got.
+	 *
+	 * The note is the whole point - every call site that reads a branch goes
+	 * through here so that none of them can forget, because a stage that reads a
+	 * branch without recording it is a stage that will happily serve a stale
+	 * frame forever. See {@link version}.
+	 */
+	private resolve(stage: Stage, side: 'first' | 'second', source: ImageData): ImageData {
+		const input = stage[side]!;
+		const frame = resolveSecond(input, source);
+
+		if (input instanceof Pipeline) {
+			if (side === 'first') {
+				stage.firstVersion = input.version;
+			} else {
+				stage.secondVersion = input.version;
+			}
+		}
 
 		return frame;
 	}
@@ -406,11 +626,19 @@ export class Pipeline {
 		return backend !== null && gpuBlocker(filter) === null;
 	}
 
-	/** Index of the last stage in the shader run starting at `start`. */
+	/**
+	 * Index of the last stage in the shader run starting at `start`.
+	 *
+	 * A stage with a `first` ends the run before it. Everything in a shader run
+	 * shares one uploaded frame ping-ponged between two targets, and a stage that
+	 * discards that frame for another one cannot be expressed in it - so it
+	 * begins a run of its own, paying one readback to do so.
+	 */
 	private endOfGPURun(start: number, backend: GLBackend): number {
 		let end = start;
 		while (
 			end + 1 < this.stages.length &&
+			this.stages[end + 1].first === undefined &&
 			this.onGPU(this.stages[end + 1].filter, backend)
 		) {
 			end++;
@@ -444,6 +672,11 @@ export class Pipeline {
 		//the run begins.
 		let start = stale;
 		while (start > 0 && this.onGPU(this.stages[start].filter, backend)) {
+			//`first` begins a run, so there is nothing to walk back into - and
+			//walking past it would recompute stages whose output it discards
+			if (this.stages[start].first !== undefined) {
+				break;
+			}
 			if (!this.onGPU(this.stages[start - 1].filter, backend)) {
 				break;
 			}
@@ -456,8 +689,15 @@ export class Pipeline {
 		for (let i = 0; i < this.stages.length; i++) {
 			const stage = this.stages[i];
 			//An impure filter has to run every frame, and a stage that has never
-			//run has nothing behind it - both mean recompute from here down.
-			if (stage.filter.dirty || !isPure(stage.filter) || !stage.computed) {
+			//run has nothing behind it - both mean recompute from here down. So
+			//does a branch that is still moving, which the filter alone cannot say:
+			//`Multiply` is pure whatever is wired into it.
+			if (
+				stage.filter.dirty ||
+				!isPure(stage.filter) ||
+				!stage.computed ||
+				branchMoved(stage)
+			) {
 				return i;
 			}
 		}
@@ -468,6 +708,47 @@ export class Pipeline {
 
 function isPure(filter: Filter): boolean {
 	return (filter.constructor as typeof Filter).pure;
+}
+
+/**
+ * The chains wired into a stage - which is what `filters` cannot see, and the
+ * reason `animated` has to ask.
+ *
+ * Only Pipelines: a `second` or `first` given as a function is opaque, and the
+ * properties that use this document what is assumed of one.
+ */
+function branches(stage: Stage): Pipeline[] {
+	const found: Pipeline[] = [];
+	if (stage.first instanceof Pipeline) found.push(stage.first);
+	if (stage.second instanceof Pipeline) found.push(stage.second);
+	return found;
+}
+
+/** Whether either branch has moved, or is about to, since this stage read it. */
+function branchMoved(stage: Stage): boolean {
+	return (
+		moved(stage.first, stage.firstVersion) || moved(stage.second, stage.secondVersion)
+	);
+}
+
+/**
+ * Two questions, and a stage is stale if either answers yes.
+ *
+ * `stable` looks forward: running this branch again would produce something
+ * new, so whatever we cached is already out of date. The version looks back: it
+ * has *already* produced something new since we last read it, which is what
+ * happens when another stage got there first this frame and cleaned the dirty
+ * flags on the way past.
+ *
+ * Asking only the first is the bug {@link Pipeline.version} describes. Asking
+ * only the second never starts anything moving, because a branch that has not
+ * run yet is still on the version we last saw.
+ */
+function moved(input: SecondInput | undefined, seen: number | undefined): boolean {
+	if (!(input instanceof Pipeline)) {
+		return false;
+	}
+	return !input.stable || input.version !== seen;
 }
 
 /**

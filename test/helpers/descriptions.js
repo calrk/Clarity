@@ -88,7 +88,8 @@ export const descriptions = {
 		look: 'Bright where the two fixtures differ - the disc region - and black where they agree.'
 	},
 	SkinDetector: {
-		look: 'Mostly black on this fixture, which has no skin tones. A big white area would be suspicious.'
+		look: 'Black on the photo fixture, which has no skin tones in it - a big white area there would be suspicious. On the tone fixture the top five rows should be solidly white across their whole width, and the bottom four solidly black.',
+		note: 'The tone case is the one worth reading. A white band that stops short of the right-hand edge means the deeper tones have dropped out, which is the failure this filter had: chroma is an offset from neutral grey and shrinks with the brightness carrying it, so a fixed Cb/Cr box has margin to spare on pale skin and none at all on dark. Rows two to five are the same tones underexposed, because shadow is where that gives out first.'
 	},
 
 	// --- Starters ---

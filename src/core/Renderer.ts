@@ -1,4 +1,5 @@
 import { Pipeline } from './Pipeline.js';
+import { resampleTo } from './imagedata.js';
 import type { Filter } from './Filter.js';
 import type { PipelineStats, StageOptions } from './Pipeline.js';
 
@@ -64,13 +65,16 @@ export interface SourceOptions {
  */
 export class Renderer {
 	readonly canvas: HTMLCanvasElement;
-	readonly pipeline: Pipeline;
+	/** The chain being rendered. Swap the whole thing with {@link use}. */
+	pipeline: Pipeline;
 
 	private context: CanvasRenderingContext2D;
 	/** Scratch canvas the source is drawn into before being read back. */
 	private scratch: HTMLCanvasElement | undefined;
 	private input: RenderSource | undefined;
 	private live = false;
+	/** Size to read the source at, or null for whatever size it is. */
+	private target: { width: number; height: number } | null = null;
 	/** Last frame read from the source, reused while the source is not live. */
 	private frame: ImageData | undefined;
 	private handle = 0;
@@ -134,12 +138,69 @@ export class Renderer {
 		return this.handle !== 0;
 	}
 
+	/**
+	 * Renders a different chain from now on, keeping the source and the loop.
+	 *
+	 * The methods above edit the chain in place, which is the right shape for a
+	 * UI where a chain is *assembled*. It is the wrong shape for one where a
+	 * chain arrives whole - built by a caller, or returned from a snippet - and
+	 * there was no way to hand one over: `add` cannot reproduce a stage's second
+	 * input, because {@link Pipeline.filters} lists filters and not the frames
+	 * wired alongside them.
+	 *
+	 * The old pipeline is **not** disposed. It may be shared, and it may be
+	 * about to be swapped back in; both are the caller's business. What is
+	 * disposed of here is only the cached frames of the incoming one, since it
+	 * has not seen this source.
+	 */
+	use(pipeline: Pipeline): this {
+		if (pipeline === this.pipeline) {
+			return this;
+		}
+
+		this.pipeline = pipeline;
+		//It may have run against something else entirely, and it has certainly
+		//never seen this source object.
+		pipeline.invalidate();
+		return this;
+	}
+
 	source(input: RenderSource, options: SourceOptions = {}): this {
 		this.input = input;
 		this.live = options.live ?? isLive(input);
 		this.frame = undefined;
 
 		//a new source invalidates every cached stage, not just the first
+		this.pipeline.invalidate();
+		return this;
+	}
+
+	/**
+	 * Reads the source at this size rather than at its own. `null` for its own.
+	 *
+	 * Which is three useful things rather than one. It is the only way to set the
+	 * size of a *generated* frame, since a chain of starters has no source whose
+	 * dimensions to inherit. It is the cheapest performance control there is,
+	 * because every filter's cost is per pixel and this is the pixel count. And
+	 * it decides how coarse the filters that work in pixels - `Pixelate`,
+	 * `Halftone`, `Dither` - come out relative to the picture.
+	 *
+	 * An element is scaled by `drawImage`, so a photograph comes down smoothly.
+	 * A frame handed over directly has no canvas to go through and is resampled
+	 * nearest, which is the honest answer for something that is already pixels -
+	 * a mask or a height map should not gain values that were not in it.
+	 */
+	resolution(width: number | null, height: number | null = width): this {
+		const wanted = width && height ? { width: Math.round(width), height: Math.round(height) } : null;
+
+		if (wanted?.width === this.target?.width && wanted?.height === this.target?.height) {
+			return this;
+		}
+
+		this.target = wanted;
+		//the cached frame is the old size, and every stage downstream of it was
+		//computed against those dimensions
+		this.frame = undefined;
 		this.pipeline.invalidate();
 		return this;
 	}
@@ -235,19 +296,24 @@ export class Renderer {
 			return this.frame;
 		}
 
-		if (typeof this.input === 'function') {
-			this.frame = this.input();
-			return this.frame;
-		}
-		if (isFrame(this.input)) {
-			this.frame = this.input;
+		//Already pixels, so there is no canvas in the way to scale through - see
+		//`resolution` for why that makes this the nearest-neighbour case.
+		if (typeof this.input === 'function' || isFrame(this.input)) {
+			const given = typeof this.input === 'function' ? this.input() : this.input;
+			this.frame = this.target
+				? resampleTo(given, this.target.width, this.target.height)
+				: given;
 			return this.frame;
 		}
 
-		const size = sizeOf(this.input);
-		if (!size.width || !size.height) {
+		const natural = sizeOf(this.input);
+		if (!natural.width || !natural.height) {
 			return undefined;	//a video with no metadata yet, or an image still loading
 		}
+
+		//`drawImage` does the scaling, which is smooth rather than nearest - the
+		//right trade for a photograph, and the reason this is not resampleTo
+		const size = this.target ?? natural;
 
 		this.scratch ??= this.canvas.ownerDocument.createElement('canvas');
 		if (this.scratch.width !== size.width || this.scratch.height !== size.height) {

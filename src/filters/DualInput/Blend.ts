@@ -20,7 +20,11 @@ void main(){
 `;
 
 	static override schema: FilterSchema = {
-		ratio: { type: 'float', label: 'Ratio', min: 0, max: 1, step: 0.01, default: 0.5, description: '0 is all of the first image, 1 is all of the second.' }
+		//Stated the wrong way round until now, in the one place where getting it
+		//wrong is most expensive: this string is the tooltip, the generated docs
+		//and the site's filter reference. Both implementations have always
+		//computed `first * ratio + second * (1 - ratio)`.
+		ratio: { type: 'float', label: 'Ratio', min: 0, max: 1, step: 0.01, default: 0.5, description: '1 is all of the first image, 0 is all of the second.' }
 	};
 
 	override properties: {

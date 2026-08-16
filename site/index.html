@@ -56,6 +56,17 @@
 	</div>
 
 	<div class="masthead-actions">
+		<!--
+			Two ways to say the same thing. Build assembles a chain and can only
+			describe one linear pipeline, because that is the only shape a list has;
+			Code writes one, and can branch. The stage, the sources and the readout
+			are shared, so switching is a change of input method rather than a
+			different page.
+		-->
+		<div class="modes" role="group" aria-label="How to build the chain">
+			<button class="mode" id="modeBuild" type="button" aria-pressed="true">Build</button>
+			<button class="mode" id="modeCode" type="button" aria-pressed="false">Code</button>
+		</div>
 		<button class="badge" id="backendBadge" type="button" title="Which backend the chain is running on">&mdash;</button>
 		<button class="ghost" id="themeToggle" type="button" aria-label="Switch theme">
 			<span aria-hidden="true">◑</span>
@@ -76,9 +87,23 @@
 				<input type="file" id="fileInput" accept="image/*,video/*" hidden>
 				<span>Drop an image or video, or <u>choose a file</u></span>
 			</label>
+			<!--
+				The size the source is read at. Every filter costs per pixel, so this
+				is the cheapest performance control on the page - and for the Blank
+				source it is the only thing that decides how big a generated frame is.
+			-->
+			<div class="resolution" id="resolution">
+				<label for="resWidth">Size</label>
+				<input id="resWidth" type="number" min="1" max="8192" step="1" inputmode="numeric"
+					aria-label="Source width in pixels">
+				<span aria-hidden="true">&times;</span>
+				<input id="resHeight" type="number" min="1" max="8192" step="1" inputmode="numeric"
+					aria-label="Source height in pixels">
+				<button class="ghost small" id="resReset" type="button" hidden>Reset</button>
+			</div>
 		</section>
 
-		<section class="panel grow">
+		<section class="panel grow" id="palettePanel">
 			<h2>Filters <span class="count" id="paletteCount"></span></h2>
 			<input class="search" id="paletteSearch" type="search" placeholder="Search filters" aria-label="Search filters">
 			<div class="palette" id="palette"></div>
@@ -106,7 +131,7 @@
 
 	<!-- ---------- right: the chain ---------- -->
 	<aside class="rail rail-right">
-		<section class="panel grow">
+		<section class="panel grow" id="chainPanel">
 			<div class="panel-head">
 				<h2>Pipeline</h2>
 				<button class="ghost small" id="clearChain" type="button">Clear</button>
@@ -120,7 +145,7 @@
 			<p class="hint" id="chainHint">Pick a filter on the left. Drag to reorder.</p>
 		</section>
 
-		<section class="panel">
+		<section class="panel" id="codeOutPanel">
 			<div class="panel-head">
 				<h2>Code</h2>
 				<button class="ghost small" id="copyCode" type="button">Copy</button>
@@ -128,7 +153,30 @@
 			<pre class="code" id="code"></pre>
 			<button class="ghost small wide" id="copyLink" type="button">Copy shareable link</button>
 		</section>
+
 	</aside>
+
+	<!--
+		Code mode. Nothing here is shareable by design: a link that runs a
+		stranger's JavaScript needs a sandboxed frame to be safe, and the buffer
+		is worth having long before that is. It persists in localStorage, so it
+		survives a reload but goes no further than this browser.
+	-->
+	<section class="panel grow" id="codePanel">
+		<div class="panel-head">
+			<h2>Snippet</h2>
+			<select class="ghost small" id="snippetPicker" aria-label="Load an example snippet">
+				<option value="">Examples&hellip;</option>
+			</select>
+		</div>
+		<textarea class="editor" id="snippet" spellcheck="false" autocomplete="off" autocapitalize="off"
+			aria-label="Pipeline snippet"></textarea>
+		<p class="snippet-error" id="snippetError" role="alert" hidden></p>
+		<div class="snippet-actions">
+			<button class="ghost small" id="runSnippet" type="button">Run <kbd>Ctrl</kbd>+<kbd>&crarr;</kbd></button>
+			<button class="ghost small" id="resetSnippet" type="button">Reset</button>
+		</div>
+	</section>
 
 </main>
 

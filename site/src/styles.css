@@ -56,7 +56,19 @@
 	--accent: var(--mint);
 	--accent-wash: #1d2c2a;
 	--shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 28px -14px rgb(0 0 0 / 60%);
+
+	/*
+		Overridden alongside the variables, or the toggle only repaints the half of
+		the page we draw ourselves. Scrollbars, focus rings and the popup a <select>
+		opens are the browser's, and `light dark` on :root means they follow the
+		*system* - so asking for dark on a light machine left a white dropdown over
+		a dark page. Both directions, for the reason the variables are declared
+		twice.
+	*/
+	color-scheme: dark;
 }
+
+:root[data-theme='light'] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 
@@ -133,6 +145,30 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 .ghost.small { padding: .22rem .5rem; font-size: .76rem; }
 .ghost.wide { width: 100%; margin-top: .5rem; }
 
+/*
+	A <select> wearing `.ghost` needs the two things `.ghost` deliberately does
+	not have. The list it opens is drawn by the browser, from the *select's* own
+	computed colours - so `background: transparent` and `color: var(--muted)`,
+	which are exactly right for a button sitting on a panel, become pale grey
+	text on whatever is behind the popup. It was legible only under the hover
+	bar, which supplies its own colours.
+
+	`option` is set as well rather than left to inherit: Chrome on Windows and
+	Linux honours it, macOS and Safari ignore it and use the select's, and
+	setting both is the only way to be right on all of them.
+*/
+select.ghost {
+	background: var(--panel);
+	color: var(--text);
+}
+
+select.ghost:hover { background: var(--bg-tint); }
+
+option {
+	background: var(--panel);
+	color: var(--text);
+}
+
 /* ---------- layout ---------- */
 
 .app {
@@ -190,6 +226,50 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 
 .sources { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
 
+/* A source and its insert control, which cannot be nested inside it. */
+.tile { position: relative; display: grid; min-width: 0; }
+.tile .source { width: 100%; }
+
+/*
+ * Build mode has nowhere to insert into, so the control is not merely hidden -
+ * it is not reachable by keyboard either.
+ */
+body[data-mode='build'] .tile-insert { display: none; }
+
+.tile-insert {
+	position: absolute;
+	top: .2rem;
+	right: .2rem;
+	z-index: 1;
+	width: 1.15rem;
+	height: 1.15rem;
+	padding: 0;
+	display: grid;
+	place-items: center;
+	border: 0;
+	border-radius: var(--radius-sm);
+	background: rgb(0 0 0 / 55%);
+	color: #fff;
+	font-size: .8rem;
+	line-height: 1;
+	cursor: pointer;
+	/*
+	 * Showing rather than revealed on hover. It was hover-only, which is the
+	 * usual instinct for a control sitting on a thumbnail - and wrong here,
+	 * because the whole value of this button is telling you that you *can* refer
+	 * to a second picture. A feature nobody knows about is not worth the pixels
+	 * it saves, and hover does not exist on touch anyway.
+	 */
+	opacity: .72;
+	transition: opacity .12s, background .12s;
+}
+
+.tile:hover .tile-insert,
+.tile-insert:hover,
+.tile-insert:focus-visible { opacity: 1; }
+.tile-insert:hover { background: var(--accent); }
+.tile-insert:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 .source {
 	position: relative;
 	appearance: none;
@@ -244,6 +324,36 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 }
 
 .dropzone.over { border-color: var(--accent); background: var(--accent-wash); color: var(--accent); }
+
+/* ---------- source resolution ---------- */
+
+.resolution {
+	display: flex;
+	align-items: center;
+	gap: .35rem;
+	font-size: .78rem;
+	color: var(--muted);
+}
+
+.resolution input {
+	/* capped rather than filling: in code mode this panel is half the page, and
+	   two number boxes stretched across it look like a form, not a detail */
+	flex: 0 1 5.5rem;
+	min-width: 0;
+	padding: .25rem .35rem;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-tint);
+	color: var(--text);
+	font-size: .78rem;
+	/* the placeholder carries the source's own size, so it has to be readable */
+	text-align: center;
+}
+
+.resolution input::placeholder { color: var(--muted); opacity: .75; }
+.resolution input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.resolution label { flex: none; }
+.resolution #resReset { flex: none; }
 
 /* ---------- palette ---------- */
 
@@ -610,4 +720,173 @@ button.badge:not(:disabled):hover { filter: brightness(.95); }
 @media (max-width: 720px) {
 	.byline { display: none; }
 	.about { padding: 2rem 1rem 2.5rem; }
+}
+
+/* ---------- modes ---------- */
+
+/*
+ * One attribute on <body> drives every difference between the two modes, so
+ * switching is a single write and nothing can end up half-swapped. The stage,
+ * the sources and the readout are in neither list: they are shared, which is
+ * the argument for this being a mode rather than a second page.
+ */
+.modes {
+	display: flex;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+}
+
+.mode {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	padding: .35rem .7rem;
+	font-size: .82rem;
+	font-family: inherit;
+	color: var(--muted);
+	cursor: pointer;
+	transition: color .12s, background .12s;
+}
+
+.mode:hover { color: var(--text); }
+
+.mode[aria-pressed='true'] {
+	background: var(--accent-wash);
+	color: var(--accent);
+}
+
+/* The palette and the chain list assemble a chain, which code mode does not. */
+body[data-mode='code'] #palettePanel,
+body[data-mode='code'] .rail-right { display: none; }
+
+body[data-mode='build'] #codePanel { display: none; }
+
+/*
+ * Code mode is two halves rather than three columns: you are reading the
+ * snippet and the picture together, and neither wants to be a 274px rail.
+ *
+ * `#codePanel` is a child of `.app` rather than of a rail for exactly this -
+ * it has to sit under the sources in the left half, and a grid can only place
+ * its own children. In build mode it is simply hidden.
+ *
+ * The sources keep the top-left cell because they belong to both modes; the
+ * stage spans both rows so the picture is the full height of the page.
+ */
+body[data-mode='code'] .app {
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
+	align-items: stretch;
+	min-height: calc(100vh - 96px);
+}
+
+body[data-mode='code'] .rail-left {
+	grid-column: 1;
+	grid-row: 1;
+	/* a single auto-height panel, so the rail's sticky scroll box is wrong here */
+	position: static;
+	max-height: none;
+}
+
+body[data-mode='code'] #codePanel {
+	grid-column: 1;
+	grid-row: 2;
+	min-height: 0;
+}
+
+body[data-mode='code'] .stage {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+}
+
+/* the stage is a flex column, so the picture has to be told to take the slack */
+body[data-mode='code'] .stage .viewport { flex: 1 1 auto; }
+
+/*
+ * One long row instead of the three-across grid. The rail made a 3-column grid
+ * the right answer; half a page makes it a lot of very wide thumbnails, so they
+ * take a fixed width and the row scrolls when it runs out.
+ */
+body[data-mode='code'] .sources {
+	grid-template-columns: none;
+	grid-auto-flow: column;
+	grid-auto-columns: 88px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	padding-bottom: .3rem;
+}
+
+/* and the drop zone stops being a target the size of a panel */
+body[data-mode='code'] .dropzone { padding: .4rem; font-size: .74rem; }
+
+@media (max-width: 1100px) {
+	/* the single-column stack already answers this; do not fight it */
+	body[data-mode='code'] .app {
+		grid-template-columns: 1fr;
+		grid-template-rows: none;
+		min-height: 0;
+	}
+	body[data-mode='code'] .rail-left,
+	body[data-mode='code'] #codePanel,
+	body[data-mode='code'] .stage {
+		grid-column: auto;
+		grid-row: auto;
+	}
+	body[data-mode='code'] .rail-left { order: 1; }
+	body[data-mode='code'] .stage { order: 2; }
+	body[data-mode='code'] #codePanel { order: 3; }
+}
+
+/* ---------- the editor ---------- */
+
+.editor {
+	flex: 1;
+	min-height: 260px;
+	resize: vertical;
+	width: 100%;
+	box-sizing: border-box;
+	padding: .6rem;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-tint);
+	color: var(--text);
+	font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	tab-size: 2;
+	/* a snippet is code: never wrap it and never autocorrect it */
+	white-space: pre;
+	overflow: auto;
+}
+
+.editor:focus {
+	outline: 2px solid var(--accent);
+	outline-offset: -1px;
+}
+
+.snippet-actions {
+	display: flex;
+	gap: .4rem;
+	margin-top: .5rem;
+}
+
+.snippet-actions .ghost { flex: 1; }
+
+.snippet-actions kbd {
+	font: inherit;
+	color: var(--muted);
+	opacity: .8;
+}
+
+/*
+ * The error, which has to be readable without being alarming - it is the normal
+ * state of a snippet halfway through being typed, not a fault.
+ */
+.snippet-error {
+	margin: .5rem 0 0;
+	padding: .45rem .6rem;
+	border-radius: var(--radius-sm);
+	border: 1px solid color-mix(in srgb, #c2410c 35%, var(--line));
+	background: color-mix(in srgb, #c2410c 8%, transparent);
+	color: var(--text);
+	font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	white-space: pre-wrap;
 }

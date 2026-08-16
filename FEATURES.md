@@ -2,7 +2,7 @@
 
 Clarity is a canvas image-filter library from 2014 — 41 filters across eight categories, all pure-JS `ImageData` loops, concatenated by Gulp 3 into one `CLARITY` global. The filter-chain design still holds up; everything around it (build, GPU, examples, tests) had aged out.
 
-**Features #1–#8 are all done**, along with #11, and with #13, #15 and #16 which were added later. What follows is the record: what was built, and the decisions that were not obvious at the time. **Four are still open — #9, #10, #12 and #14** — and all four are additive rather than gaps: the library is built, tested, documented and published without them.
+**Features #1–#8 are all done**, along with #11, and with #13, #15, #16 and #17 which were added later. What follows is the record: what was built, and the decisions that were not obvious at the time. **Four are still open — #10, #12, #14 and #18** — and all four are additive rather than gaps: the library is built, tested, documented and published without them.
 
 Each shipped entry keeps its original write-up in a collapsed block underneath, because the *reasoning* is the part worth keeping and it is often the part that turned out to be wrong.
 
@@ -13,8 +13,8 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
 | Filters clean | 31 of 41, 4 hard crashes | 52 of 52, each with a golden image, a GPU parity case and a generated docs entry |
 | GPU | none | every filter, 105/106 parity cases as shaders - the sequential half of `Dither` is CPU-only by design |
-| Tests | none | 649, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
-| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam and fourteen presets |
+| Tests | none | 783, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam, seventeen presets, and a code panel whose nine snippets are themselves tests |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
 
@@ -1175,6 +1175,133 @@ This is an afternoon, and it does not make the library better. What it does is m
 
 ---
 
+## ~~17. The Code Panel — A Chain You Write Rather Than Assemble~~ ✓
+
+**Done.** A second mode in the playground: an editor on the left, the picture on the right, the sources in a row above both. It runs what you type and points the page at whatever chain you hand back.
+
+**The reason it is worth having is that it reaches a capability that already existed and had nowhere to be said.** `StageOptions.second` has always taken an `ImageData`, a function, or a whole `Pipeline`, so chains have always composed — but a drag list can only describe one straight line, because that is the only shape a list has. Nothing in the UI could express two clouds crossing, and nothing in the UI could express a chain whose *length* is computed. Both are now examples that ship.
+
+The panel is deliberately **not a second playground**. The stage, the sources and the readout are shared; one `data-mode` attribute on `<body>` drives every difference, so switching is a single write and nothing can end up half-swapped.
+
+### Session-only, and why that is a security decision rather than a limitation
+
+A snippet runs through `new Function` **in this page**, unsandboxed. That would be indefensible if code could arrive from a URL — a shared link executing a stranger's JavaScript on this origin is precisely why playgrounds use a null-origin iframe. So nothing here is shareable: the buffer holds what you typed or an example that shipped with the page, and it goes no further than `localStorage`. If sharing is ever added, `runSnippet` is the one function that has to move into a frame.
+
+### Written the way an application would be
+
+`new Renderer(canvas).source(image).add(...)` is the first example in the README, so it is what the panel takes. `Renderer` is bound to the page's renderer and `Pipeline` to the page's GL context — a browser allows only a handful of live WebGL2 contexts, and a snippet re-run on every keystroke, each building a chain and two branches, exhausts them. The failure is not an error: the oldest contexts are silently killed and chains go black.
+
+Subclassed rather than wrapped in a factory, so `new Pipeline([...])` in a snippet is the same expression it would be in an app and `instanceof` still holds. **A snippet must stay paste-able**, which is also the argument that settled the API question below.
+
+### `StageOptions.first`
+
+A two-input filter was lopsided: combining two branches meant one had to be the chain and the other the argument, though nothing about them differed. `first` replaces the frame arriving from the stage before, so `{ first: across, second: upward }` reads evenly.
+
+The temptation was a playground DSL — `multiply(a, b)` — and it was refused for one reason: **a snippet that cannot be pasted into an application is not documentation, it is a dialect.** Every example here has to be code you can lift.
+
+Three places had to learn about it, and two were only findable by looking:
+
+- `animated` and `stable` already looked into a `second` for a moving branch. A moving branch on the *first* input is not a reason for the frame loop to stop.
+- **A stage with a `first` ends a shader run before it.** A GPU run shares one uploaded frame ping-ponged between two targets, and a stage that throws that frame away for another cannot live inside one. Missing that made `first` silently ignored on the GPU while the CPU honoured it — the worst shape a bug can have, since the picture is only wrong on machines with working WebGL2 and every Node test passes.
+
+### `everyFrame` — the third kind of motion
+
+The source can be the moving part. So can the chain. This is neither: it animates a **property**, and no filter can own that number because nothing in a chain knows it is being blended. `RendererOptions.onFrame` was added for exactly this; the panel exposes it as `everyFrame`.
+
+Registering one also **starts the loop**, which is not a side effect but the point — every filter in such a chain is still and pure, so `pipeline.animated` is a confident no, and a callback that fires once is not an animation. It is cleared before every run and on the way back to Build, or it drives filters that have left the chain and keeps the page rendering a still picture sixty times a second for the rest of the session.
+
+### The bugs, which are the real return on the feature
+
+Composing chains for real found four things the drag list could never have reached:
+
+- **A chain could not see into its own branches, twice over.** `animated` asked only the top-level filters, so a fog whose only moving part is a `Translator` inside a second input never started the loop. `stable` asked the same way, so the two `Multiply` stages composing it were both pure by their own reckoning and the chain was served from cache forever — with the loop running the whole time, producing identical frames. Silent in both directions.
+- **CPU and GPU disagreed on a mismatched second input.** White × white came out 75% black on the CPU while the shader stretched to fit. Reachable in the Build tab with two clicks, since the bundled samples are not all the same size.
+- **`stable` answers the wrong question for a shared branch.** It means "would running me again match what I last produced" — relative to the *branch's* last run, not the *consumer's*. A matte feeding both a `Multiply` and its own inverse breaks that: the first consumer runs the matte, clearing the dirty flag that made it unstable, and the second is then told nothing has changed and served the frame it cached one render ago. The composite showed a matte from this frame against an inverse from the last, and only while something moved — perfect the instant it stopped. Fixed with a version counter each stage records per branch, because a version is not relative to anything.
+- **`Blend`'s `ratio` was documented backwards**, in the one place it costs most: the string is the tooltip, the generated reference and the site's filter list. Both implementations have always computed `first * ratio + second * (1 - ratio)`.
+
+### The snippets are tests
+
+A preset is a chain and shows a *look*; a snippet is code and shows the API. That makes them documentation, which means they rot — the eight example pages this playground replaced did not fail loudly, they quietly stopped working and nobody noticed for years. So `test/site.test.js` runs every one in the real page and asserts it returns something that changes pixels. **An example that cannot compile fails the build.**
+
+Nine ship: Cartoon, Generated, Half strength, Height to normals, Computed, Drifting fog, Comic book, Dissolve, and the bare-Pipeline short form.
+
+### What was learned by looking at pictures rather than reading code
+
+The comic-book recipe was settled by rendering variants through the real page and inspecting each one, and three of the findings contradicted the obvious guess:
+
+- **Posterising *before* looking for edges is what makes them findable** — a band boundary is a cliff where the photograph only has a gentle slope. Removing it, which was my own first suggestion, nearly erased the ink.
+- **`Morphology` in `open` mode erases the ink completely.** A one-pixel line is exactly the small light speck that operation exists to remove.
+- **Supersampling does not help.** Every radius is denominated in pixels, so rendering at 2× halves the relative effect of every filter in the chain and the speckle comes straight back.
+
+The answer to jagged outlines turned out to be blurring the *line map* after inverting it: a threshold can only write black or white, so its edges are hard by construction.
+
+<details>
+<summary>Open questions this leaves</summary>
+
+- **Multiple outputs.** The height-map flow is the case that wants it, because there the *intermediate* is the point and showing only the last frame hides what is being taught. The shape that fits: a function handing back a fresh canvas, so renderers are still declared normally and the panel grids however many were asked for. The real work is the readout, which describes one pipeline and would have to pick or aggregate.
+- **No `over` composite.** `ChromaKey` writes a real alpha channel — the only filter that does — but the dual-input set is Add, Subtract, Difference, Blend, Mask, Multiply. So a subject can be keyed and then has nothing to be laid on. The most standard flow there is, one filter away.
+- **Masking an effect to part of the picture**, which needs the three-stage composite (`Mask` the effect, `Mask` the original by the inverted matte, `Add`) and is much easier to teach once a matte can be shown in its own pane.
+
+</details>
+
+---
+
+## 18. Branch Results Stay on the GPU
+
+**Effort: Medium** *(no shader compiler, no classification pass — unlike #12)*
+
+**Every nested `Pipeline` round-trips through CPU memory.** `resolveSecond` hands back an `ImageData`, so a branch ends with a `readPixels` and its consumer immediately uploads the same 4 MB back. At 1024² that is a synchronous stall per branch per frame, and it prices *composition itself* — the thing #17 exists to make possible.
+
+### The evidence
+
+**The controlled comparison, repeated five times.** Identical filters, identical pixels, arranged flat and then split across four pipelines:
+
+| | time, across runs | transfers |
+|---|---|---|
+| 8 filters, one pipeline | 110.6 · 81.0 · 72.5 · 65.4 · 71.1 ms | 2 |
+| the same 8 filters, four pipelines | 134.7 · 124.3 · 108.4 · 120.8 · 122.2 ms | 8 |
+
+The absolutes wander — this is SwiftShader in a headless VM and the first run or two are still warming — but the two sets **never overlap**, and once warm the split version costs about 1.6× the flat one for exactly the same work. Six extra crossings is the only difference.
+
+**The transfer counts are the part worth trusting**, because they are exact rather than timed. The Dissolve does **11 crossings a frame** across its five pipelines, and 7 when folded to three.
+
+### What did not survive repetition
+
+An earlier version of this entry claimed folding the Dissolve's five pipelines to three took 20% off, from a single run of each. **Repeated five times, that is noise**: the five-pipeline and three-pipeline versions overlap, and the four-pipeline intermediate is consistently the *slowest* of the three. The saving is real in the sense that fewer crossings is strictly less work — but it is not measurable here, because folding a branch also changes what caches and what recomputes, so it is not the clean A/B the table above is. **Only the controlled comparison should be cited.**
+
+Which is the same discipline #12 is held to, and it applies here too: the number that decides whether to build this has to come from real hardware and the playground's `Compare backends`, not from a software rasteriser.
+
+### Why the case is still strong
+
+- **SwiftShader flatters the split version.** It makes the *filters* absurdly slow — tens of milliseconds for eight inverts, which real hardware does in well under one — while `readPixels` stays a genuine stall everywhere. Take the software-rasteriser tax off the filter half and transfers dominate far more, not less.
+- **A cached branch is still re-uploaded**, and this is the case that *looks* solved. In the Dissolve the cloud field is fully cached — `from: -1`, zero recomputation, exactly as intended. Its 4 MB is then cloned and pushed across the bus **every single frame anyway**, because the cache holds pixels and the GPU wants a texture. The expensive generator is free to compute and not free to use.
+
+That last point is the real shape of the feature: caching a branch currently means *not recomputing* it. It should also mean *not moving* it.
+
+### The shape of it
+
+`SecondInput` resolution has one return type today, and needs a second: a branch that ran on the same backend should be able to hand over the texture it already has.
+
+Four things make it more than a type change:
+
+- **The final target is pooled.** A shader run ping-pongs between targets 0 and 1, so a branch's result is overwritten by whatever executes next. It has to be copied somewhere it survives — but **one on-GPU blit is far cheaper than a readback plus an upload**, so the copy still wins comfortably. Slots 8–11 are already spoken for by the reduction and `uOriginal`, so the pool grows with the number of live branches.
+- **Only when the backend is shared.** `PipelineOptions.backend` already exists for exactly this and the playground already passes it, so the condition is cheap to test — but a branch built with its own context must still round-trip, and so must one holding a CPU-only filter.
+- **The cache has to hold either kind.** `stage.cached` is an `ImageData`. A texture-cached branch needs a slot that survives across frames, which is where the pool growth actually comes from — and it must be dropped when the backend is switched, alongside the existing `dropStaleHistory`.
+- **Size mismatch must behave identically on both paths.** `resampleTo` matches a second frame to the working frame on the CPU; on the GPU the sampler already stretches. Those two disagreed once before — white × white came out 75% black on one and stretched on the other — and it was reachable from the Build tab in two clicks. Any new path here needs a parity case before it is believed.
+
+### Honest expectations
+
+**This does nothing for the CPU path**, which is most of what the test suite exercises, so it needs its own benchmark rather than a golden image. It does nothing for a single straight chain either — that already uploads once and reads back once, which is optimal.
+
+What it changes is the cost of *branching*. There is a tempting rule here — **a branch is only worth its own Pipeline if something reads it twice** — and it is sound as bookkeeping: `matte` is read twice and earns it, while `front` and `inverse` were each a whole Pipeline wrapping a single filter, written that way for symmetry, and each costs crossings nothing reads. But per the section above, folding them is not *measurably* faster here, so it is a tidiness argument until real hardware says otherwise. Do not restructure snippets for it. The point of #18 is that nobody should have to know the rule at all.
+
+### ~~Two smaller things found alongside it~~ ✓ both fixed
+
+- **The transfer counter** now counts second-input uploads. `execute.ts` called `uploadSecond` without touching it, so it undercounted by one upload per two-input stage per frame — understating precisely the case it was being consulted about, since a composed chain is mostly second inputs. The Dissolve was reporting 8 crossings a frame and doing 11. Nothing in the suite asserted on `transfers` at all, which is how it drifted; a browser test now pins that a two-input stage costs three crossings and a one-input stage two. The thumbnail readback for `samples` filters and the small data textures for palettes stay uncounted **on purpose** — they are bounded rather than frame-sized, and the documentation now says so.
+- **`renderer.gpu` now reaches branches.** `Renderer.ts:115` sets `this.pipeline.gpu`, and a branch is a different Pipeline — so `new Renderer(canvas, { gpu: false })` left every branch on shaders and the backend badge had the same hole in code mode. It is why a CPU/GPU comparison of the Dissolve first came back with both backends timing identically, which is a believable answer and a wrong one. The setter recurses, and deliberately does not return early when its own value is unchanged: a branch built separately can disagree with its parent, and an early return would leave it disagreeing forever.
+
+---
+
 ## Rough Priority Order
 
 ### Shipped, in the order it happened
@@ -1193,22 +1320,32 @@ This is an afternoon, and it does not make the library better. What it does is m
 | 11 | Docs — generated filter reference | Low | `docs/FILTERS.md` for every filter, examples taken from the golden cases; finishing the metadata first found 2 bugs and 39 missing descriptions |
 | 16 | Presets in the playground | Low | Sixteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
+| 17 | Code panel in the playground | Medium | A chain you write rather than assemble, and the only place the library's composition has ever been sayable; `StageOptions.first` and `everyFrame` came with it, and building it found four bugs — two of them chains that could not see into their own branches, and one a shared branch served a frame from the previous render |
 | ✓ | Filter wishlist — 20 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`, `Bilateral`, `Skeletiser`, `Crackulate`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Done** |
 
 ### Open
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
+| 18 | Branch results stay on the GPU | Medium | Medium–High — the only entry here with a controlled measurement behind it: the same eight filters split across four pipelines cost ~1.6× one pipeline, across five runs that never overlap, for six extra crossings. A *cached* branch is still re-uploaded every frame, so the cloud in the Dissolve is free to compute and not free to use. The two small fixes it turned up are done |
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**#14 next.** #9 is finished — the 2014 wishlist is closed, and the last four filters cost far less than their Medium ratings suggested because the ground had shifted under them: `Skeletiser` turned out to be a shader, `Bilateral` got its iterations from machinery `Convolver` already had, and the drift tests from #11 meant none of them could land undocumented. What is left of that entry is a custom 3×3 kernel and a `.cube` importer, neither of which anybody has asked for.
+**#18 has something the others do not: a controlled measurement.** Everything else here is argued from expected value, and #12 is explicitly parked until somebody produces a number. #18 has one — the same eight filters split across four pipelines cost about 1.6× one pipeline, over five runs whose ranges never overlap, with six extra crossings as the only difference. It is also the only open entry that makes an *existing* shipped feature better rather than adding a new surface, since #17's whole point is composing chains and composition is what currently costs.
+
+**It is worth reading how that number nearly went in wrong.** The first version of #18 quoted 20% off the Dissolve from a single run of each arrangement; repeating it five times showed the ranges overlapping and the intermediate arrangement coming out slowest of the three. The controlled comparison survived repetition and the convenient one did not — on a project that already tells itself not to build #12 without a number, the lesson is that one run is not a number.
+
+The two small fixes #18 turned up are done, and were worth doing on their own account: the transfer counter was wrong in the one number the project uses to make performance decisions, and `renderer.gpu` not reaching branches made the backend badge lie in code mode.
+
+**#14 otherwise.** #9 is finished — the 2014 wishlist is closed, and the last four filters cost far less than their Medium ratings suggested because the ground had shifted under them: `Skeletiser` turned out to be a shader, `Bilateral` got its iterations from machinery `Convolver` already had, and the drift tests from #11 meant none of them could land undocumented. What is left of that entry is a custom 3×3 kernel and a `.cube` importer, neither of which anybody has asked for.
 
 So #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 
+**#17 changes what a new filter owes as well.** The snippets are run by the browser suite, so a filter that belongs in a composition now has a second place it can be made findable — and unlike a preset, a snippet can show *why* the combination works rather than only what it looks like. Neither is compulsory; both are cheaper than a filter nobody finds.
+
 **#16 shipped ahead of the rest of #9, which changes what #9 owes.** Every filter added from here should arrive with the question "what does this combine with?" answered — a new preset in `site/src/presets.js` where there is a good answer, and nothing where there is not. The list is the cheapest place in the project to make a new filter findable.
 
-**#12 is the one to actively *not* do without a number in front of you.** The playground's `Compare backends` button reports real per-frame figures for any chain, so the question has stopped being a guess. If a long `FishEye/Rotator/Translator/Tiler` chain is already comfortably at 60fps on the weakest machine you care about, the correct outcome is to leave it unbuilt.
+**#12 is the one to actively *not* do without a number in front of you** — and #18 is the reason to expect the number to come out differently than it would have. Fusion removes the boundaries *between stages*; #18 removes the boundaries *between chains*, which is where the Dissolve's time actually goes. Measure again after #18, because it changes what fusion would be measured against. The playground's `Compare backends` button reports real per-frame figures for any chain, so the question has stopped being a guess. If a long `FishEye/Rotator/Translator/Tiler` chain is already comfortably at 60fps on the weakest machine you care about, the correct outcome is to leave it unbuilt.
 
 *More features to be added.*
