@@ -2,7 +2,7 @@
 
 Clarity is a canvas image-filter library from 2014 — 41 filters across eight categories, all pure-JS `ImageData` loops, concatenated by Gulp 3 into one `CLARITY` global. The filter-chain design still holds up; everything around it (build, GPU, examples, tests) had aged out.
 
-**Features #1–#8 are all done**, along with #11, and with #13, #15, #16 and #17 which were added later. What follows is the record: what was built, and the decisions that were not obvious at the time. **Three are still open — #10, #12 and #14** — and all three are additive rather than gaps: the library is built, tested, documented and published without them.
+**Features #1–#8 are all done**, along with #11, and with #13, #15, #16 and #17 which were added later. What follows is the record: what was built, and the decisions that were not obvious at the time. **Four are still open — #10, #12, #14 and #18** — and all four are additive rather than gaps: the library is built, tested, documented and published without them.
 
 Each shipped entry keeps its original write-up in a collapsed block underneath, because the *reasoning* is the part worth keeping and it is often the part that turned out to be wrong.
 
@@ -1246,6 +1246,61 @@ The answer to jagged outlines turned out to be blurring the *line map* after inv
 
 ---
 
+## 18. Branch Results Stay on the GPU
+
+**Effort: Medium** *(no shader compiler, no classification pass — unlike #12)*
+
+**Every nested `Pipeline` round-trips through CPU memory.** `resolveSecond` hands back an `ImageData`, so a branch ends with a `readPixels` and its consumer immediately uploads the same 4 MB back. At 1024² that is a synchronous stall per branch per frame, and it prices *composition itself* — the thing #17 exists to make possible.
+
+### The numbers, and why they understate it
+
+Identical pixel work, arranged two ways:
+
+| | time | reported transfers |
+|---|---|---|
+| 8 filters, one pipeline | 110.6 ms | 2 |
+| the same 8 filters, four pipelines | 134.7 ms | 8 |
+
+And the Dissolve snippet, folded down by hand:
+
+| | time | reported transfers |
+|---|---|---|
+| as written — 5 pipelines | 133.5 ms | 8 |
+| `front` folded into the main chain — 4 | 120.6 ms | 6 |
+| `inverse` folded into `back` too — 3 | 106.2 ms | 4 |
+
+**Three things make that 20% a floor rather than a ceiling.**
+
+- **The measurements are SwiftShader**, which flatters the result badly. It makes the *filters* absurdly slow — 110 ms for eight inverts, which real hardware does in well under a millisecond — while `readPixels` stays a genuine stall everywhere. Remove the software-rasteriser tax from the filter half and transfers dominate almost entirely.
+- **`stats.transfers` does not count second-input uploads.** `execute.ts:141` calls `uploadSecond` without touching the counter, which only increments in `toGPU`/`toCPU`. So every table above undercounts by one upload per two-input stage per frame. **Fix the counter first** — this whole entry is a performance argument, and it should not be argued from a number that is wrong.
+- **A cached branch still gets re-uploaded.** This is the one that matters most, because it is the case that *looks* solved. In the Dissolve, the cloud field is fully cached — `from: -1`, zero recomputation, exactly as intended. Its 4 MB is then cloned and pushed across the bus **every single frame anyway**, because the cache holds pixels and the GPU wants a texture. The expensive generator is free and the picture of it is not.
+
+That last point is the real shape of the feature: caching a branch currently means *not recomputing* it. It should also mean *not moving* it.
+
+### The shape of it
+
+`SecondInput` resolution has one return type today, and needs a second: a branch that ran on the same backend should be able to hand over the texture it already has.
+
+Four things make it more than a type change:
+
+- **The final target is pooled.** A shader run ping-pongs between targets 0 and 1, so a branch's result is overwritten by whatever executes next. It has to be copied somewhere it survives — but **one on-GPU blit is far cheaper than a readback plus an upload**, so the copy still wins comfortably. Slots 8–11 are already spoken for by the reduction and `uOriginal`, so the pool grows with the number of live branches.
+- **Only when the backend is shared.** `PipelineOptions.backend` already exists for exactly this and the playground already passes it, so the condition is cheap to test — but a branch built with its own context must still round-trip, and so must one holding a CPU-only filter.
+- **The cache has to hold either kind.** `stage.cached` is an `ImageData`. A texture-cached branch needs a slot that survives across frames, which is where the pool growth actually comes from — and it must be dropped when the backend is switched, alongside the existing `dropStaleHistory`.
+- **Size mismatch must behave identically on both paths.** `resampleTo` matches a second frame to the working frame on the CPU; on the GPU the sampler already stretches. Those two disagreed once before — white × white came out 75% black on one and stretched on the other — and it was reachable from the Build tab in two clicks. Any new path here needs a parity case before it is believed.
+
+### Honest expectations
+
+**This does nothing for the CPU path**, which is most of what the test suite exercises, so it needs its own benchmark rather than a golden image. It does nothing for a single straight chain either — that already uploads once and reads back once, which is optimal.
+
+What it changes is the cost of *branching*, which is currently steep enough to be worth restructuring around. The rule that fell out of measuring the Dissolve is a workaround, not a design: **a branch is only worth its own Pipeline if something reads it twice.** `matte` earns that; `front` and `inverse` were each a whole Pipeline wrapping a single filter, written that way for symmetry, and each cost two round trips a frame. Nobody should have to know that.
+
+### Two smaller things found alongside it, both worth fixing first
+
+- **`renderer.gpu` does not reach branches.** `Renderer.ts:115` sets `this.pipeline.gpu`, and a branch is a different Pipeline — so `new Renderer(canvas, { gpu: false })` in a snippet leaves every branch on the GPU, and the backend badge has the same hole in code mode. It is why a CPU/GPU comparison of the Dissolve first came back with both backends timing the same.
+- **The transfer counter**, above. Cheap, and everything here depends on it.
+
+---
+
 ## Rough Priority Order
 
 ### Shipped, in the order it happened
@@ -1271,11 +1326,16 @@ The answer to jagged outlines turned out to be blurring the *line map* after inv
 
 | # | Feature | Effort | Value |
 |---|---------|--------|-------|
+| 18 | Branch results stay on the GPU | Medium | Medium–High — the only entry here with measurements behind it. Composition currently costs a 4 MB round trip per branch per frame, and a *cached* branch is still re-uploaded every frame, so the cloud in the Dissolve is free to compute and not free to use. Fix the transfer counter first, since this is a performance argument built on a number that undercounts |
 | 14 | `filterImage()` primitive | Low | Medium–High — mostly extraction, and it is the shape a game actually wants: precompute variants at load, assign a string at runtime. The `background-image` half is optional |
 | 12 | Pipeline fusion | High | Medium — order-of-magnitude for UV-transform chains, and it fixes 8-bit precision loss between stages. Measure first: `Compare backends` will tell you whether it is worth it |
 | 10 | CPU path modernisation | Medium | Low — two of four items are moot; only the per-frame allocation is worth doing |
 
-**#14 next.** #9 is finished — the 2014 wishlist is closed, and the last four filters cost far less than their Medium ratings suggested because the ground had shifted under them: `Skeletiser` turned out to be a shader, `Bilateral` got its iterations from machinery `Convolver` already had, and the drift tests from #11 meant none of them could land undocumented. What is left of that entry is a custom 3×3 kernel and a `.cube` importer, neither of which anybody has asked for.
+**#18 has something the others do not: a measurement.** Everything else in this table is argued from expected value, and #12 is explicitly parked until somebody produces a number. #18 arrived with one — 20% off the Dissolve by hand-folding branches, on a software rasteriser that understates it, from a counter that undercounts. It is also the only open entry that makes an *existing* shipped feature better rather than adding a new surface, since #17's whole point is composing chains and composition is what currently costs.
+
+Do the two small fixes at the end of #18 regardless of whether the rest follows. The transfer counter being wrong is a correctness problem in the one number the project uses to make performance decisions, and `renderer.gpu` not reaching branches makes the backend badge lie in code mode.
+
+**#14 otherwise.** #9 is finished — the 2014 wishlist is closed, and the last four filters cost far less than their Medium ratings suggested because the ground had shifted under them: `Skeletiser` turned out to be a shader, `Bilateral` got its iterations from machinery `Convolver` already had, and the drift tests from #11 meant none of them could land undocumented. What is left of that entry is a custom 3×3 kernel and a `.cube` importer, neither of which anybody has asked for.
 
 So #14, which is mostly extraction from code that already exists and is what makes #13 usable in the case it was built for.
 
@@ -1283,6 +1343,6 @@ So #14, which is mostly extraction from code that already exists and is what mak
 
 **#16 shipped ahead of the rest of #9, which changes what #9 owes.** Every filter added from here should arrive with the question "what does this combine with?" answered — a new preset in `site/src/presets.js` where there is a good answer, and nothing where there is not. The list is the cheapest place in the project to make a new filter findable.
 
-**#12 is the one to actively *not* do without a number in front of you.** The playground's `Compare backends` button reports real per-frame figures for any chain, so the question has stopped being a guess. If a long `FishEye/Rotator/Translator/Tiler` chain is already comfortably at 60fps on the weakest machine you care about, the correct outcome is to leave it unbuilt.
+**#12 is the one to actively *not* do without a number in front of you** — and #18 is the reason to expect the number to come out differently than it would have. Fusion removes the boundaries *between stages*; #18 removes the boundaries *between chains*, which is where the Dissolve's time actually goes. Measure again after #18, because it changes what fusion would be measured against. The playground's `Compare backends` button reports real per-frame figures for any chain, so the question has stopped being a guess. If a long `FishEye/Rotator/Translator/Tiler` chain is already comfortably at 60fps on the weakest machine you care about, the correct outcome is to leave it unbuilt.
 
 *More features to be added.*
