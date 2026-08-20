@@ -119,6 +119,13 @@ export const cases = [
 	{ filter: 'GradientMap', name: 'thermal', input: 'heightmap', options: { ramp: 'thermal' }, gpu: BOUNDARY },
 	// banded and rotated: palette cycling, with the clock pinned so it is a still
 	{ filter: 'GradientMap', name: 'cycled', input: 'heightmap', now: 2500, options: { ramp: 'spectrum', steps: 6, cycle: 0.25 }, gpu: BOUNDARY },
+	// A ramp written by hand rather than named. It reaches the GPU the same way a
+	// built-in one does - as the 256-byte table from `data()` - so this is really
+	// a check that a custom ramp is not accidentally a CPU-only feature.
+	{ filter: 'GradientMap', name: 'custom', input: 'heightmap', options: { stops: ['1b2430', 'a8542f', 'f6f3ed'] }, gpu: BOUNDARY },
+	// The positional spelling, unevenly spaced and deliberately written out of
+	// order, because `sample` walks the stops assuming they ascend.
+	{ filter: 'GradientMap', name: 'customstops', input: 'heightmap', options: { stops: [[1, 255, 242, 215], [0, 28, 18, 10], [0.75, 150, 110, 70]] }, gpu: BOUNDARY },
 	{ filter: 'Convolver', input: 'photo', options: {}, gpu: KERNEL },
 	{ filter: 'Convolver', name: 'smooth', input: 'photo', options: { preset: 'smooth', iterations: 2 }, gpu: KERNEL },
 	{ filter: 'Convolver', name: 'sobel', input: 'photo', options: { preset: 'sobel' }, gpu: KERNEL },
@@ -277,6 +284,22 @@ export const cases = [
 	// tolerance cannot express.
 	{ filter: 'Wave', input: 'photo', options: { axis: 'vertical', amplitude: 5, frequency: 12 }, now: 0, gpu: { mode: 'population', maxDifferentRatio: 0.05 } },
 	{ filter: 'Wave', name: 'both', input: 'photo', options: { axis: 'both', amplitude: 4 }, now: 250, gpu: { mode: 'population', maxDifferentRatio: 0.05 } },
+	// Displace is Wave's opposite number on exactly the point above: it does not
+	// floor its offset, it interpolates between the four texels around it, so a
+	// float difference between the backends moves the result by a fraction of
+	// the gap between neighbours rather than swapping one for the other. That
+	// makes it a tolerance case rather than a population one - and if this ever
+	// starts needing `population`, the interpolation has been lost somewhere.
+	{ filter: 'Displace', input: ['photo', 'field'], options: { amount: 12 }, gpu: KERNEL },
+	// The other edge rule, and the one with a seam to get wrong: clamp reads a
+	// coordinate that is merely out of range, wrap reads one that has to be
+	// brought back round, and the bilinear fetch needs all four corners put
+	// through the same rule or the last column blends against the first.
+	{ filter: 'Displace', name: 'wrapped', input: ['photo', 'field'], options: { amount: 20, edges: 'wrap' }, gpu: KERNEL },
+	// A field of a different size, which Filter.process resamples before
+	// doProcess sees it while the shader stretches it at the sampler. Those are
+	// two different implementations of the same promise, so it needs a case.
+	{ filter: 'Displace', name: 'mismatched', input: ['photo', 'odd'], options: { amount: 8 }, gpu: KERNEL },
 
 	// --- Starters --------------------------------------------------------
 	{ filter: 'Fill', input: 'photo', options: { colour: 'c85028' }, gpu: POINTWISE },
@@ -338,6 +361,87 @@ export const cases = [
 	{ filter: 'Multiply', name: 'mismatched', input: ['photo', 'odd'], options: {}, gpu: POINTWISE },
 	{ filter: 'Blend', name: 'mismatched', input: ['photo', 'odd'], options: { ratio: 0.5 }, gpu: POINTWISE },
 
+	// Stamper is the one filter whose second input is *not* resampled to the
+	// frame, so `blade` arrives 12x20 on a 64x48 fixture. That is the case: if
+	// the opt-out in Filter.resamplesSecond ever stops being honoured the sprite
+	// arrives 64x48 and every stamp comes out as a full-frame smear, which no
+	// tolerance hides.
+	//
+	// POINTWISE, which was not the expectation. A stamp has an edge, and the two
+	// backends work out where that edge falls in float32 and float64, so this
+	// looked like Wave's shape - a pixel a fraction either side of the boundary
+	// is either blade or ground, and those are far apart. It measures at
+	// tolerance 1 instead, on all three cases, because the sprite is sampled
+	// bilinearly and premultiplied: alpha ramps across the edge rather than
+	// switching, so a boundary that moves by a fraction of a pixel changes the
+	// result by a fraction of the difference. That is the same argument Displace
+	// makes for interpolating rather than flooring, and the same conclusion.
+	//
+	// So this tolerance is load-bearing. If it ever has to be loosened to
+	// `population`, the interpolation has been lost - most likely by someone
+	// making the sprite read nearest to sharpen it up.
+	{ filter: 'Stamper', input: ['photo', 'blade'], options: { count: 6, size: 18 }, seed: 4, gpu: POINTWISE },
+	// Rotation and size variation both on, which is what turns a grid of
+	// identical stamps into a scattering - and the only case that exercises the
+	// sin/cos path at all, since rotation defaults to 0. Holding tolerance 1
+	// through a rotation is the part worth noting: the two backends compute the
+	// angle, its sine and its cosine, and the rotated offset, in different
+	// precisions, and still land on the same pixel.
+	{ filter: 'Stamper', name: 'scattered', input: ['photo', 'blade'], options: { count: 5, size: 22, rotation: 360, sizeJitter: 0.8, spread: 1 }, seed: 4, gpu: POINTWISE },
+	// A stamp far wider than its cell, so the neighbour scan has to reach past
+	// the immediate ring and stamps overlap several deep. This is where the
+	// compositing order matters: get it wrong and the two backends disagree
+	// about which blade is on top, which is a large difference over a large
+	// area rather than an edge - and a tolerance of 1 is exactly the assertion
+	// that they agreed about it for every pixel.
+	{ filter: 'Stamper', name: 'crowded', input: ['photo', 'blade'], options: { count: 12, size: 40, sizeJitter: 0, spread: 0.4 }, seed: 9, gpu: POINTWISE },
+	// Three inputs, which no other case in this file has: photo, sprite, and a
+	// probability map deciding which cells get a stamp at all. `heightmap` is
+	// two smooth peaks on black, so the grass should crowd onto the hills and
+	// leave the corners bare - a soft falloff rather than a cut-out, which is
+	// the thing a per-pixel mask cannot express and the reason the third input
+	// exists.
+	//
+	// It is also the only coverage of the third slot end to end: `resolve` in
+	// Pipeline, `uploadThird` in the backend, `uSrc3Size` deciding whether a
+	// shader reads the map at all. Wire the third input to nothing and the
+	// shader falls back to sampling the *frame* - which would still look like
+	// a plausible scattering, just one keyed off the photograph.
+	//
+	// POINTWISE, and worth saying why it can be. The gate is a hard decision
+	// per cell, so a cell whose hash lands within a rounding error of its own
+	// map value could flip on one backend and not the other - and a flipped
+	// cell is a whole stamp, not an edge. That is a real hazard and it is
+	// simply rare: the two backends have to disagree about `floor` at the
+	// sampled centre, or about a comparison of two numbers that are exactly
+	// equal in 24 bits. If this ever has to be loosened to `population`, the
+	// arithmetic around the gate has drifted apart rather than the tolerance
+	// being wrong.
+	{ filter: 'Stamper', name: 'sown', input: ['photo', 'blade', 'heightmap'], options: { count: 10, size: 14, rotation: 25 }, seed: 4, gpu: POINTWISE },
+	// Shade jitter at its limit - half as bright to half again - so the blades
+	// read as individuals rather than as copies. Every other case runs at the
+	// default 0.2, which is visible in a contact sheet and would be easy to
+	// mistake for noise in a diff; this is the one that says the control is
+	// wired to something.
+	//
+	// A gain on the premultiplied colour and not on the alpha, which is the
+	// part worth pinning: multiply both and a dark stamp is a *faded* stamp
+	// instead, with the photo showing through it. Against a sky that is lighter
+	// than the sprite, those two look nothing alike.
+	{ filter: 'Stamper', name: 'shaded', input: ['photo', 'blade'], options: { count: 7, size: 20, shadeJitter: 1, rotation: 20 }, seed: 6, gpu: POINTWISE },
+	// Wrapping off, with stamps far wider than a cell so the edges are where
+	// the whole difference lives: blades are cut by the frame instead of
+	// reappearing on the opposite side.
+	//
+	// Every option matches `crowded` except `wrap`, deliberately, so the pair is
+	// a controlled comparison - and it holds: 1462 pixels of 3072 differ, and
+	// the deepest of them is 18 from the nearest edge, against a stamp whose
+	// half-diagonal reach is 24.9. Nothing further in than one stamp can reach
+	// moves, which is the claim the schema makes. A change here that moved a
+	// pixel in the middle of the frame would mean the two modes had stopped
+	// agreeing about the cells they share.
+	{ filter: 'Stamper', name: 'unwrapped', input: ['photo', 'blade'], options: { count: 12, size: 40, sizeJitter: 0, spread: 0.4, wrap: false }, seed: 9, gpu: POINTWISE },
+
 	// --- Misc ------------------------------------------------------------
 	{ filter: 'Brickulate', input: 'photo', options: { horizontalSegs: 4, verticalSegs: 3, grooveSize: 3 }, gpu: POINTWISE },
 	{ filter: 'Puzzler', input: 'photo', options: { horizontalSegs: 4, verticalSegs: 3 }, seed: 3, gpu: POINTWISE },
@@ -382,10 +486,33 @@ export const cases = [
 	{ filter: 'ShotDetector', name: 'nocut', input: ['clean', 'clean'], sequence: true, options: {}, gpu: POINTWISE },
 
 	// --- Alpha handling ---------------------------------------------------
-	// most filters rewrite alpha to 255; these pin that behaviour down so a
-	// future change to alpha handling shows up as a diff rather than silently
+	// Most single-input filters rewrite alpha to 255 and the per-pixel ones pass
+	// it through; these pin that behaviour down so a future change to alpha
+	// handling shows up as a diff rather than silently.
 	{ filter: 'Desaturate', name: 'alpha', input: 'alpha', options: {}, gpu: POINTWISE },
-	{ filter: 'Blur', name: 'alpha', input: 'alpha', options: { radius: 4 }, gpu: ACCUMULATING }
+	{ filter: 'Blur', name: 'alpha', input: 'alpha', options: { radius: 4 }, gpu: ACCUMULATING },
+
+	// The two-input family, which forced alpha to 255 on both paths until a
+	// sprite multiplied through a cloud came back a rectangle. Every other
+	// dual-input case in this file pairs two opaque fixtures, so the fix was
+	// invisible to the whole suite - which is the same hole that let the bug
+	// live, and is why these run the `alpha` fixture in the *first* slot.
+	//
+	// One case per shape of the rule rather than one per filter: `Multiply`
+	// carries the first frame's alpha through and stands for the five that do
+	// the same, `Stamper` accumulates source-over onto it, `Displace` moves it.
+	// The GPU is the half worth pinning here - a shader hardcoding 1.0 through
+	// `writeRGB` is a one-word mistake and every existing case is blind to it.
+	{ filter: 'Multiply', name: 'alpha', input: ['alpha', 'second'], options: {}, gpu: POINTWISE },
+	// Stamping onto ground that is itself part transparent: the sprite's alpha
+	// and the frame's compose, so the stamps are solid, the gaps stay as clear
+	// as they arrived, and nowhere is more transparent than it started.
+	{ filter: 'Stamper', name: 'alpha', input: ['alpha', 'blade'], options: { count: 6, size: 18 }, seed: 4, gpu: POINTWISE },
+	// Alpha through the same bilinear tap as the colour, premultiplied. The
+	// `alpha` fixture varies its colour independently of its transparency for
+	// exactly this: interpolate straight RGB across an edge instead and the
+	// halo it puts round one is visible here and nowhere else.
+	{ filter: 'Displace', name: 'alpha', input: ['alpha', 'field'], options: { amount: 12 }, gpu: KERNEL }
 ];
 
 /** `Filter-name.png`, or `Filter.png` when the case has no variant name. */

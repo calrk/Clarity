@@ -122,16 +122,28 @@ function imagesFor(name, entry) {
 	const golden = join(root, 'test', 'golden', `${caseName(entry)}.png`);
 	if (!existsSync(golden)) return '';
 
-	const before = `../test/fixtures/${entry.input}.png`;
+	//`input` is an array for the two-input filters, and interpolating one of
+	//those into a path gives `photo,second.png` - a file that has never existed.
+	//Every dual-input entry on this page carried a broken image until someone
+	//looked at the rendered page rather than at the Markdown.
+	//
+	//Both inputs are shown, in the order the filter receives them, rather than
+	//the first one alone: for half these filters the second frame is most of the
+	//answer, and for Stamper it is the whole shape of the result.
+	const inputs = Array.isArray(entry.input) ? entry.input : [entry.input];
 	const after = `../test/golden/${caseName(entry)}.png`;
 	const note = entry.pre?.length
 		? ` (after ${entry.pre.map((step) => step.filter).join(' → ')})`
 		: '';
 
-	return (
-		`<img src="${before}" width="${THUMB}" alt="The ${entry.input} fixture${note}"> ` +
-		`<img src="${after}" width="${THUMB}" alt="${name} applied to it">\n`
-	);
+	const before = inputs
+		.map(
+			(input) =>
+				`<img src="../test/fixtures/${input}.png" width="${THUMB}" alt="The ${input} fixture${note}"> `
+		)
+		.join('');
+
+	return `${before}<img src="${after}" width="${THUMB}" alt="${name} applied to it">\n`;
 }
 
 export function buildDocs() {

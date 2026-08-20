@@ -248,6 +248,114 @@ return new Renderer(canvas)
   .add(new Multiply(), { second: ink });`
 	},
 	{
+		id: 'watercolour',
+		label: 'Watercolour',
+		note: 'Diluted washes, pigment stranded at every rim, and paper underneath',
+		source: `// Four ideas in order: flatten the picture into regions, thin the pigment
+// until the paper shows through, strand what is left at the region
+// boundaries, then put the whole thing on paper.
+//
+// The Comic snippet's cousin - same ink branch, same reason the flattening
+// appears twice - with dilution and paper where that one has Ben-Day dots.
+// None of it can be a preset: every stage past the first needs a second
+// input, and a chain string has nowhere to say where one comes from.
+
+const white = () => new Pipeline([new Fill({ colour: 'ffffff' })]);
+
+// Where the paint runs. A cloud read as a normal map is a field of
+// two-axis offsets, and \`Displace\` moves each pixel by the one underneath
+// it, so boundaries wander rather than bend. \`Wave\` was here first and
+// gave the whole frame the same wobble on a fixed wavelength - which reads
+// as corrugation rather than as a wet edge the moment you turn it up.
+//
+// The Blur is not optional. A normal is a *slope*, so an unblurred cloud
+// is a field of cliffs and the picture tears along them instead of
+// flowing.
+const bleed = () => new Pipeline([
+  new Cloud({ seed: 4, initialSize: 5, iterations: 4 }),
+  new Blur({ radius: 6 }),
+  new NormalGenerator({ intensity: 0.9 })
+]);
+
+// Both chains below need every one of these, and they must be *their own*
+// copies - two pipelines sharing a filter object share its state and its
+// dirty flag. Hence a function that builds onto a chain rather than an
+// array to spread.
+const flatten = (chain) => chain
+  // Displace first, so the wander lands in the region shapes rather than
+  // on top of a picture whose shapes have already been decided.
+  .add(new Displace({ amount: 7 }), { second: bleed() })
+  // The Cartoon preset's pairing, unchanged and for the reason written
+  // there. A few more colours than Cartoon takes, because a wash is not a
+  // cel.
+  .add(new Bilateral({ radius: 6, similarity: 45, iterations: 3 }))
+  .add(new Posteriser({ colours: 12 }))
+  // Saturation up *before* the dilution below, never after. Thinning paint
+  // drops saturation and lifts value together, so pre-loading it is what
+  // keeps the result from going chalky.
+  .add(new hsvShifter({ saturation: 1.6 }));
+
+// The dilution, and the single step that separates watercolour from poster
+// paint. \`ratio\` is how much of the first frame survives and the first
+// frame is the paint, so 0.78 is a fairly wet mix. Turn this one first.
+const wash = () => flatten(new Pipeline())
+  .add(new Blend({ ratio: 0.78 }), { second: white() });
+
+// Edge darkening: the pigment stranded at the rim of a wash as it dries.
+// Take this layer out and what is left is a posterised photograph.
+//
+// It re-derives the washes rather than being handed them, because a branch
+// runs against the chain's *source* and not the frame at the point it is
+// used - the constraint the Comic snippet documents. Both chains have to
+// flatten identically or the ink lands where the colour boundaries are
+// not, which is also why every seed here is written down rather than left
+// to be drawn.
+const ink = () => flatten(new Pipeline())
+  // On the washes this traces region boundaries. On the photograph it
+  // would trace every branch in the treeline, which is the whole
+  // difference between an ink line and a scribble.
+  .add(new GradientThreshold({ threshold: 18, distance: 1 }))
+  // Hands back the greys a thresholder cannot write, so the Multiply below
+  // lands a soft edge rather than a jagged one.
+  .add(new Blur({ radius: 2 }))
+  .add(new Invert())
+  // A second, smaller displacement on the line alone, so it wanders off
+  // the wash it belongs to. A pen and a brush never register perfectly,
+  // and the picture looks printed when they do.
+  .add(new Displace({ amount: 3 }), {
+    second: new Pipeline([
+      new Cloud({ seed: 21, initialSize: 4, iterations: 3 }),
+      new Blur({ radius: 5 }),
+      new NormalGenerator({ intensity: 0.9 })
+    ])
+  })
+  .add(new Blend({ ratio: 0.45 }), { second: white() });
+
+// Paper. Multiply only ever darkens, so a mid-grey cloud sinks the whole
+// picture - each field has to be pulled most of the way to white first,
+// and then it tints instead of dimming. Levels cannot do that pull: it
+// stretches, so raising the black point on a field that peaks near 200
+// clips it away rather than lifting it.
+//
+// Two scales, because paper has two: a coarse cockle and a fine tooth.
+const paper = (seed, initialSize, iterations, amount) =>
+  new Pipeline([new Fill({ colour: 'ffffff' })])
+    .add(new Blend({ ratio: 1 - amount }), {
+      second: new Pipeline([
+        new Cloud({ seed, initialSize, iterations, persistence: 0.55 })
+      ])
+    });
+
+return new Renderer(canvas)
+  .source(image)
+  // \`first\` because the washes are the picture here rather than an
+  // argument to it. Without it one of the two branches would have to be
+  // written differently from the other for no reason but where it sits.
+  .add(new Multiply(), { first: wash(), second: ink() })
+  .add(new Multiply(), { second: paper(7, 6, 5, 0.13) })
+  .add(new Multiply(), { second: paper(11, 16, 3, 0.09) });`
+	},
+	{
 		id: 'dissolve',
 		label: 'Dissolve',
 		note: 'Two pictures trading places through a cloud, back and forth',

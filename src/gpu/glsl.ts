@@ -42,6 +42,32 @@ out vec4 fragColor;
 uniform sampler2D uSrc;
 /** Second frame, for the two-input filters. Bound to uSrc when unused. */
 uniform sampler2D uSrc2;
+/**
+ * Its size in pixels, which is the frame's own for every filter except the one
+ * that reads the second frame as a sprite rather than as a picture. See
+ * Filter.resamplesSecond: everything else has had it stretched to match before
+ * it reached the sampler, so uv sampling is one-to-one and this is uSize.
+ */
+uniform vec2 uSrc2Size;
+
+/**
+ * Third frame, for a filter that needs one as well as a second - Stamper's
+ * probability map, which decides where its stamps land. Bound to uSrc when
+ * unused, so a shader must ask uSrc3Size below rather than sampling it blind:
+ * an unbound read would come back as the frame's own luma, which is a
+ * plausible-looking mask and the wrong one.
+ */
+uniform sampler2D uSrc3;
+/**
+ * Its size in pixels, or (0, 0) when no third frame was supplied.
+ *
+ * There is no resamplesThird to go with it. A second frame is allowed to be a
+ * sprite rather than a picture, which is what forced that choice open; a third
+ * is always a picture covering the frame, and is always matched to it before it
+ * reaches the sampler. So this is uSize whenever it is not zero, and it exists
+ * to be tested rather than measured - the same job uDataSize does.
+ */
+uniform vec2 uSrc3Size;
 
 /**
  * A 1x1 texture holding the result of a whole-image reduction, for the filters
@@ -115,6 +141,27 @@ vec4 srcPixel(vec2 uv){
 
 vec4 src2Pixel(vec2 uv){
 	return texture(uSrc2, uv) * 255.0;
+}
+
+/** The second frame by integer pixel, clamped to its own bounds. */
+vec4 src2Texel(ivec2 pixel){
+	ivec2 clamped = clamp(pixel, ivec2(0), ivec2(uSrc2Size) - 1);
+	return texelFetch(uSrc2, clamped, 0) * 255.0;
+}
+
+/** Whether a third frame was supplied at all. Ask before reading one. */
+bool hasSrc3(){
+	return uSrc3Size.x > 0.0;
+}
+
+vec4 src3Pixel(vec2 uv){
+	return texture(uSrc3, uv) * 255.0;
+}
+
+/** The third frame by integer pixel, clamped to its own bounds. */
+vec4 src3Texel(ivec2 pixel){
+	ivec2 clamped = clamp(pixel, ivec2(0), ivec2(uSrc3Size) - 1);
+	return texelFetch(uSrc3, clamped, 0) * 255.0;
 }
 
 /** One texel of the filter's data texture, as whole numbers 0-255. */

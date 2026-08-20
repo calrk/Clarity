@@ -100,15 +100,29 @@ function compare(a, b) {
 	};
 }
 
+/**
+ * The wired-in inputs a case declares, as stage options.
+ *
+ * Anything past the first is a stage option rather than a frame the chain
+ * carries: the second input every dual filter takes, and the third that
+ * Stamper reads as a probability map.
+ */
+async function stageOptions(entry, inputs) {
+	if (!Array.isArray(entry.input) || entry.sequence) {
+		return {};
+	}
+	const options = { second: await inputFrame(entry, inputs[1]) };
+	if (inputs[2]) {
+		options.third = await inputFrame(entry, inputs[2]);
+	}
+	return options;
+}
+
 /** GPU output for a case, as a PNG data URL, for the contact sheet. */
 window.renderGPU = async (entry) => {
 	const inputs = Array.isArray(entry.input) ? entry.input : [entry.input];
 	const pipeline = new CLARITY.Pipeline([], { gpu: true });
-	const stageOptions =
-		Array.isArray(entry.input) && !entry.sequence
-			? { second: await inputFrame(entry, inputs[1]) }
-			: {};
-	pipeline.add(build(entry), stageOptions);
+	pipeline.add(build(entry), await stageOptions(entry, inputs));
 
 	let out;
 	if (entry.sequence) {
@@ -260,7 +274,9 @@ window.runCase = async (entry) => {
 	const cpuFilter = build(entry);
 	let cpu;
 	if (Array.isArray(entry.input) && !entry.sequence) {
-		cpu = cpuFilter.process([await inputFrame(entry, inputs[0]), await inputFrame(entry, inputs[1])]);
+		const frames = [];
+		for (const name of inputs) frames.push(await inputFrame(entry, name));
+		cpu = cpuFilter.process(frames);
 	} else if (entry.sequence) {
 		for (const name of inputs) cpu = cpuFilter.process(await inputFrame(entry, name));
 	} else {
@@ -270,11 +286,7 @@ window.runCase = async (entry) => {
 	// GPU: the same filter, freshly built, run through a pipeline
 	const gpuFilter = build(entry);
 	const pipeline = new CLARITY.Pipeline([], { gpu: true });
-	const stageOptions =
-		Array.isArray(entry.input) && !entry.sequence
-			? { second: await inputFrame(entry, inputs[1]) }
-			: {};
-	pipeline.add(gpuFilter, stageOptions);
+	pipeline.add(gpuFilter, await stageOptions(entry, inputs));
 
 	let gpu;
 	if (entry.sequence) {

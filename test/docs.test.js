@@ -49,6 +49,24 @@ test('docs/FILTERS.md is up to date', () => {
 	);
 });
 
+test('every image the page points at exists', () => {
+	// Nothing checked this, and so for as long as there have been two-input
+	// filters every one of them showed a broken image: `input` is an array for
+	// those, and interpolating it into a path gave `photo,second.png`. The
+	// Markdown looked right, the rendered page did not, and the only way to
+	// notice was to open it.
+	//
+	// Paths are relative to docs/, which is where the file lives.
+	const page = readFileSync(DOCS_PATH, 'utf8');
+	const docsDir = dirname(DOCS_PATH);
+
+	const sources = [...page.matchAll(/<img src="([^"]+)"/g)].map((match) => match[1]);
+	assert.ok(sources.length > 50, `only found ${sources.length} images on the page`);
+
+	const missing = sources.filter((src) => !existsSync(join(docsDir, src)));
+	assert.deepEqual(missing, [], 'the filter reference points at images that do not exist');
+});
+
 test('every filter reached the page, with its options', () => {
 	const page = readFileSync(DOCS_PATH, 'utf8');
 	for (const name of Object.keys(CLARITY.CATALOGUE)) {

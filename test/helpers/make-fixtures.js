@@ -96,6 +96,61 @@ const second = build(W, H, (x, y) => {
 	return disc ? [240, 240, 240] : [25, 25, 25];
 });
 
+// 6b. a vector field, for Displace: red the horizontal offset, green the
+//    vertical, 128 meaning stay put. Written directly rather than derived by
+//    running NormalGenerator over `heightmap`, because a case's `pre` chain is
+//    applied to *every* input - there is no way to prepare only the second one,
+//    and preparing both would displace a normal map by itself.
+//
+//    Two independent sine axes rather than one, precisely so the two channels
+//    disagree. A greyscale field has red equal to green and shears the whole
+//    frame along a single diagonal, which is the one failure mode a Displace
+//    case has to be able to tell apart from working.
+const field = build(W, H, (x, y) => [
+	Math.round(128 + Math.sin(x / 7) * 100),
+	Math.round(128 + Math.cos(y / 5) * 100),
+	255
+]);
+
+// 6c. a sprite, for Stamper: a blade of grass on transparency, at its own small
+//     size rather than the frame's. Everything about it is deliberate.
+//
+//     Not square (12x20), because Stamper derives a stamp's height from its
+//     sprite's proportions - a square one would let a filter that ignored the
+//     aspect ratio pass. Not symmetric either: it tapers to a tip at the top and
+//     leans, so a stamp drawn upside down, mirrored, or rotated when it was not
+//     asked to be is visible rather than plausible.
+//
+//     The root runs off the bottom edge on purpose, where every other side has
+//     transparent margin. That is what a bilinear read has to clamp against, and
+//     it is worth knowing what it looks like: blown up several times its own
+//     size, a stamp cut off at its sprite's border shows a straight edge there.
+//     A sprite meant to be scaled up wants margin on all four sides.
+//
+//     The edge alpha ramps over a pixel rather than cutting hard, which is what
+//     makes this a test of *compositing* rather than of stencilling. A sprite
+//     with only 0 and 255 in its alpha would give the same picture whether the
+//     filter blended properly or just chose one of the two colours.
+const BLADE_W = 12;
+const BLADE_H = 20;
+const blade = build(BLADE_W, BLADE_H, (x, y) => {
+	const along = y / (BLADE_H - 1);              // 0 at the tip, 1 at the root
+	const centre = 3 + along * 3.5;               // leans to the right going down
+	const halfWidth = 0.3 + along * 2.2;          // and widens
+	const inside = halfWidth - Math.abs(x + 0.5 - centre);
+	const alpha = Math.max(0, Math.min(1, inside + 0.5));
+	if (alpha === 0) {
+		return [0, 0, 0, 0];
+	}
+	// dark at the root, bright at the tip, which is how a blade catches light
+	return [
+		Math.round(35 + along * 25),
+		Math.round(190 - along * 95),
+		Math.round(30 + along * 20),
+		Math.round(alpha * 255)
+	];
+});
+
 // 7. binary with salt-and-pepper noise. Morphology open is meant to run *after* an
 //    edge detector or thresholder, so it needs an already-binary image with
 //    isolated stray pixels - on a continuous-tone image it has nothing to do.
@@ -171,7 +226,7 @@ const skintones = build(W, H, (x, y) => {
 	return NOT_SKIN[(column + (band - 5) * 3) % NOT_SKIN.length];
 });
 
-const fixtures = { photo, edges, heightmap, alpha, odd, second, binary, clean, moved, black, skintones };
+const fixtures = { photo, edges, heightmap, alpha, odd, second, field, blade, binary, clean, moved, black, skintones };
 
 for (const [name, image] of Object.entries(fixtures)) {
 	const path = join(out, `${name}.png`);

@@ -2,7 +2,7 @@
 
 Clarity is a canvas image-filter library from 2014 — 41 filters across eight categories, all pure-JS `ImageData` loops, concatenated by Gulp 3 into one `CLARITY` global. The filter-chain design still holds up; everything around it (build, GPU, examples, tests) had aged out.
 
-**Features #1–#8 are all done**, along with #11, and with #13, #15, #16 and #17 which were added later. What follows is the record: what was built, and the decisions that were not obvious at the time. **Four are still open — #10, #12, #14 and #18** — and all four are additive rather than gaps: the library is built, tested, documented and published without them.
+**Features #1–#8 are all done**, along with #11, and with #13, #15, #16, #17, #19 and #20 which were added later. What follows is the record: what was built, and the decisions that were not obvious at the time. **Four are still open — #10, #12, #14 and #18** — and all four are additive rather than gaps: the library is built, tested, documented and published without them.
 
 Each shipped entry keeps its original write-up in a collapsed block underneath, because the *reasoning* is the part worth keeping and it is often the part that turned out to be wrong.
 
@@ -11,9 +11,9 @@ Each shipped entry keeps its original write-up in a collapsed block underneath, 
 | | then | now |
 |---|---|---|
 | Build | Gulp 3, one global | TypeScript, Vite, ESM + UMD + global, `.d.ts` |
-| Filters clean | 31 of 41, 4 hard crashes | 52 of 52, each with a golden image, a GPU parity case and a generated docs entry |
-| GPU | none | every filter, 105/106 parity cases as shaders - the sequential half of `Dither` is CPU-only by design |
-| Tests | none | 783, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
+| Filters clean | 31 of 41, 4 hard crashes | 59 of 59, each with a golden image, a GPU parity case and a generated docs entry |
+| GPU | none | every filter, 140/141 parity cases as shaders - the sequential half of `Dither` is CPU-only by design |
+| Tests | none | 840, plus golden images, GPU parity, and browser-driven tests for the playground and the `<img>` action |
 | Demo | 8 pages, broken for years | one playground, live and tested on every run, with stills, video, a webcam, seventeen presets, and a code panel whose nine snippets are themselves tests |
 | Package | no `name` in `package.json` | [`@calrk/clarity`](https://www.npmjs.com/package/@calrk/clarity) on npm — ESM, UMD, types, and a `/svelte` subpath |
 | Licence | GPL dependency | MIT throughout |
@@ -1239,7 +1239,7 @@ The answer to jagged outlines turned out to be blurring the *line map* after inv
 <summary>Open questions this leaves</summary>
 
 - **Multiple outputs.** The height-map flow is the case that wants it, because there the *intermediate* is the point and showing only the last frame hides what is being taught. The shape that fits: a function handing back a fresh canvas, so renderers are still declared normally and the panel grids however many were asked for. The real work is the readout, which describes one pipeline and would have to pick or aggregate.
-- **No `over` composite.** `ChromaKey` writes a real alpha channel — the only filter that does — but the dual-input set is Add, Subtract, Difference, Blend, Mask, Multiply. So a subject can be keyed and then has nothing to be laid on. The most standard flow there is, one filter away.
+- **No `over` composite.** `ChromaKey` writes a real alpha channel — the only filter that does — but the dual-input set is Add, Subtract, Difference, Blend, Mask, Multiply. So a subject can be keyed and then has nothing to be laid on. The most standard flow there is, one filter away. **#20 has since done the groundwork rather than the filter**: every two-input filter now carries a silhouette instead of flattening it, so a keyed subject survives the rest of a chain and has something worth laying down when this arrives. `Stamper` already composites source-over internally, so the arithmetic is written and tested — what is missing is the filter that exposes it over a second *frame* rather than over a sprite.
 - **Masking an effect to part of the picture**, which needs the three-stage composite (`Mask` the effect, `Mask` the original by the inverted matte, `Add`) and is much easier to teach once a matte can be shown in its own pane.
 
 </details>
@@ -1302,6 +1302,111 @@ What it changes is the cost of *branching*. There is a tempting rule here — **
 
 ---
 
+## ~~19. `Stamper` — Scatter a Sprite Over a Frame~~ ✓
+
+**Effort: Medium** *(nothing blocked it; #3's executor already had every mechanism but one)*
+
+**Done.** `src/filters/DualInput/Stamper.ts` — copies of a second image scattered over the frame, with `count`, `size`, `sizeJitter`, `rotation` and `spread`. It came out of trying to build a grassy plains texture out of the library and finding that the ground was easy and the *grass* was impossible: filters make fields, and a blade of grass is an object.
+
+**The whole design follows from one constraint: a fragment shader cannot scatter.** It is asked for one pixel and can only read, so "draw a sprite at this position" has no shader form at all. Turn it around and it does: divide the frame into cells, give each cell exactly one stamp whose position, angle and scale are **hashed from its own cell coordinates**, and every pixel asks the few cells near it whether their stamp reaches this far. Scattering becomes gathering. The same trick `Voronoi` uses for its feature points, and it buys three things beyond a shader:
+
+- **`count` is a density, not a total** — stamps across the frame, rows from the aspect, so a square frame gets `count²`. That is a worse control than "how many" right up until you resize the frame, at which point it is the only one that means anything.
+- **It tiles.** Cells wrap, so a stamp overhanging the left edge comes back in on the right. Verified by tiling the output 2×2 and looking for the join.
+- **The work is bounded.** Without cells every pixel would have to consider every stamp.
+
+The cost is `MAX_REACH`: a stamp is found by pixels scanning outwards in cells, so a stamp wider than four cells is **clipped**. Visible rather than silent, which is the honest failure for a control asked to do something the method cannot.
+
+**The one mechanism the executor did not have: a second input that is not a picture.** Every other two-input filter composites two frames, so `Filter.process` and `execute.ts` both resample the second to match the first — a rule added deliberately, because six CPU filters were walking a mismatched frame by byte offset and reading rows out of alignment. A sprite wants the opposite: a 12×20 blade stretched to a 16:9 canvas arrives squashed, and nothing downstream can tell that it was. So `static resamplesSecond` opts out, `uSrc2Size` tells the shader the sprite's real dimensions, and `src2Texel` reads it by integer pixel. Default stays `true` — **and the evidence that it is inert is that not one existing golden moved.**
+
+**The parity result was not the expected one, and the reason is worth keeping.** A stamp has an edge; the two backends work out where that edge falls in float32 and float64. That is Wave's shape exactly — a pixel a fraction either side is either blade or ground, and those are far apart — so this was written up as a `population` case before it was measured. It holds at **tolerance 1 on all three cases**, including the one with rotation, size jitter and stamps overlapping several deep. The cause is that the sprite is read **bilinearly and premultiplied**: alpha ramps across the edge instead of switching, so a boundary that moves by a fraction of a pixel moves the result by a fraction of the difference. Premultiplying before interpolating is the part that is easy to get wrong — straight RGB from a fully transparent texel is meaningless, and interpolating it puts a halo round every edge.
+
+That tolerance is now load-bearing, and the case comment says so: if it ever has to be loosened to `population`, the interpolation has been lost — most likely by someone making the sprite read nearest to sharpen it up.
+
+**Rotation is centred on upright** rather than one-sided. `hash × rotation` is the obvious spelling and it tips the entire field the same way, because the hash is never negative; `(hash − 0.5) × rotation` means 30 leans blades ±15° and 360 still faces them anywhere.
+
+### Three things found alongside it
+
+- **Every dual-input filter had a broken image in `docs/FILTERS.md`, and had done since two-input filters existed.** `make-docs.js` builds `../test/fixtures/${entry.input}.png`, and `input` is an *array* for those cases, so it emitted `photo,second.png` — a file that has never existed. Thirteen images across the page. The Markdown looked correct and only the rendered page showed it, which is why nothing caught it: `docs.test.js` checked that the file was not stale and that every filter appeared, and never that anything it pointed at was there. It does now, and the test was confirmed against the old generator before the fix went in. Both inputs are shown rather than the first, which for `Stamper` is most of the answer.
+- **The playground needed a sample with an alpha channel.** The rule that a new filter needs no `site/` edit held for the *controls* — palette from `CATALOGUE`, controls from the schema, nothing written by hand — but not for the *data*: every sample shipped was a photograph, so Stamper stamped opaque rectangles and looked broken. `site/src/samples/blade.png` is the first source with transparency. Worth noticing that the rule is about UI code and was never a promise about assets.
+- **`Multiply` discarded the first frame's alpha, which made it useless for the one job a sprite library most wants it for.** It assigned `output.data[i+3] = 255`, and the shader used `writeRGB`, which hardcodes `1.0`. So the obvious way to give a sprite some texture — multiply a `Cloud` through it — returned a **rectangle**, with the silhouette thrown away. It now carries `frame1`'s alpha on both paths. The asymmetry is already the filter's own: `frame2` is the one resampled to fit, so the first frame is the subject and the second is the shading, and shading must not be able to change a subject's shape. **Nothing that was multiplying opaque frames sees any difference**, which is why no golden moved and why the change needs no `alpha-out` trait — opaque in, opaque out, exactly what `filters.test.js` asserts for every filter without it.
+
+  This was reported from outside, by someone building sprites against the library and finding no way to do it, which is the same route Stamper itself arrived by. It was left here as one filter's bug, with a note that the family was *still* inconsistent — `Add`, `Subtract`, `Difference`, `Blend` and `Mask` all forced 255 — and that each of them needed a decision about what combining two alphas should *mean* rather than a copied line. **That was the wrong call, and the same reporter came back with it: see #20.** The decision is one decision, not five, and a family where one member in six keeps a silhouette is harder to use than one where none of them do.
+
+### ~~The probability map — deciding where the stamps land~~ ✓
+
+**Added afterwards, and it is what the first version was missing.** Masking the *output* was the only way to say "grass here, bare ground there", and it is the wrong tool: fade a finished field of stamps against a mask and the boundary is half-erased sprites. Grass that thins by going transparent is not how grass thins. This came back from outside again — five recipes in a project using the library had each worked around it, and it was the same workaround wearing different hats: an irregular boundary drawn so a stamp is nearly always well inside or well outside it, a near-binary window so boulders are not grey ghosts, a second filter stamped over the seam to cover where the mask cut. Every one of them is an attempt to make a per-pixel mask behave like a per-stamp one.
+
+So `Stamper` takes an optional **third** frame, and each cell reads it once, at its own stamp's centre: the value there is the chance that stamp is drawn at all.
+
+**Probability rather than a boolean is the decision that matters.** A hard black-and-white map gives tight clumping with every sprite intact; a grey one gives density falling away with every sprite intact. The second could not be expressed at all before, and it costs one comparison — `hashedRandom(nx, ny, 4, seed) >= value` — against a hash lane the cell was not using.
+
+**The algorithm was nearly free. The plumbing was the whole cost.** The CPU path already builds a per-cell table before the pixel loop runs, so the gate is one more entry in it: one map read per *cell*, about a thousand for a 32×32 grid, against a per-pixel mask that is a read for every pixel and cannot answer the question anyway. The shader recomputes centres per fragment, so there it is one texture read per candidate cell — placed after the existing u/v bounds check, where most candidates have already `continue`d, so it is close to free there too.
+
+What it cost instead was a **third input**, which nothing in the library had: `Filter.triple`, `StageOptions.third`, a third texture, `uSrc3`/`uSrc3Size` in the prelude, `process([frame, second, third])`, and the branch bookkeeping in `Pipeline` that keeps a cached stage honest when the chain wired into that slot moves. It came out at about a day rather than the fortnight it looked like from outside, and the reason is that the *second* input had already forced every one of those seams open. The third is the same shape with one simplification: there is no `resamplesThird`, because the sprite case that made `resamplesSecond` necessary is already spoken for — a third frame is always a picture covering the frame.
+
+**The name is positional because the slot is.** `StageOptions` already had `first` and `second`, and naming a slot for what one filter puts in it is a promise the contract cannot keep — the next filter wanting a third frame will not be reading probabilities out of it. So the wiring says `third` and the *filter* says probability map, in its parameter name, its documentation and its catalogue summary.
+
+**One correctness detail, easy to get wrong and invisible when you do:** the map is sampled at the **wrapped** cell's centre. Stamper deliberately uses the unwrapped cell for geometry and the wrapped one for hashing, which is what makes the scatter tile. Read the map off the unwrapped centre and a stamp overhanging an edge gets a different answer from the copy of it coming back in on the other side, and the result quietly stops tiling — which is exactly the kind of thing that is not noticed until a texture is laid out four across.
+
+**Two things surprise you once each**, so both are written down rather than left to be discovered. It places *centres*, not coverage, so a clump comes out about a stamp radius larger than the shape drawn on the map. And the effective count is `count` × the map's coverage, so a map white over a fifth of the frame wants five times the count for the same density inside it — the same arithmetic as before, but the failure mode changes from ghosts to *fewer things*, which is far easier to diagnose.
+
+Parity holds at **tolerance 1** again, which was not a given this time: the gate is a hard decision per cell, and a flipped cell is a whole stamp rather than an edge. The two backends have to agree about `floor` at the sampled centre and about a comparison of two numbers that are exact in 24 bits, and they do. If that case ever has to be loosened to `population`, the arithmetic around the gate has drifted apart — the tolerance is not the thing to change.
+
+### ~~`shadeJitter` and `wrap`~~ ✓
+
+Two small ones, added together, both of which existed because the filter looked *printed*: the same blade, the same colour, repeated.
+
+**`shadeJitter` is brightness rather than hue, and that is the whole decision.** Hue and saturation jitter are silent no-ops on a desaturated sprite — rotating the hue of a grey pixel does nothing — and half the things worth scattering are grey: stars, snow, boulders, a white flower. An option that quietly does nothing on half its inputs is worse than no option. Brightness is also what natural variation actually *is*: shadowing, age and angle to the light, not hue. Hue jitter on grass gives yellow and blue blades, which reads as a fault.
+
+It is a gain on the **premultiplied colour and not on the alpha**, which is the part that is easy to get wrong and hard to see: multiply both and a dark stamp is a *faded* one instead, with the background showing through it. Against a sky lighter than the sprite those look nothing alike, which is what the `shaded` golden is for.
+
+Centred on 1 like the other two jitters, for the reason `rotation` already carries — a one-sided jitter tips the whole field the same way. It defaults to **0.2 rather than 0**, on the same argument `sizeJitter` uses for defaulting to 0.3: every stamp identical is a thing nothing in nature does. That moved all four existing Stamper goldens by up to 17 units and nothing else in the suite, which is the evidence that it is contained to the one filter.
+
+**`wrap` turns the tiling off.** The wrap is not decoration — it is what makes the scatter tileable, and it comes from the geometry using the unwrapped cell while the hash uses the wrapped one. Off, the cells outside the grid are simply not there, so an edge stamp is cut by the frame instead of its far-side copy reaching in. The cells *inside* are untouched either way, which is the property worth pinning and is pinned: `unwrapped` matches `crowded` in every option but this one, 1462 pixels of 3072 differ, and the deepest of them is 18 from the nearest edge against a stamp reach of 24.9. A change that moved a pixel in the middle of the frame would mean the two modes had stopped agreeing about the cells they share.
+
+Neither costs anything. The shade is one more entry in the per-cell table and one multiply per covered pixel; the wrap is an integer range check per candidate cell, which is decided identically on both backends and so carries no parity risk at all.
+
+---
+
+## ~~20. What the Two-Input Family Does With Alpha~~ ✓
+
+**Effort: Low** *(the code is nine lines; the decision is the whole item)*
+
+**Done.** Every filter that takes two frames now carries the first frame's alpha instead of assigning 255, and `Filter.dual` states that as one rule rather than nine implementations each having made up their own mind.
+
+`Multiply` was fixed alone under #19, on the strength of one demonstrated use — a sprite shaded by a cloud came back a rectangle. The note left behind said the rest of the family each needed a decision about what combining two alphas should *mean*, and that the decision belonged with the `over` composite rather than before it. **The same reporter came back with the rest of the family, and that note was wrong in an instructive way**: it treated one question as five, and five questions never get answered at once. A library where `Multiply` keeps a silhouette and `Blend` does not is harder to use than one where neither does, because now the caller has to know which is which.
+
+### The rule, and the three that looked like exceptions
+
+**The second frame is the modifier.** It is the one resampled to fit, it is the one named second in every signature, and it may change what a pixel *looks like* and never whether the pixel is there. So the output's alpha is the first frame's. Shading must not be able to change a subject's shape.
+
+Three filters looked like they wanted something else, and only two of them did.
+
+- **`Blend` is the tempting one**, and mixing the two alphas by the ratio is the answer that sounds right for about as long as it takes to try it. Blend a subject halfway towards an opaque texture and the *colour* ratio would be correct while the subject went half-transparent everywhere it used to be solid, and the empty frame around it went half-solid everywhere it used to be nothing. What `ratio` means is how much of the second image's colour to take, not how much of the first image to erase. It would also *create* transparency, which is the one thing that would have forced the family into the `alpha-out` trait.
+- **`Difference` gives up its symmetry, deliberately.** `|a − b|` is the same picture either way round and that is most of why the filter exists, so taking the magnitude of the two alphas as well is the consistent-looking move. It also means differencing a frame against a copy of itself *erases* it, and that anything differenced against an opaque frame comes back a ghost. The symmetry worth keeping is the one about the picture.
+- **`Mask` blacks out rather than cutting a hole**, and still does. Making the dropped pixels transparent is a real feature and it is `ChromaKey`'s — that filter declares `alpha-out`, and this one deliberately does not, so a mask cannot quietly hand back a frame that needs compositing to be seen. Unchanged, but now for a stated reason.
+
+### Two filters read the rule one step further, and both had to
+
+`Stamper` and `Displace` are the two that do not merely *combine* two frames, and "carry the first frame's alpha through untouched" is the wrong answer for each.
+
+- **`Stamper` composites source-over.** It is a filter whose entire job is laying sprites onto a frame, so refusing to touch alpha would mean a stamp drawn onto transparent ground was computed and then not shown. It now accumulates `a + under·(1−a)` and works in premultiplied colour, dividing back out at the end — which is what lets you scatter something *into* a sprite rather than onto a picture.
+- **`Displace` gathers.** It *moves* pixels, and how transparent a pixel is belongs to it exactly as much as its colour does, so alpha comes through the same bilinear tap. Premultiplied before interpolating for the reason Stamper already documents at length: straight colour from a fully transparent pixel is meaningless, and interpolating it puts a halo of that colour round every edge the offset crosses.
+
+**Neither can lower an alpha** — `a + under·(1−a)` cannot fall below `under`, and a bilinear tap cannot fall below its four corners. That is what keeps the whole family out of the `alpha-out` trait: opaque in, opaque out, exactly what `filters.test.js` asserts for every filter without it.
+
+**Both reduce to the identity on an opaque frame**, and that is not a hopeful claim — it is the arithmetic. Alpha stays exactly 1.0, the premultiply is a multiply by 1 and the un-premultiply is a divide by 1. **Not one of the 141 existing goldens moved**, which is the same evidence `resamplesSecond` produced when it went in and means the same thing: the change is confined to frames that had transparency in them, and nothing that had been compositing opaque frames sees any difference at all.
+
+### The hole in the test suite is the more useful finding
+
+Every dual-input case in `cases.js` paired **two opaque fixtures**. The `alpha` fixture existed, and was used, and was only ever handed to single-input filters — so the entire family could hardcode 255 on both paths and the whole suite was blind to it. That is how the bug lived long enough to be reported twice from outside by someone building sprites.
+
+Three cases now put the `alpha` fixture in the **first** slot, one per shape of the rule rather than one per filter: `Multiply-alpha` carries it through and stands for the five that behave identically, `Stamper-alpha` composites onto it, `Displace-alpha` moves it. The GPU half is what they are really for — a shader reaching for `writeRGB`, which hardcodes `1.0`, is a one-word mistake with no visible symptom on an opaque fixture, and it is exactly the mistake all eight shaders had made. All three hold parity at **tolerance 1**.
+
+Alongside them, `filters.test.js` names the two lists — the six that carry alpha and the two that read it further — and then asserts that the two lists together are exactly the set of filters with the `dual` trait. A new two-input filter therefore fails that test until someone decides which half of the rule it obeys. Deriving the list from the trait instead would have let a new filter quietly join whichever branch ran first, which is precisely how `= 255` spread through the family in the first place.
+
+---
+
 ## Rough Priority Order
 
 ### Shipped, in the order it happened
@@ -1321,6 +1426,8 @@ What it changes is the cost of *branching*. There is a tempting rule here — **
 | 16 | Presets in the playground | Low | Sixteen chips, one assignment to `location.hash`; deleted the playground's copy of `renderer.start()` on the way, and fixed a same-document-navigation bug in the test harness that had been read as a flake |
 | 15 | Publish `@calrk/clarity` | Low | Live on npm at `0.1.0`. The README, the playground FAQ and the JSON-LD had all claimed it existed for weeks; all four now resolve |
 | 17 | Code panel in the playground | Medium | A chain you write rather than assemble, and the only place the library's composition has ever been sayable; `StageOptions.first` and `everyFrame` came with it, and building it found four bugs — two of them chains that could not see into their own branches, and one a shared branch served a frame from the previous render |
+| 19 | `Stamper` — sprites scattered over a frame | Medium | A jittered grid is what makes scattering gatherable, so it is a shader like everything else; the first filter whose second input is a sprite rather than a picture, which is one new static and one new uniform. Agrees with the CPU to within 1 unit where `population` was expected. Found 13 broken images in the generated docs on the way past. Later gained a **probability map** on an optional third input — the first filter to take three frames — which is a per-cell gate rather than a per-pixel mask, and is the only way to thin a scattering out without half-erasing the sprites |
+| 20 | What the two-input family does with alpha | Low | Eight filters forcing `= 255` on both paths, which made the family unusable on anything with a silhouette. One rule stated once in `Filter.dual` — the second frame is the modifier, so the first frame's alpha is the output's — and two filters that read it further because they composite rather than combine. No golden moved, which is the arithmetic rather than luck. The finding worth keeping is the hole that hid it: every dual-input case paired two **opaque** fixtures, so the whole suite was blind to the one channel the bug was in |
 | ✓ | Filter wishlist — 20 of 20, plus per-channel Halftone | Low each | `Convolver`, `Morphology`, `Levels`, `GradientMap`, `Gradient`, `Voronoi`, `FishEye`, `Vignette`, `DotCrawl`, `ScreenBurn`, `ShotDetector`, `Difference`, `Halftone`, `Woodgrain`, `Dither`, `ChromaKey`, `Histogram`, `Bilateral`, `Skeletiser`, `Crackulate`; `Sharpen`, `Smoother` and `DotRemover` absorbed and deleted. **Done** |
 
 ### Open

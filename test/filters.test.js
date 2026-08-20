@@ -1085,6 +1085,255 @@ test('ChromaKey is blind to a neutral offset, which RGB distance is not', () => 
 	assert.equal(key1([64, 0, 177]), 255, 'a different hue was keyed');
 });
 
+test('Multiply keeps the first frame a shape rather than a rectangle', () => {
+	// The filter assigned 255 here until it was noticed that this makes it
+	// useless for the thing it is most obviously for: shading something that has
+	// a silhouette. A sprite multiplied by a cloud to give it texture came back
+	// as a full rectangle, because the shape lives in the alpha channel and the
+	// alpha channel was being discarded.
+	//
+	// The first frame is the subject and the second is the shading - the same
+	// asymmetry the filter already has, since `frame2` is the one resampled to
+	// fit - so the subject's shape survives and the modifier only ever changes
+	// colour.
+	const subject = new NodeImageData(4, 1);
+	//opaque, half transparent, fully transparent, opaque
+	[[200, 200, 200, 255], [200, 200, 200, 128], [200, 200, 200, 0], [200, 200, 200, 255]]
+		.forEach((p, i) => subject.data.set(p, i * 4));
+
+	const shading = new NodeImageData(4, 1);
+	[[255, 255, 255, 255], [255, 255, 255, 255], [255, 255, 255, 255], [128, 128, 128, 255]]
+		.forEach((p, i) => shading.data.set(p, i * 4));
+
+	const out = new CLARITY.Multiply({}).process([subject, shading]);
+
+	assert.deepEqual(
+		[...out.data.filter((_, i) => i % 4 === 3)],
+		[255, 128, 0, 255],
+		'the first frame\'s alpha is carried through untouched'
+	);
+	//and the colour is still multiplied: white leaves it alone, mid grey halves it
+	assert.equal(out.data[0], 200, 'multiplying by white leaves the colour alone');
+	assert.equal(out.data[12], 100, 'multiplying by mid grey halves it');
+});
+
+test('every two-input filter carries the first frame\'s alpha', () => {
+	// Multiply above is where this was found; the rest of the family was doing
+	// exactly the same thing and was fixed with it, because a family where half
+	// the members drop a silhouette is worse than one where all of them do. See
+	// `Filter.dual`, which states the rule in one place so that the nine
+	// implementations carry a pointer rather than nine copies of the reasoning.
+	//
+	// The lists are named rather than derived, and then *checked against* the
+	// trait, so a new two-input filter fails this test until someone decides
+	// which half of the rule it obeys. Deriving it would let a new filter join
+	// whichever list ran first, which is how `= 255` spread in the first place.
+	const carries = ['Add', 'Blend', 'Difference', 'Mask', 'Multiply', 'Subtract'];
+	const composites = ['Displace', 'Stamper'];
+	assert.deepEqual(
+		[...carries, ...composites].sort(),
+		filterNames.filter(isDualInput).sort(),
+		'a two-input filter is in neither list, so nothing here says what it does with alpha'
+	);
+
+	//opaque, half transparent, fully transparent, opaque
+	const subject = () => {
+		const f = new NodeImageData(4, 1);
+		[[200, 200, 200, 255], [200, 200, 200, 128], [200, 200, 200, 0], [200, 200, 200, 255]]
+			.forEach((p, i) => f.data.set(p, i * 4));
+		return f;
+	};
+	const modifier = () => {
+		const f = new NodeImageData(4, 1);
+		[[255, 255, 255, 255], [128, 128, 128, 255], [64, 64, 64, 255], [0, 0, 0, 255]]
+			.forEach((p, i) => f.data.set(p, i * 4));
+		return f;
+	};
+
+	for (const name of carries) {
+		const out = new CLARITY[name]({}).process([subject(), modifier()]);
+		assert.deepEqual(
+			[...out.data.filter((_, i) => i % 4 === 3)],
+			[255, 128, 0, 255],
+			`${name} did not carry the first frame's alpha`
+		);
+	}
+
+	// The other two are tested below, and the reason they are not in the strict
+	// list is that neither can *lower* an alpha either - which is the half of the
+	// rule that keeps the whole family out of the `alpha-out` trait.
+});
+
+test('Stamper composites onto transparent ground rather than sealing it', () => {
+	// Stamper reads the family rule one step further, and has to: it is a
+	// source-over composite, so a filter that refused to touch alpha at all would
+	// draw a stamp onto empty ground and then decline to show it. Scattering
+	// something *into* a sprite rather than onto a picture is the case.
+	const ground = new NodeImageData(W, H);	//every byte 0, so fully transparent
+	const sprite = new NodeImageData(4, 4);
+	for (let i = 0; i < sprite.data.length; i += 4) sprite.data.set([255, 0, 0, 255], i);
+
+	const out = new CLARITY.Stamper({ count: 6, size: 12, sizeJitter: 0, shadeJitter: 0, rotation: 0, seed: 3 })
+		.process([ground, sprite]);
+
+	let solid = 0;
+	let clear = 0;
+	for (let i = 3; i < out.data.length; i += 4) {
+		if (out.data[i] === 255) solid++;
+		if (out.data[i] === 0) clear++;
+	}
+	assert.ok(solid > 0, 'a stamp laid on transparent ground was drawn and then not shown');
+	assert.ok(clear > 0, 'the bare ground between the stamps was sealed over');
+
+	// And a covered pixel is the sprite's own colour, which is the premultiplied
+	// half of it: divide the accumulated colour back out by the accumulated
+	// alpha and a fully covered pixel has to come back exactly as it went on. Get
+	// that wrong and every stamp is a fraction of itself against black.
+	for (let i = 0; i < out.data.length; i += 4) {
+		if (out.data[i + 3] === 255) {
+			assert.deepEqual(
+				[out.data[i], out.data[i + 1], out.data[i + 2]],
+				[255, 0, 0],
+				`a fully covered pixel at ${i} came back darker than the sprite`
+			);
+		}
+	}
+});
+
+test('Displace moves a silhouette rather than erasing it', () => {
+	// Displace *moves* pixels, and how transparent a pixel is belongs to it as
+	// much as its colour does. A sprite pushed sideways that came back a full
+	// rectangle would be Multiply's bug in a filter even more obviously about
+	// shape.
+	const sprite = new NodeImageData(W, H);
+	for (let y = 4; y < 12; y++) {
+		for (let x = 8; x < 16; x++) sprite.data.set([255, 255, 255, 255], (y * W + x) * 4);
+	}
+
+	// Red 255 is a full-scale offset and green 128 is none, so the whole frame
+	// reads from exactly 8 pixels to the right: no interpolation, no rounding,
+	// and the block should land 8 pixels to the left of where it started.
+	const field = new NodeImageData(W, H);
+	for (let i = 0; i < field.data.length; i += 4) field.data.set([255, 128, 0, 255], i);
+
+	const out = new CLARITY.Displace({ amount: 8, edges: 'wrap' }).process([sprite, field]);
+
+	const opaque = [];
+	for (let y = 0; y < H; y++) {
+		for (let x = 0; x < W; x++) {
+			if (out.data[(y * W + x) * 4 + 3] !== 0) opaque.push([x, y]);
+		}
+	}
+
+	assert.equal(opaque.length, 64, 'the silhouette changed size on the way across');
+	for (const [x, y] of opaque) {
+		assert.ok(x >= 0 && x < 8 && y >= 4 && y < 12, `a pixel of the silhouette landed at ${x},${y}`);
+		assert.equal(out.data[(y * W + x) * 4 + 3], 255, `the silhouette went soft at ${x},${y}`);
+	}
+});
+
+test('Stamper\'s probability map places whole stamps rather than faded ones', () => {
+	// The claim the third input is for, and the one thing that separates it from
+	// masking the output afterwards: a stamp is either drawn or it is not, so
+	// every sprite that survives is complete. Masking gives half-erased sprites
+	// along the boundary, which is what five texture recipes were working around
+	// before this existed.
+	//
+	// The sprite is fully opaque, so every pixel it covers comes out exactly red
+	// - which is what makes "whole rather than faded" checkable by looking at
+	// the colours rather than by counting them.
+	const ground = () => {
+		const f = new NodeImageData(W, H);
+		for (let i = 0; i < f.data.length; i += 4) f.data[i + 3] = 255;
+		return f;
+	};
+	const sprite = new NodeImageData(4, 4);
+	for (let i = 0; i < sprite.data.length; i += 4) sprite.data.set([255, 0, 0, 255], i);
+
+	const flat = (value) => {
+		const f = new NodeImageData(W, H);
+		for (let i = 0; i < f.data.length; i += 4) f.data.set([value, value, value, 255], i);
+		return f;
+	};
+	//left half white, right half black
+	const split = () => {
+		const f = flat(0);
+		for (let y = 0; y < H; y++) {
+			for (let x = 0; x < W / 2; x++) f.data.set([255, 255, 255, 255], (y * W + x) * 4);
+		}
+		return f;
+	};
+
+	// `shadeJitter: 0` because this case reads the *colours* to decide whether a
+	// stamp is whole, and shade variation would make every stamp a different
+	// red. `wrap: true` is the default, said out loud because the last
+	// assertion below is about the wrapped copy.
+	const options = { count: 8, size: 10, sizeJitter: 0, shadeJitter: 0, rotation: 0, wrap: true };
+	const run = (map) => new CLARITY.Stamper({ ...options, seed: 7 })
+		.process(map ? [ground(), sprite, map] : [ground(), sprite]);
+
+	const changed = (frame) => {
+		let count = 0;
+		for (let i = 0; i < frame.data.length; i += 4) {
+			if (frame.data[i] !== 0) count++;
+		}
+		return count;
+	};
+	/** Every pixel that moved is the sprite's own colour - no partial coverage. */
+	const allWhole = (frame) => {
+		for (let i = 0; i < frame.data.length; i += 4) {
+			if (frame.data[i] !== 0 && (frame.data[i] !== 255 || frame.data[i + 1] !== 0)) {
+				return false;
+			}
+		}
+		return true;
+	};
+
+	const bare = run(null);
+	assert.ok(changed(bare) > 0, 'nothing was stamped without a map, so nothing below means anything');
+
+	// White is "always" and black is "never", exactly - not "almost always" and
+	// "almost never". The comparison is `>=` rather than `>` for the black end
+	// of that: hashedRandom can return exactly 0, and a stamp landing once in
+	// sixteen million on ground the map said was bare is a bug that gets found
+	// years later.
+	assert.deepEqual([...run(flat(255)).data], [...bare.data], 'a white map placed something other than every stamp');
+	assert.deepEqual([...run(flat(0)).data], [...ground().data], 'a black map placed a stamp anyway');
+
+	// The middle, which is the reason this reads a probability rather than a
+	// boolean: fewer stamps, each of them whole.
+	const half = run(flat(128));
+	assert.ok(changed(half) > 0 && changed(half) < changed(bare), `a mid-grey map placed ${changed(half)} of ${changed(bare)}`);
+	assert.ok(allWhole(half), 'a mid-grey map faded stamps instead of dropping them');
+
+	// And the shape of it follows the map. Stamps reach past the boundary,
+	// because the map places *centres* rather than coverage - so the assertion
+	// is that the far side is clear, not that the boundary is.
+	const sided = run(split());
+	assert.ok(allWhole(sided), 'a hard-edged map left partial stamps at the boundary');
+
+	const column = (frame, x) => {
+		let count = 0;
+		for (let y = 0; y < H; y++) {
+			if (frame.data[(y * W + x) * 4] !== 0) count++;
+		}
+		return count;
+	};
+
+	for (let x = 17; x < W - 1; x++) {
+		assert.equal(column(sided, x), 0, `a stamp reached column ${x}, well inside the black half`);
+	}
+
+	// The last column is stamped, and that is the point rather than a leak. The
+	// scatter *tiles*: the cell at the left edge is also drawn one frame-width
+	// to the right, so its stamp overhangs back in here - and it is only drawn
+	// at all because the map was sampled at the **wrapped** cell's centre, over
+	// on the white side. Sample the unwrapped centre instead and this column
+	// goes empty while the left edge keeps its stamp, which is the moment the
+	// result stops tiling.
+	assert.ok(column(sided, W - 1) > 0, 'the wrapped copy of a placed stamp was dropped, so the result no longer tiles');
+});
+
 test('ChromaKey multiplies alpha rather than assigning it', () => {
 	// A frame arriving half transparent has to come back half transparent where
 	// nothing matched. Assigning would hand every pixel its opacity back, which
@@ -1978,4 +2227,76 @@ test('ChromaticAberration disperses radially, not in one direction', () => {
 	// and red, the datum, must not have moved at all
 	assert.equal(brightest(0, 0, size / 2), spikes[0], 'red is the datum and must not move');
 	assert.equal(brightest(0, size / 2, size), spikes[1], 'red is the datum and must not move');
+});
+
+test('GradientMap takes a ramp of its own, in either spelling', () => {
+	// A greyscale wedge, so every table entry is exercised and the position a
+	// colour lands at is predictable.
+	const wedge = new NodeImageData(256, 1);
+	for (let x = 0; x < 256; x++) {
+		const i = x * 4;
+		wedge.data[i] = wedge.data[i + 1] = wedge.data[i + 2] = x;
+		wedge.data[i + 3] = 255;
+	}
+	const at = (out, x) => [out.data[x * 4], out.data[x * 4 + 1], out.data[x * 4 + 2]];
+
+	// The short spelling: colours only, spread evenly. Three stops means the
+	// middle one lands at 0.5, which is index 127 or 128 of 255.
+	const hex = new CLARITY.GradientMap({ stops: ['000000', 'ff0000', 'ffffff'] }).process(wedge);
+	assert.deepEqual(at(hex, 0), [0, 0, 0], 'the first stop owns the black end');
+	assert.deepEqual(at(hex, 255), [255, 255, 255], 'the last stop owns the white end');
+	const middle = at(hex, 128);
+	assert.ok(middle[0] > 250 && middle[1] < 10 && middle[2] < 10, `middle should be red, got ${middle}`);
+
+	// The positional spelling, and out of order on purpose: `sample` walks the
+	// stops assuming they ascend, so they have to be sorted on the way in.
+	const shuffled = new CLARITY.GradientMap({
+		stops: [[1, 255, 255, 255], [0, 0, 0, 0], [0.5, 255, 0, 0]]
+	}).process(wedge);
+	assert.deepEqual(at(shuffled, 0), at(hex, 0), 'out-of-order stops must sort, not interpolate backwards');
+	assert.deepEqual(at(shuffled, 128), at(hex, 128));
+	assert.deepEqual(at(shuffled, 255), at(hex, 255));
+
+	// A custom ramp replaces the named one rather than blending with it.
+	const named = new CLARITY.GradientMap({ ramp: 'ice' }).process(wedge);
+	const overridden = new CLARITY.GradientMap({ ramp: 'ice', stops: ['000000', 'ffffff'] }).process(wedge);
+	assert.notDeepEqual(at(overridden, 128), at(named, 128), 'stops must win over ramp');
+
+	// ...and setStops(null) hands the filter back to it.
+	const back = new CLARITY.GradientMap({ ramp: 'ice', stops: ['000000', 'ffffff'] });
+	back.setStops(null);
+	assert.deepEqual(at(back.process(wedge), 128), at(named, 128), 'null must restore the named ramp');
+});
+
+test('GradientMap falls back to the named ramp rather than throwing on a bad one', () => {
+	// Coerce, do not reject - the rule `coerceValue` follows for every other way
+	// a value reaches a filter from outside. A mistyped stop should cost you the
+	// custom ramp, not the render.
+	const frame = makeFrame();
+	const fire = new CLARITY.GradientMap().process(frame);
+
+	for (const stops of [[], ['ff0000'], 'ff0000', [[0, 1, 2]], [[0, 0, 0, 0], [1, 0, NaN, 0]]]) {
+		const out = new CLARITY.GradientMap({ stops }).process(frame);
+		assert.deepEqual([...out.data], [...fire.data], `${JSON.stringify(stops)} should have fallen back to fire`);
+	}
+});
+
+test('GradientMap holds the end colour of a ramp that does not span the full range', () => {
+	// An unclamped interpolation runs backwards off the end of the first colour
+	// here, because `at` is below the first stop and the span is measured from
+	// it - so 0 came out brighter than the stop it was supposed to be holding.
+	const wedge = new NodeImageData(256, 1);
+	for (let x = 0; x < 256; x++) {
+		const i = x * 4;
+		wedge.data[i] = wedge.data[i + 1] = wedge.data[i + 2] = x;
+		wedge.data[i + 3] = 255;
+	}
+
+	const out = new CLARITY.GradientMap({ stops: [[0.3, 200, 0, 0], [0.7, 0, 0, 200]] }).process(wedge);
+	const at = (x) => [out.data[x * 4], out.data[x * 4 + 1], out.data[x * 4 + 2]];
+
+	assert.deepEqual(at(0), [200, 0, 0], 'below the first stop, hold its colour');
+	assert.deepEqual(at(70), [200, 0, 0]);
+	assert.deepEqual(at(255), [0, 0, 200], 'above the last stop, hold its colour');
+	assert.deepEqual(at(200), [0, 0, 200]);
 });

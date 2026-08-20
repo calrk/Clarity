@@ -81,8 +81,10 @@ export function inputFrame(entry, name) {
  *
  * Three input shapes:
  *  - a single fixture name              -> process(frame)
- *  - two names, `sequence` unset        -> process([a, b]), the dual-input form
- *  - two names, `sequence: true`        -> process(a) then process(b), for the
+ *  - a list, `sequence` unset           -> process([a, b, ...]), the dual-input
+ *                                          form, and the three-input one for
+ *                                          Stamper's probability map
+ *  - a list, `sequence: true`           -> process(a) then process(b), for the
  *                                          stateful filters whose output
  *                                          depends on frames already seen
  */

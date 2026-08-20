@@ -396,7 +396,7 @@ test('every filter is in the catalogue, with a summary', () => {
 });
 
 test('declared traits agree with what the filters actually are', () => {
-	// Three of the traits restate something the code already knows, so they can
+	// Four of the traits restate something the code already knows, so they can
 	// be checked rather than trusted. The rest - what kind of image a filter
 	// wants - is a claim about meaning that nothing in the code can confirm,
 	// which is exactly why it has to be written down.
@@ -413,7 +413,15 @@ test('declared traits agree with what the filters actually are', () => {
 
 		const derived = {
 			starter: entry.category === 'Starters',
-			dual: entry.category === 'Dual Input',
+			// `Filter.dual`, not the category. Everything in `Dual Input` takes two
+			// frames, but the reverse stopped being true with Displace - a
+			// Transform that needs a field - and a category is a decision about
+			// where a palette shows something rather than a fact about arity.
+			dual: Ctor.dual,
+			// and the same for the third input, which is optional where the
+			// second is not - so this tags a filter that *can* read one rather
+			// than one that needs it
+			triple: Ctor.triple,
 			// `stateful` is the property that means "output depends on frames
 			// already seen", which is what the chip is warning about. This used
 			// to derive from `retains` instead, which is only the commonest

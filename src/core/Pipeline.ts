@@ -5,7 +5,8 @@ import { GLBackend } from '../gpu/GLBackend.js';
 import { executeChain, gpuBlocker } from '../gpu/execute.js';
 
 /**
- * Supplies the second frame for a two-input filter.
+ * Supplies one of the frames a stage takes alongside the chain - the second
+ * frame of a two-input filter, and the `first` and `third` beside it.
  *
  * Kept deliberately small. A full node graph is the honest answer for combining
  * arbitrary chains, but it is a much bigger feature and most of what people
@@ -42,18 +43,29 @@ export interface StageOptions {
 	 * the outer run's source too.
 	 */
 	first?: SecondInput;
+	/**
+	 * Third frame, for the one filter that reads one - `Stamper`'s probability
+	 * map.
+	 *
+	 * Resolved exactly like {@link second}, and optional in a way it is not: a
+	 * filter that takes a third input works without one, so leaving this out is a
+	 * setting rather than an omission. See `Filter.triple`.
+	 */
+	third?: SecondInput;
 }
 
 interface Stage {
 	filter: Filter;
 	second?: SecondInput;
 	first?: SecondInput;
+	third?: SecondInput;
 	/**
 	 * Which version of each branch this stage last consumed - see
 	 * {@link Pipeline.version}. Undefined until the stage has read one.
 	 */
 	firstVersion?: number;
 	secondVersion?: number;
+	thirdVersion?: number;
 	/** Output of this stage on the last run, when it is safe to reuse. */
 	cached?: ImageData;
 	/**
@@ -354,7 +366,12 @@ export class Pipeline {
 	}
 
 	add(filter: Filter, options: StageOptions = {}): this {
-		this.stages.push({ filter, second: options.second, first: options.first });
+		this.stages.push({
+			filter,
+			second: options.second,
+			first: options.first,
+			third: options.third
+		});
 		this.structureDirty = true;
 		return this;
 	}
@@ -363,7 +380,8 @@ export class Pipeline {
 		this.stages.splice(clampIndex(index, this.stages.length), 0, {
 			filter,
 			second: options.second,
-			first: options.first
+			first: options.first,
+			third: options.third
 		});
 		this.structureDirty = true;
 		return this;
@@ -492,7 +510,10 @@ export class Pipeline {
 						filter: stage.filter,
 						second: stage.second === undefined
 							? undefined
-							: this.resolve(stage, 'second', source)
+							: this.resolve(stage, 'second', source),
+						third: stage.third === undefined
+							? undefined
+							: this.resolve(stage, 'third', source)
 					})),
 					frame
 				);
@@ -523,10 +544,16 @@ export class Pipeline {
 			const stage = this.stages[i];
 			const at = defaultClock();
 
-			frame = stage.second === undefined
+			frame = stage.second === undefined && stage.third === undefined
 				? stage.filter.process(frame)
-				//`process` matches the second frame to this one - see Filter.process
-				: stage.filter.process([frame, this.resolve(stage, 'second', source)]);
+				//`process` matches the other frames to this one - see Filter.process.
+				//A hole is allowed: a third input without a second is a legal thing
+				//to wire, and the array carries the inputs by position.
+				: stage.filter.process([
+					frame,
+					stage.second === undefined ? undefined : this.resolve(stage, 'second', source),
+					stage.third === undefined ? undefined : this.resolve(stage, 'third', source)
+				]);
 
 			timings[i] = defaultClock() - at;
 			stage.filter.dirty = false;
@@ -572,15 +599,17 @@ export class Pipeline {
 	 * branch without recording it is a stage that will happily serve a stale
 	 * frame forever. See {@link version}.
 	 */
-	private resolve(stage: Stage, side: 'first' | 'second', source: ImageData): ImageData {
+	private resolve(stage: Stage, side: 'first' | 'second' | 'third', source: ImageData): ImageData {
 		const input = stage[side]!;
 		const frame = resolveSecond(input, source);
 
 		if (input instanceof Pipeline) {
 			if (side === 'first') {
 				stage.firstVersion = input.version;
-			} else {
+			} else if (side === 'second') {
 				stage.secondVersion = input.version;
+			} else {
+				stage.thirdVersion = input.version;
 			}
 		}
 
@@ -721,13 +750,16 @@ function branches(stage: Stage): Pipeline[] {
 	const found: Pipeline[] = [];
 	if (stage.first instanceof Pipeline) found.push(stage.first);
 	if (stage.second instanceof Pipeline) found.push(stage.second);
+	if (stage.third instanceof Pipeline) found.push(stage.third);
 	return found;
 }
 
-/** Whether either branch has moved, or is about to, since this stage read it. */
+/** Whether any branch has moved, or is about to, since this stage read it. */
 function branchMoved(stage: Stage): boolean {
 	return (
-		moved(stage.first, stage.firstVersion) || moved(stage.second, stage.secondVersion)
+		moved(stage.first, stage.firstVersion) ||
+		moved(stage.second, stage.secondVersion) ||
+		moved(stage.third, stage.thirdVersion)
 	);
 }
 

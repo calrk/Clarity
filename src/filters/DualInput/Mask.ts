@@ -21,16 +21,26 @@ export interface MaskOptions extends FilterOptions {
  * grey mask halves the image. Mask has a hard cut-off, so a pixel is either
  * fully kept or fully dropped, with nothing in between. Feed it the output of
  * a thresholder or an edge detector and it behaves like a cookie cutter.
+ *
+ * It blacks the dropped pixels out rather than making them transparent, and the
+ * first frame's alpha carries through untouched either way - see `Filter.dual`.
+ * Cutting a real hole is {@link ChromaKey}'s job: that filter declares the
+ * `alpha-out` trait, and this one deliberately does not, so a mask cannot
+ * silently turn an opaque frame into one that needs compositing to be seen.
  */
 export class Mask extends Filter {
+	static override dual = true;
+
 	static override shader = /* glsl */ `
 uniform float u_threshold;
 uniform float u_inverted;
 
 void main(){
+	vec4 a = srcPixel(vUv);
 	float value = channelValue(src2Pixel(vUv));
 	bool keep = (value >= u_threshold) != (u_inverted > 0.5);
-	writeRGB(keep ? srcPixel(vUv).rgb : vec3(0.0));
+	//writePixel rather than writeRGB, which hardcodes an opaque alpha
+	writePixel(vec4(keep ? a.rgb : vec3(0.0), a.a));
 }
 `;
 
@@ -78,7 +88,8 @@ void main(){
 				output.data[i+1] = 0;
 				output.data[i+2] = 0;
 			}
-			output.data[i+3] = 255;
+			//the first frame's alpha, not 255 - see Filter.dual
+			output.data[i+3] = frame1.data[i+3];
 		}
 
 		return output;

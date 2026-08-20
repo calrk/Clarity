@@ -10,12 +10,28 @@ export interface BlendOptions extends FilterOptions {
 	ratio?: number;
 }
 
+/**
+ * A weighted mix of two images: `first * ratio + second * (1 - ratio)`.
+ *
+ * The first frame's alpha carries through untouched rather than being mixed
+ * with the second's - see `Filter.dual`. Mixing the two would read as the
+ * obvious thing to do and is the one answer that makes the filter unusable on a
+ * sprite: blend a subject halfway towards an opaque texture and the *ratio*
+ * would be right while the subject went half-transparent everywhere it used to
+ * be solid, and the frame around it went half-solid everywhere it used to be
+ * empty. What the control means is how much of the second image's colour to
+ * take, not how much of the first image to erase.
+ */
 export class Blend extends Filter {
+	static override dual = true;
+
 	static override shader = /* glsl */ `
 uniform float u_ratio;
 
 void main(){
-	writeRGB(srcPixel(vUv).rgb * u_ratio + src2Pixel(vUv).rgb * (1.0 - u_ratio));
+	vec4 a = srcPixel(vUv);
+	//writePixel rather than writeRGB, which hardcodes an opaque alpha
+	writePixel(vec4(a.rgb * u_ratio + src2Pixel(vUv).rgb * (1.0 - u_ratio), a.a));
 }
 `;
 
@@ -46,7 +62,8 @@ void main(){
 			output.data[i+0] = frame1.data[i  ]*this.properties.ratio + frame2.data[i  ]*(1-this.properties.ratio);
 			output.data[i+1] = frame1.data[i+1]*this.properties.ratio + frame2.data[i+1]*(1-this.properties.ratio);
 			output.data[i+2] = frame1.data[i+2]*this.properties.ratio + frame2.data[i+2]*(1-this.properties.ratio);
-			output.data[i+3] = 255;
+			//the first frame's alpha, not 255 - see Filter.dual
+			output.data[i+3] = frame1.data[i+3];
 		}
 
 		return output;

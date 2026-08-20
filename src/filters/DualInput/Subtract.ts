@@ -12,11 +12,18 @@ export interface SubtractOptions extends FilterOptions {
  * Subtracts the second image from the first. Channels that go negative are
  * clamped to 0 by the underlying Uint8ClampedArray, so overlapping bright areas
  * crush to black.
+ *
+ * The first frame's alpha carries through untouched - see `Filter.dual`, which
+ * carries the rule for the whole family.
  */
 export class Subtract extends Filter {
+	static override dual = true;
+
 	static override shader = /* glsl */ `
 void main(){
-	writeRGB(srcPixel(vUv).rgb - src2Pixel(vUv).rgb);
+	vec4 a = srcPixel(vUv);
+	//writePixel rather than writeRGB, which hardcodes an opaque alpha
+	writePixel(vec4(a.rgb - src2Pixel(vUv).rgb, a.a));
 }
 `;
 
@@ -32,7 +39,8 @@ void main(){
 			output.data[i  ] = frame1.data[i  ] - frame2.data[i  ];
 			output.data[i+1] = frame1.data[i+1] - frame2.data[i+1];
 			output.data[i+2] = frame1.data[i+2] - frame2.data[i+2];
-			output.data[i+3] = 255;
+			//the first frame's alpha, not 255 - see Filter.dual
+			output.data[i+3] = frame1.data[i+3];
 		}
 
 		return output;

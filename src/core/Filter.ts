@@ -66,6 +66,87 @@ export class Filter {
 	static stateful = false;
 
 	/**
+	 * Needs a second frame as well as the one flowing through the chain, so
+	 * `doProcess` takes two and a caller has to supply `StageOptions.second`.
+	 *
+	 * Declared rather than inferred from the family. It used to be read off the
+	 * catalogue category - everything in `Dual Input` takes two frames, which was
+	 * true for as long as the only two-input filters were the compositing ones.
+	 * `Displace` is a Transform that happens to need a field, so the category and
+	 * the arity came apart, and the category is a decision about where a palette
+	 * shows something rather than a fact about the filter.
+	 *
+	 * A host reads the `dual` trait for this and the trait is checked against
+	 * this, so the two cannot drift.
+	 *
+	 * **The first frame's alpha is the output's alpha, for every filter that
+	 * takes two.** The second frame is the modifier - it is the one resampled to
+	 * fit, it is the one named second in the docs - so it may change what a pixel
+	 * *looks* like and may not change whether the pixel is there. A subject keeps
+	 * its silhouette no matter what is composited onto it.
+	 *
+	 * That rule is what makes the family usable on sprites at all. Every one of
+	 * these filters assigned 255 until `Multiply` was found to turn a shaded
+	 * sprite into a rectangle, because the shape lives in the alpha channel; the
+	 * rest were fixed together rather than one at a time, since a family where
+	 * half the members drop a silhouette is worse than one where all of them do.
+	 * Their `doProcess` implementations carry no comment about it beyond a pointer
+	 * here - it is one rule, not nine decisions.
+	 *
+	 * Two filters read the rule further, because they *composite* rather than
+	 * combine, and both reduce to it exactly when the first frame is opaque:
+	 * `Stamper` accumulates source-over, so a stamp laid on transparent ground
+	 * makes it solid; `Displace` gathers alpha through the same bilinear tap it
+	 * gathers colour with, so a displaced silhouette moves with its pixels.
+	 * Neither can *lower* an alpha, which is why none of the family needs the
+	 * `alpha-out` trait: opaque in, opaque out, exactly what `filters.test.js`
+	 * asserts for every filter without it.
+	 */
+	static dual = false;
+
+	/**
+	 * Takes a *third* frame as well, which a caller supplies as
+	 * `StageOptions.third`.
+	 *
+	 * One filter does: `Stamper` reads a probability map that decides which of
+	 * its cells get a stamp at all. It is worth being clear about why that could
+	 * not be the second input wearing a hat. Stamper's second frame is the sprite
+	 * and is not optional; the map is a different picture, of a different size,
+	 * read for a different purpose, and a filter cannot be handed two frames on
+	 * one slot.
+	 *
+	 * Optional in a way `dual` is not, and deliberately so: a Stamper with no map
+	 * stamps every cell, which is what it always did. So this says "will read one
+	 * if given one" rather than "must be given one", and nothing has to be
+	 * rewired to leave it out.
+	 *
+	 * There is no `resamplesThird` to go with {@link resamplesSecond}. A third
+	 * frame is always a picture covering the frame and is always matched to it -
+	 * the sprite case that forced the second input's opt-out open is already
+	 * spoken for by the second input.
+	 */
+	static triple = false;
+
+	/**
+	 * Whether the second frame is stretched to the first's size before
+	 * `doProcess` sees it.
+	 *
+	 * True for everything that composites two *pictures* - `Multiply` of a photo
+	 * and a mask means the two line up, whatever sizes they arrived at, and
+	 * `Displace` reads its field the same way. See `process` for what the
+	 * resample is fixing.
+	 *
+	 * False for the one filter that treats the second frame as a *sprite* rather
+	 * than a picture. `Stamper` draws small copies of it at a scale it is told,
+	 * so stretching it to the canvas first would force it to the canvas's aspect
+	 * ratio - a blade of grass on a 16:9 frame would arrive squashed, and the
+	 * filter has no way to know it had been. The shader gets `uSrc2Size` for the
+	 * same reason: once the second frame can be a different shape, sampling it
+	 * needs its real dimensions rather than the frame's.
+	 */
+	static resamplesSecond = true;
+
+	/**
 	 * Output changes between calls on identical input, because the filter reads
 	 * the clock or the random source - `Wave`, `Noise`, `Cloud`.
 	 *
@@ -275,10 +356,19 @@ export class Filter {
 		return this.rolledSeed;
 	}
 
-	process(frame: ImageData | ImageData[]): ImageData {
+	/**
+	 * The array form carries the wired-in inputs positionally - `[frame, second,
+	 * third]` - and a hole is allowed rather than being a mistake: a filter that
+	 * reads a third frame reads it *optionally*, so `[frame, sprite]` and
+	 * `[frame, sprite, map]` are both legitimate calls on the same filter, and a
+	 * caller assembling the array from a stage's options should not have to
+	 * decide which shape to build.
+	 */
+	process(frame: ImageData | (ImageData | undefined)[]): ImageData {
 		if (Array.isArray(frame)) {
+			const first = frame[0]!;
 			if (!this.enabled) {
-				return frame[0];
+				return first;
 			}
 			//The second frame is a different picture and nothing makes the two agree
 			//about size. Every `doProcess` below walks it by byte offset, which for a
@@ -293,9 +383,19 @@ export class Filter {
 			//of that rather than six, and this is the choke point every caller goes
 			//through - including anyone using a filter on its own, away from a
 			//Pipeline. Free when the sizes already match.
+			//
+			//A filter that reads the second frame as a sprite rather than a picture
+			//opts out - see resamplesSecond.
+			const second = frame[1];
+			//A third frame has no opt-out: it is a picture covering the frame, so
+			//it is matched here whatever the filter is - see Filter.triple.
+			const third = frame[2];
 			return this.doProcess(
-				frame[0],
-				frame[1] && resampleTo(frame[1], frame[0].width, frame[0].height)
+				first,
+				second && (this.constructor as typeof Filter).resamplesSecond
+					? resampleTo(second, first.width, first.height)
+					: second,
+				third ? resampleTo(third, first.width, first.height) : third
 			);
 		}
 
@@ -305,7 +405,7 @@ export class Filter {
 		return this.doProcess(frame);
 	}
 
-	doProcess(frame: ImageData, _second?: ImageData): ImageData {
+	doProcess(frame: ImageData, _second?: ImageData, _third?: ImageData): ImageData {
 		return frame;
 	}
 

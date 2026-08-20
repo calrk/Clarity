@@ -282,6 +282,37 @@ test('a pipeline can be the second input to another', () => {
 	assert.deepEqual(bytes(actual), bytes(expected));
 });
 
+test('a third input reaches the filter, and moves the chain when it moves', () => {
+	// `Stamper` is the only filter that reads one, and the slot is optional -
+	// so the two things worth pinning are that a wired third frame arrives at
+	// all, and that the branch feeding it counts as a branch. The second is the
+	// part that is easy to miss: `first` and `second` were already tracked, and
+	// a third slot that nobody recorded a version for would serve a stage from
+	// cache forever while the chain wired into it kept producing new frames.
+	const sprite = makeFrame(9);
+	const map = new CLARITY.Pipeline([new CLARITY.Fill({ colour: 'ffffff' })], { gpu: false });
+
+	const chain = new CLARITY.Pipeline([], { gpu: false })
+		.add(new CLARITY.Stamper({ seed: 3, count: 6 }), { second: sprite, third: map });
+
+	const source = makeFrame();
+	const actual = chain.run(source);
+
+	// White all the way through means every cell stamps, so this is the no-map
+	// result - which is what says the map arrived and was read as a probability
+	// rather than ignored or multiplied through.
+	const expected = new CLARITY.Stamper({ seed: 3, count: 6 }).process([makeFrame(), sprite]);
+	assert.deepEqual(bytes(actual), bytes(expected), 'a white map did not place every stamp');
+
+	// and the branch is tracked: a Fill whose colour changes is a new frame in
+	// that slot, and the stage has to be recomputed rather than served
+	map.at(0).setProperty('colour', '000000');
+	assert.equal(chain.stable, false, 'a moving third branch left the chain looking stable');
+	const bare = chain.run(source);
+	assert.equal(chain.stats.from, 0, 'the chain was served from cache while its third input moved');
+	assert.deepEqual(bytes(bare), bytes(source), 'a black map stamped anyway');
+});
+
 test('a second input given as a function is called each run', () => {
 	let calls = 0;
 	const pipeline = new CLARITY.Pipeline().add(new CLARITY.Blend({ ratio: 0.5 }), {

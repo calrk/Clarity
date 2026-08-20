@@ -7,6 +7,7 @@ import type { Filter } from '../core/Filter.js';
 export interface GPUStage {
 	filter: Filter;
 	second?: ImageData;
+	third?: ImageData;
 }
 
 export interface ExecuteResult {
@@ -111,7 +112,16 @@ export function executeChain(
 	};
 
 	for (let index = 0; index < stages.length; index++) {
-		const { filter, second } = stages[index];
+		const { filter, second, third } = stages[index];
+
+		//The wired-in inputs, in the form `process` takes them. A stage with
+		//neither is handed the frame on its own rather than a one-element array,
+		//because that is the single-input form every filter that is not expecting
+		//a second frame understands.
+		const onCPU = (frame: ImageData) =>
+			second === undefined && third === undefined
+				? filter.process(frame)
+				: filter.process([frame, second, third]);
 
 		if (!filter.enabled) {
 			continue;	//process() would just hand the frame back
@@ -123,9 +133,7 @@ export function executeChain(
 		if (reason) {
 			toCPU();
 			result.fallbacks.push({ index, filter: filter.constructor.name, reason });
-			cpuFrame = second
-				? filter.process([cpuFrame!, second])
-				: filter.process(cpuFrame!);
+			cpuFrame = onCPU(cpuFrame!);
 			width = cpuFrame.width;
 			height = cpuFrame.height;
 			continue;
@@ -146,8 +154,26 @@ export function executeChain(
 		//is worth making, so one that quietly ignored half the traffic was
 		//understating exactly the case it was being consulted about.
 		let secondTexture: WebGLTexture | null = null;
+		let secondSize: [number, number] | undefined;
 		if (second) {
-			secondTexture = backend.uploadSecond(resampleTo(second, width, height));
+			//Unless the filter reads it as a sprite, in which case it keeps its own
+			//size and the shader is told what that is - see Filter.resamplesSecond.
+			const matched = (filter.constructor as typeof Filter).resamplesSecond
+				? resampleTo(second, width, height)
+				: second;
+			secondTexture = backend.uploadSecond(matched);
+			secondSize = [matched.width, matched.height];
+			result.transfers++;
+		}
+		//A third input is always a picture covering the frame - there is no sprite
+		//case to opt out of - so it is matched unconditionally, and its size is
+		//how the shader is told there is one at all.
+		let thirdTexture: WebGLTexture | null = null;
+		let thirdSize: [number, number] | undefined;
+		if (third) {
+			const matched = resampleTo(third, width, height);
+			thirdTexture = backend.uploadThird(matched);
+			thirdSize = [matched.width, matched.height];
 			result.transfers++;
 		}
 		const originalTexture = keepOriginal(backend, passes!, gpuTarget ? gpuTarget.texture : gpuTexture!, width, height);
@@ -228,6 +254,9 @@ export function executeChain(
 					program,
 					source: gpuTarget ? gpuTarget.texture : gpuTexture!,
 					second: secondTexture,
+					secondSize,
+					third: thirdTexture,
+					thirdSize,
 					reduce: reduceTexture,
 					original: originalTexture,
 					data: dataTexture,
@@ -254,7 +283,7 @@ export function executeChain(
 			//frame. Drop this stage to the CPU and carry on.
 			toCPU();
 			result.fallbacks.push({ index, filter: filter.constructor.name, reason: failed });
-			cpuFrame = second ? filter.process([cpuFrame!, second]) : filter.process(cpuFrame!);
+			cpuFrame = onCPU(cpuFrame!);
 			continue;
 		}
 

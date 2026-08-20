@@ -27,6 +27,7 @@
 export type FilterTrait =
 	| 'starter'
 	| 'dual'
+	| 'triple'
 	| 'temporal'
 	| 'heightmap-in'
 	| 'normalmap-in'
@@ -42,7 +43,11 @@ export const TRAITS: Record<FilterTrait, { label: string; description: string }>
 	},
 	dual: {
 		label: 'Two inputs',
-		description: 'Needs a second frame as well as the one flowing through the pipeline.'
+		description: 'Needs a second frame as well as the one flowing through the pipeline. The second frame is the modifier: it changes how the first one looks, and never what shape it is, so the transparency you get back is the first frame\'s.'
+	},
+	triple: {
+		label: 'Takes a third input',
+		description: 'Reads an optional third frame as well as the second. It works without one - this says there is more to give it, not that something is missing.'
 	},
 	temporal: {
 		label: 'Needs motion',
@@ -138,6 +143,7 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 
 	// --- Transform ---
 	ChromaticAberration: { category: 'Transform', summary: "Displaces the R and G channels in opposite directions." },
+	Displace: { category: 'Transform', summary: "Moves every pixel by an offset read out of a second image - the irregular distortion a sine cannot make.", traits: ['dual', 'normalmap-in'] },
 	FishEye: { category: 'Transform', summary: "Bows the image outward like a lens, or pinches it inward." },
 	Mirror: { category: 'Transform', summary: "Flips the image horizontally, vertically, or both." },
 	Rotator: { category: 'Transform', summary: "Rotates in 90 degree steps." },
@@ -165,7 +171,8 @@ export const CATALOGUE: Record<string, CatalogueEntry> = {
 	Difference: { category: 'Dual Input', summary: "Absolute difference between two images - symmetric, and it keeps the range Subtract clamps away.", traits: ['dual'] },
 	Blend: { category: 'Dual Input', summary: "Weighted mix of two images.", traits: ['dual'] },
 	Mask: { category: 'Dual Input', summary: "Binary stencil - keeps the first image where the mask is light, blacks it out where the mask is dark.", traits: ['dual'] },
-	Multiply: { category: 'Dual Input', summary: "Multiplies the two images together, channel by channel.", traits: ['dual'] },
+	Multiply: { category: 'Dual Input', summary: "Multiplies the two images together, channel by channel, keeping the first one's transparency.", traits: ['dual'] },
+	Stamper: { category: 'Dual Input', summary: "Scatters copies of the second image over the frame - grass, flowers, stars. Wants a sprite with transparency, not a picture. An optional third frame is a probability map deciding where stamps land.", traits: ['dual', 'triple'] },
 
 	// --- Misc ---
 	Brickulate: { category: 'Misc', summary: "Overlays a brick/tile grid with bevelled grooves." },

@@ -1,7 +1,7 @@
 Clarity
 =======
 
-Fifty-seven composable image filters for canvas — blur, edge detection, chromatic
+Fifty-nine composable image filters for canvas — blur, edge detection, chromatic
 aberration, posterising, normal maps, motion detection — running as fragment
 shaders by default, with a CPU implementation of every one of them behind it.
 
@@ -82,8 +82,33 @@ a `requestAnimationFrame` loop; `render()` does one frame. `move(from, to)`,
 
 Each filter takes a typed options bag, exposes `enabled` to bypass it without
 removing it from the chain, and describes its own tweakable properties through a
-[schema](#property-schemas). The two-input filters (`Add`, `Subtract`, `Blend`,
-`Mask`, `Multiply`) take `process([frameA, frameB])`.
+[schema](#property-schemas). The two-input filters (`Add`, `Subtract`,
+`Difference`, `Blend`, `Mask`, `Multiply`, `Displace`, `Stamper`) take
+`process([frameA, frameB])`, and `Stamper` will read a third if you give it one
+— `process([frame, sprite, probabilityMap])`.
+
+**Options are not properties.** A property is one scalar, because it has to
+survive a chain string, a URL and a generated control. An option is whatever
+suits the caller, so a filter is free to accept spellings that could never be
+any of those — and a few do, for things that are genuinely code-shaped:
+
+```js
+new Fill({ rgb: [255, 136, 68] });      // or hsv, or a hex string
+
+// a ramp of your own: hex colours spread evenly, or positioned quadruples
+new GradientMap({ stops: ['1b2430', 'a8542f', 'f6f3ed'] });
+new GradientMap({ stops: [[0, 28, 18, 10], [0.75, 150, 110, 70], [1, 255, 242, 215]] });
+
+// or start from a built-in and edit it - RAMPS is exported for exactly this
+new GradientMap({ stops: RAMPS.ice.map(([at, r, g, b]) => [at, r + 30, g, b]) });
+```
+
+`GradientMap`'s `stops` is a ramp of your own, replacing the named one. Give it
+hex colours to have them spread evenly, or `[position, r, g, b]` quadruples when
+the spacing is the point. `steps`, `cycle` and `offset` all work on it unchanged,
+and `setStops(null)` hands the filter back to its named ramp. A mistyped ramp
+falls back to the named one rather than throwing, like every other value that
+reaches a filter from outside.
 
 A plain `<script>` build is also published, exposing everything on a `CLARITY`
 global:
@@ -208,8 +233,8 @@ trail jump.
 
 ### Two-input filters
 
-`Add`, `Subtract`, `Blend`, `Mask` and `Multiply` need a second frame, which a
-stage supplies:
+`Add`, `Subtract`, `Blend`, `Mask`, `Multiply` and `Stamper` need a second frame,
+which a stage supplies:
 
 ```js
 const maskChain = new Pipeline([new Desaturate(), new ValueThreshold()]);
@@ -236,6 +261,56 @@ const fog = new Pipeline()
 A stage with a `first` ignores whatever reached it — the stages above still run,
 they just stop being read — so in practice it goes on the first stage of a
 chain, where there is nothing above it to ignore.
+
+`Stamper` is the exception to how all of those read their second frame. The rest
+composite two *pictures*, so a second frame of a different size is stretched to
+match before the filter sees it. `Stamper`'s second frame is a **sprite** — it
+keeps its own size and proportions, and its alpha is what gives each stamp its
+shape.
+
+```js
+new Pipeline()
+	.add(new Fill({ colour: '3a4a28' }))
+	.add(new Stamper({ count: 14, size: 9, rotation: 20 }), { second: blade });
+```
+
+Stamps sit one per cell of a jittered grid, which is what lets the same filter
+run as a shader — a fragment shader cannot draw a sprite wherever it likes, only
+answer for the pixel it was asked about, so `count` is a density rather than a
+total.
+
+Each stamp is drawn at its own size, angle and **shade**, hashed from its cell —
+`shadeJitter` is a per-stamp gain on the colour and not on the alpha, so a darker
+stamp is darker rather than thinner. The cells wrap, so the result tiles; turn
+`wrap` off and a stamp overhanging an edge is cut there instead of coming back in
+on the opposite side, which is what a single picture wants rather than a texture.
+
+### Where the stamps land
+
+`Stamper` also reads an optional **third** frame, and it is the only filter that
+takes one. It is a probability map: each cell samples it once, at its own stamp's
+centre, and the value there is the chance that stamp is drawn at all — white
+always, black never, mid-grey about half the time. Leave it out and every cell
+stamps, as before.
+
+```js
+const damp = new Pipeline([new Cloud({ seed: 3 }), new Levels({ black: 90 })]);
+
+new Pipeline()
+	.add(new Fill({ colour: '3a4a28' }))
+	.add(new Stamper({ count: 20, size: 7 }), { second: blade, third: damp });
+```
+
+This is not the same as masking the output, which is the point of it. Fade a
+finished field of stamps against a mask and the boundary is half-erased sprites —
+grass that thins by going transparent. Gating the placement means every stamp
+that survives is whole, so a hard-edged map gives a clump with a ragged edge of
+complete blades and a soft one gives density falling away.
+
+Two things to expect. It places **centres, not coverage**, so a clump comes out
+about a stamp radius larger than the shape you drew. And the effective count is
+`count` times the map's coverage — a map that is white over a fifth of the frame
+needs five times the count for the same density inside it.
 
 Filtering an `<img>`
 --------------------
@@ -441,7 +516,7 @@ LICENSE and is baked into every built bundle.
 Filters
 =======
 
-57 of them, in eight families. The **[full reference](docs/FILTERS.md)**
+59 of them, in eight families. The **[full reference](docs/FILTERS.md)**
 gives each one a before/after image, an options table and a live playground link -
 generated from the library by `npm run docs`, and checked by the test suite, so it
 cannot describe a filter that no longer works that way.
@@ -451,10 +526,10 @@ cannot describe a filter that no longer works that way.
 | Process | `Bilateral`, `Bleed`, `Blur`, `ChromaKey`, `Convolver`, `Desaturate`, `Dither`, `DotCrawl`, `Glow`, `GradientMap`, `Halftone`, `HanoverBars`, `Histogram`, `Invert`, `Levels`, `Morphology`, `Noise`, `Pixelate`, `Posteriser`, `Skeletiser`, `Vignette`, `hsvShifter` |
 | Thresholders | `GradientThreshold`, `MedianThreshold`, `ValueThreshold` |
 | Salience | `EdgeDetector`, `MotionDetector`, `ShotDetector`, `SkinDetector` |
-| Transform | `ChromaticAberration`, `FishEye`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
+| Transform | `ChromaticAberration`, `Displace`, `FishEye`, `Mirror`, `Rotator`, `Tiler`, `Translator`, `Wave` |
 | Height Map | `Contourer`, `NormalFlip`, `NormalGenerator`, `NormalIntensity` |
 | Starters | `Cloud`, `Crackulate`, `Fill`, `Gradient`, `Voronoi`, `Woodgrain` |
-| Dual Input | `Add`, `Subtract`, `Difference`, `Blend`, `Mask`, `Multiply` |
+| Dual Input | `Add`, `Subtract`, `Difference`, `Blend`, `Mask`, `Multiply`, `Stamper` |
 | Misc | `Brickulate`, `DifferenceDetector`, `Ghoster`, `ScreenBurn`, `Puzzler` |
 
 Filters to be made

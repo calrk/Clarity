@@ -54,6 +54,8 @@ export { Mask } from './filters/DualInput/Mask.js';
 export type { MaskOptions } from './filters/DualInput/Mask.js';
 export { Multiply } from './filters/DualInput/Multiply.js';
 export type { MultiplyOptions } from './filters/DualInput/Multiply.js';
+export { Stamper } from './filters/DualInput/Stamper.js';
+export type { StamperOptions } from './filters/DualInput/Stamper.js';
 
 // HeightMap
 export { Contourer } from './filters/HeightMap/Contourer.js';
@@ -84,8 +86,8 @@ export { Morphology } from './filters/Process/Morphology.js';
 export type { MorphologyOptions, MorphologyMode } from './filters/Process/Morphology.js';
 export { Vignette } from './filters/Process/Vignette.js';
 export type { VignetteOptions } from './filters/Process/Vignette.js';
-export { GradientMap } from './filters/Process/GradientMap.js';
-export type { GradientMapOptions, Ramp } from './filters/Process/GradientMap.js';
+export { GradientMap, RAMPS } from './filters/Process/GradientMap.js';
+export type { GradientMapOptions, Ramp, Stop, RampStops } from './filters/Process/GradientMap.js';
 export { Glow } from './filters/Process/Glow.js';
 export type { GlowOptions } from './filters/Process/Glow.js';
 export { Halftone } from './filters/Process/Halftone.js';
@@ -146,6 +148,8 @@ export type { ValueThresholdOptions } from './filters/Thresholders/ValueThreshol
 // Transform
 export { ChromaticAberration } from './filters/Transform/ChromaticAberration.js';
 export type { ChromaticAberrationOptions } from './filters/Transform/ChromaticAberration.js';
+export { Displace } from './filters/Transform/Displace.js';
+export type { DisplaceOptions, DisplaceEdges } from './filters/Transform/Displace.js';
 export { Mirror } from './filters/Transform/Mirror.js';
 export type { MirrorOptions } from './filters/Transform/Mirror.js';
 export { Rotator } from './filters/Transform/Rotator.js';

@@ -5,7 +5,7 @@ description here comes from the library itself, and the pictures are the golden
 images the test suite asserts against — so this page cannot describe a version
 of a filter that does not exist.
 
-57 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
+59 filters. Each links into the [playground](https://clarity.clarklavery.com/), where the
 chain in the address bar is the same text the library parses.
 
 The images are the test fixtures, which are 64×48 so the goldens stay small and
@@ -20,13 +20,13 @@ playground link to see one at a sensible size.
 
 **Salience** — [EdgeDetector](#edgedetector) · [MotionDetector](#motiondetector) · [ShotDetector](#shotdetector) · [SkinDetector](#skindetector)
 
-**Transform** — [ChromaticAberration](#chromaticaberration) · [FishEye](#fisheye) · [Mirror](#mirror) · [Rotator](#rotator) · [Tiler](#tiler) · [Translator](#translator) · [Wave](#wave)
+**Transform** — [ChromaticAberration](#chromaticaberration) · [Displace](#displace) · [FishEye](#fisheye) · [Mirror](#mirror) · [Rotator](#rotator) · [Tiler](#tiler) · [Translator](#translator) · [Wave](#wave)
 
 **Height Map** — [Contourer](#contourer) · [NormalFlip](#normalflip) · [NormalGenerator](#normalgenerator) · [NormalIntensity](#normalintensity)
 
 **Starters** — [Cloud](#cloud) · [Crackulate](#crackulate) · [Fill](#fill) · [Gradient](#gradient) · [Woodgrain](#woodgrain) · [Voronoi](#voronoi)
 
-**Dual Input** — [Add](#add) · [Subtract](#subtract) · [Difference](#difference) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply)
+**Dual Input** — [Add](#add) · [Subtract](#subtract) · [Difference](#difference) · [Blend](#blend) · [Mask](#mask) · [Multiply](#multiply) · [Stamper](#stamper)
 
 **Misc** — [Brickulate](#brickulate) · [DifferenceDetector](#differencedetector) · [Ghoster](#ghoster) · [ScreenBurn](#screenburn) · [Puzzler](#puzzler)
 
@@ -35,7 +35,8 @@ playground link to see one at a sensible size.
 | Badge | Meaning |
 |---|---|
 | **Starter** | Ignores its input and generates a frame, so it belongs at the head of a chain. |
-| **Two inputs** | Needs a second frame as well as the one flowing through the pipeline. |
+| **Two inputs** | Needs a second frame as well as the one flowing through the pipeline. The second frame is the modifier: it changes how the first one looks, and never what shape it is, so the transparency you get back is the first frame's. |
+| **Takes a third input** | Reads an optional third frame as well as the second. It works without one - this says there is more to give it, not that something is missing. |
 | **Needs motion** | Compares frames over time. On a still image it has nothing to compare and outputs black. |
 | **Wants a height map** | Reads brightness as height, so it expects a greyscale height map rather than a picture. |
 | **Wants a normal map** | Reads the channels as an XYZ vector, so it expects a normal map - run NormalGenerator first. |
@@ -569,7 +570,7 @@ Absolute difference between the current frame and one N frames back.
 
 **Needs motion**
 
-<img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/MotionDetector.png" width="192" alt="MotionDetector applied to it">
+<img src="../test/fixtures/clean.png" width="192" alt="The clean fixture"> <img src="../test/fixtures/moved.png" width="192" alt="The moved fixture"> <img src="../test/golden/MotionDetector.png" width="192" alt="MotionDetector applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#crystal/MotionDetector)
 
@@ -590,7 +591,7 @@ Marks the frame where a cut happened, by how much of the picture changed at once
 
 **Needs motion**
 
-<img src="../test/fixtures/clean,photo.png" width="192" alt="The clean,photo fixture"> <img src="../test/golden/ShotDetector.png" width="192" alt="ShotDetector applied to it">
+<img src="../test/fixtures/clean.png" width="192" alt="The clean fixture"> <img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/golden/ShotDetector.png" width="192" alt="ShotDetector applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#crystal/ShotDetector)
 
@@ -643,6 +644,27 @@ new ChromaticAberration({ xdistance: 4, ydistance: 2, fixed: true });
 | `xdistance` | int | -100–100 | `8` | How far the outer channel is displaced horizontally at the frame edge, with green half as far and the inner one not at all. Zero at the centre of the frame. Negative puts red outside blue instead. |
 | `ydistance` | int | -100–100 | `0` | The same dispersion vertically, and signed independently of the horizontal. |
 | `fixed` | bool | true / false | `false` | Separate the channels by the same amount everywhere instead of growing toward the edges. Not what a lens does, and the one mode that can still smear a frame edge, since a constant offset has to read from outside somewhere. |
+
+### Displace
+
+Moves every pixel by an offset read out of a second image - the irregular distortion a sine cannot make.
+
+**Two inputs** · **Wants a normal map**
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/fixtures/field.png" width="192" alt="The field fixture"> <img src="../test/golden/Displace.png" width="192" alt="Displace applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#heightmap/Displace,amount=12)
+
+```js
+import { Displace } from '@calrk/clarity';
+
+new Displace({ amount: 12 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `amount` | float | 0–200 | `20` | How far a fully tilted pixel travels, in pixels. The field decides the direction; this decides the scale. |
+| `edges` | select | `clamp` · `wrap` | `clamp` | What to read where an offset points outside the frame. |
 
 ### FishEye
 
@@ -990,7 +1012,7 @@ Adds the second image to the first, clamping at white.
 
 **Two inputs**
 
-<img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Add.png" width="192" alt="Add applied to it">
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/fixtures/second.png" width="192" alt="The second fixture"> <img src="../test/golden/Add.png" width="192" alt="Add applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#landscape/Add)
 
@@ -1008,7 +1030,7 @@ Subtracts the second image from the first, clamping at black.
 
 **Two inputs**
 
-<img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Subtract.png" width="192" alt="Subtract applied to it">
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/fixtures/second.png" width="192" alt="The second fixture"> <img src="../test/golden/Subtract.png" width="192" alt="Subtract applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#landscape/Subtract)
 
@@ -1026,7 +1048,7 @@ Absolute difference between two images - symmetric, and it keeps the range Subtr
 
 **Two inputs**
 
-<img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Difference.png" width="192" alt="Difference applied to it">
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/fixtures/second.png" width="192" alt="The second fixture"> <img src="../test/golden/Difference.png" width="192" alt="Difference applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#landscape/Difference)
 
@@ -1044,7 +1066,7 @@ Weighted mix of two images.
 
 **Two inputs**
 
-<img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Blend.png" width="192" alt="Blend applied to it">
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/fixtures/second.png" width="192" alt="The second fixture"> <img src="../test/golden/Blend.png" width="192" alt="Blend applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#landscape/Blend,ratio=0.35)
 
@@ -1064,7 +1086,7 @@ Binary stencil - keeps the first image where the mask is light, blacks it out wh
 
 **Two inputs**
 
-<img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Mask.png" width="192" alt="Mask applied to it">
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/fixtures/second.png" width="192" alt="The second fixture"> <img src="../test/golden/Mask.png" width="192" alt="Mask applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#landscape/Mask)
 
@@ -1082,11 +1104,11 @@ new Mask();
 
 ### Multiply
 
-Multiplies the two images together, channel by channel.
+Multiplies the two images together, channel by channel, keeping the first one's transparency.
 
 **Two inputs**
 
-<img src="../test/fixtures/photo,second.png" width="192" alt="The photo,second fixture"> <img src="../test/golden/Multiply.png" width="192" alt="Multiply applied to it">
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/fixtures/second.png" width="192" alt="The second fixture"> <img src="../test/golden/Multiply.png" width="192" alt="Multiply applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#landscape/Multiply)
 
@@ -1097,6 +1119,33 @@ new Multiply();
 ```
 
 _No options._
+
+### Stamper
+
+Scatters copies of the second image over the frame - grass, flowers, stars. Wants a sprite with transparency, not a picture. An optional third frame is a probability map deciding where stamps land.
+
+**Two inputs** · **Takes a third input**
+
+<img src="../test/fixtures/photo.png" width="192" alt="The photo fixture"> <img src="../test/fixtures/blade.png" width="192" alt="The blade fixture"> <img src="../test/golden/Stamper.png" width="192" alt="Stamper applied to it">
+
+[Open in the playground →](https://clarity.clarklavery.com/#landscape/Stamper,count=6,size=18)
+
+```js
+import { Stamper } from '@calrk/clarity';
+
+new Stamper({ count: 6, size: 18 });
+```
+
+| Property | Type | Range | Default | |
+|---|---|---|---|---|
+| `seed` | int | 0–16777215, or empty for random | _random_ | Which scattering. Left empty it picks one when the filter is made and keeps it; set, the same number always gives the same arrangement - which is what makes a link reproduce. |
+| `count` | int | 1–64 | `12` | How many stamps across the frame. Rows follow from the aspect so the spacing stays even, so a square frame gets this many squared. |
+| `size` | float | 1–100 | `12` | How wide a stamp is drawn, as a percentage of the frame. Its height follows from the sprite's own proportions. |
+| `sizeJitter` | float | 0–1 | `0.3` | How much stamps vary in size. 0 draws every one the same, which nothing in nature does; 1 runs from half size to half again. |
+| `shadeJitter` | float | 0–1 | `0.2` | How much stamps vary in brightness, each one drawn a shade lighter or darker than the sprite. Centred like the size, so 1 runs from half as bright to half again - and it is a gain, so a bright sprite pushed above 1 washes towards white. Brightness rather than hue because a hue shift does nothing at all to a grey sprite, and half the things worth scattering are grey. |
+| `rotation` | float | 0–360 | `0` | How much stamps may turn, in degrees, centred on upright: 0 leaves them all straight, 30 leans them up to 15 either way, 360 faces them any which way. Centred rather than one-sided so that a small amount reads as a breeze rather than as the whole field falling over. |
+| `spread` | float | 0–1 | `0.8` | How far a stamp may wander from the middle of its cell. 0 is a dead-straight grid; 1 lets it reach the cell wall, which is as scattered as one-per-cell gets. |
+| `wrap` | bool | true / false | `true` | Whether a stamp hanging over one edge comes back in on the opposite one. On, the result tiles, which is what a texture wants. Off, it is cut at the frame edge instead - which is what a single picture wants, since a blade of grass leaning in from nowhere along the top is hard to explain. Only the borders differ either way. |
 
 ## Misc
 
@@ -1127,7 +1176,7 @@ Compares each frame against the first one it saw.
 
 **Needs motion**
 
-<img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/DifferenceDetector.png" width="192" alt="DifferenceDetector applied to it">
+<img src="../test/fixtures/clean.png" width="192" alt="The clean fixture"> <img src="../test/fixtures/moved.png" width="192" alt="The moved fixture"> <img src="../test/golden/DifferenceDetector.png" width="192" alt="DifferenceDetector applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#crystal/DifferenceDetector)
 
@@ -1145,7 +1194,7 @@ Onion-skins the last N frames together, weighted towards the newest.
 
 **Needs motion**
 
-<img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/Ghoster.png" width="192" alt="Ghoster applied to it">
+<img src="../test/fixtures/clean.png" width="192" alt="The clean fixture"> <img src="../test/fixtures/moved.png" width="192" alt="The moved fixture"> <img src="../test/golden/Ghoster.png" width="192" alt="Ghoster applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#crystal/Ghoster,length=3)
 
@@ -1165,7 +1214,7 @@ Burns a fading ghost of the brightest thing that has been on screen.
 
 **Needs motion**
 
-<img src="../test/fixtures/clean,moved.png" width="192" alt="The clean,moved fixture"> <img src="../test/golden/ScreenBurn.png" width="192" alt="ScreenBurn applied to it">
+<img src="../test/fixtures/clean.png" width="192" alt="The clean fixture"> <img src="../test/fixtures/moved.png" width="192" alt="The moved fixture"> <img src="../test/golden/ScreenBurn.png" width="192" alt="ScreenBurn applied to it">
 
 [Open in the playground →](https://clarity.clarklavery.com/#crystal/ScreenBurn,decay=0.75)
 

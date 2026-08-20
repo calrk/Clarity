@@ -6,6 +6,7 @@ import { Difference } from './filters/DualInput/Difference.js';
 import { Blend } from './filters/DualInput/Blend.js';
 import { Mask } from './filters/DualInput/Mask.js';
 import { Multiply } from './filters/DualInput/Multiply.js';
+import { Stamper } from './filters/DualInput/Stamper.js';
 import { Contourer } from './filters/HeightMap/Contourer.js';
 import { NormalFlip } from './filters/HeightMap/NormalFlip.js';
 import { NormalGenerator } from './filters/HeightMap/NormalGenerator.js';
@@ -46,6 +47,7 @@ import { GradientThreshold } from './filters/Thresholders/GradientThreshold.js';
 import { MedianThreshold } from './filters/Thresholders/MedianThreshold.js';
 import { ValueThreshold } from './filters/Thresholders/ValueThreshold.js';
 import { ChromaticAberration } from './filters/Transform/ChromaticAberration.js';
+import { Displace } from './filters/Transform/Displace.js';
 import { Mirror } from './filters/Transform/Mirror.js';
 import { Rotator } from './filters/Transform/Rotator.js';
 import { Tiler } from './filters/Transform/Tiler.js';
@@ -77,6 +79,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	Blend,
 	Mask,
 	Multiply,
+	Stamper,
 	Contourer,
 	NormalFlip,
 	NormalGenerator,
@@ -117,6 +120,7 @@ export const FILTERS: Record<string, FilterConstructor> = {
 	MedianThreshold,
 	ValueThreshold,
 	ChromaticAberration,
+	Displace,
 	Mirror,
 	Rotator,
 	Tiler,

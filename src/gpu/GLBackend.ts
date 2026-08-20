@@ -11,7 +11,7 @@ import type { SchemaField } from '../core/schema.js';
  * every generated `u_*` uniform is a float, so the list is fixed and short.
  */
 const INT_UNIFORMS = new Set([
-	'uSrc', 'uSrc2', 'uReduce', 'uOriginal', 'uData', 'uHistory',
+	'uSrc', 'uSrc2', 'uSrc3', 'uReduce', 'uOriginal', 'uData', 'uHistory',
 	'uChannel', 'uHistoryHead', 'uHistoryCount', 'uHistoryLength'
 ]);
 
@@ -177,6 +177,7 @@ export class GLBackend {
 	private targets: Target[] = [];
 	private sourceTexture: WebGLTexture | null = null;
 	private extraTexture: WebGLTexture | null = null;
+	private thirdTexture: WebGLTexture | null = null;
 	private dataTexture: WebGLTexture | null = null;
 	private histories = new Map<Filter, History>();
 	private blankArray: WebGLTexture | null = null;
@@ -314,6 +315,20 @@ export class GLBackend {
 
 	get secondTexture(): WebGLTexture | null {
 		return this.extraTexture;
+	}
+
+	/**
+	 * Uploads the third frame of a three-input filter - Stamper's probability
+	 * map.
+	 *
+	 * Its own texture object for the same reason the second one has one: they are
+	 * all live at once during the draw, so sharing would leave the last upload
+	 * standing in for every input.
+	 */
+	uploadThird(frame: ImageData): WebGLTexture {
+		this.thirdTexture ??= this.makeTexture();
+		this.write(this.thirdTexture, frame);
+		return this.thirdTexture;
 	}
 
 	/**
@@ -563,6 +578,24 @@ export class GLBackend {
 		program: WebGLProgram;
 		source: WebGLTexture;
 		second?: WebGLTexture | null;
+		/**
+		 * Size of the second frame, when it is not the frame's own.
+		 *
+		 * Only a sprite filter needs this - everything else has had its second
+		 * input resampled to match before it got here, so the default below is the
+		 * right answer for all of them.
+		 */
+		secondSize?: [number, number];
+		/** Third frame, for a filter that takes one. Bound to uSrc3. */
+		third?: WebGLTexture | null;
+		/**
+		 * Size of the third frame, and the flag that says there is one.
+		 *
+		 * Left out, the shader is told (0, 0) and `hasSrc3()` answers no - which
+		 * matters because an unbound uSrc3 falls back to the frame itself, so a
+		 * shader that read it anyway would get a mask made of the picture.
+		 */
+		thirdSize?: [number, number];
 		/** 1x1 reduction result, bound to uReduce. */
 		reduce?: WebGLTexture | null;
 		/** The stage's input, bound to uOriginal for a filter that asked for it. */
@@ -597,10 +630,14 @@ export class GLBackend {
 		gl.bindTexture(gl.TEXTURE_2D, options.data ?? options.source);
 		gl.activeTexture(gl.TEXTURE5);
 		gl.bindTexture(gl.TEXTURE_2D_ARRAY, options.history?.texture ?? this.blankHistory());
+		gl.activeTexture(gl.TEXTURE6);
+		gl.bindTexture(gl.TEXTURE_2D, options.third ?? options.source);
 		gl.activeTexture(gl.TEXTURE0);
 
 		this.setUniform(options.program, 'uSrc', 0);
 		this.setUniform(options.program, 'uSrc2', 1);
+		this.setUniform(options.program, 'uSrc3', 6);
+		this.setUniform(options.program, 'uSrc3Size', options.thirdSize ?? [0, 0]);
 		this.setUniform(options.program, 'uReduce', 2);
 		this.setUniform(options.program, 'uOriginal', 3);
 		this.setUniform(options.program, 'uData', 4);
@@ -609,6 +646,11 @@ export class GLBackend {
 		this.setUniform(options.program, 'uHistoryHead', options.history?.head ?? 0);
 		this.setUniform(options.program, 'uHistoryCount', options.history?.before ?? 0);
 		this.setUniform(options.program, 'uHistoryLength', options.history?.length ?? 1);
+		this.setUniform(
+			options.program,
+			'uSrc2Size',
+			options.secondSize ?? [options.sourceWidth, options.sourceHeight]
+		);
 		this.setUniform(options.program, 'uSize', [options.sourceWidth, options.sourceHeight]);
 		this.setUniform(options.program, 'uTexel', [1 / options.sourceWidth, 1 / options.sourceHeight]);
 		this.setUniform(options.program, 'uOutSize', [options.width, options.height]);
@@ -679,7 +721,7 @@ export class GLBackend {
 			gl.deleteFramebuffer(history.framebuffer);
 			gl.deleteTexture(history.texture);
 		}
-		for (const texture of [this.sourceTexture, this.extraTexture, this.dataTexture, this.blankArray]) {
+		for (const texture of [this.sourceTexture, this.extraTexture, this.thirdTexture, this.dataTexture, this.blankArray]) {
 			if (texture) {
 				gl.deleteTexture(texture);
 			}

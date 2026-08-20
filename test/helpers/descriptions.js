@@ -23,7 +23,12 @@ export const descriptions = {
 		note: 'Not the same as Multiply, despite the old README calling it one. Mask has a hard cut-off at the threshold, so a pixel is either fully kept or fully dropped; Multiply is continuous, so a 50% grey mask halves the image instead.'
 	},
 	Multiply: {
-		look: 'Dark wherever either input is dark; the disc keeps the first image, the surround goes near-black.'
+		look: 'Dark wherever either input is dark; the disc keeps the first image, the surround goes near-black. The "alpha" case multiplies a part-transparent frame: the colour is shaded and the transparency is exactly as it arrived, which is what makes the filter usable for shading a sprite.',
+		note: 'The first frame is the subject and the second is the shading, and it is the first frame\'s alpha that comes out - true of every two-input filter here. It matters most in this one: multiplying a cloud through a sprite is the obvious way to give it texture, and while this assigned 255 the answer came back as a rectangle with the silhouette thrown away.'
+	},
+	Stamper: {
+		look: 'Blades of grass scattered evenly over the photo, each tapering to a bright tip at the top and leaning right. Evenly spaced but not in rows - one per cell, nudged off centre, and each drawn a shade lighter or darker than the last so they read as individuals rather than as copies. The photo shows through everywhere a blade does not cover, and through the soft edges of the ones that do. In "shaded" that variation is turned up to its limit, and the thing to check is that a dark blade is *dark* rather than *faded* - the photo must not show through it. In "unwrapped" the blades are cut off at the frame edge instead of reappearing on the opposite side, so the sky shows in the top right corner where the wrapped copies used to be.',
+		note: 'The second input is a sprite, not a picture: it keeps its own 12x20 size instead of being stretched to the frame, and its alpha is what decides the shape. Hand it something opaque and this scatters rectangles. The "sown" case adds a third input - a height map read as a probability map - so the blades crowd onto its two peaks and thin out to bare ground in the corners, every surviving blade whole rather than faded. The "alpha" case stamps onto ground that is itself part transparent: the blades composite onto it rather than sealing it over, so they come out solid while the gaps between them stay exactly as clear as they arrived - which is how you scatter something into a sprite rather than onto a picture.'
 	},
 
 	// --- Height map ---
@@ -134,6 +139,10 @@ export const descriptions = {
 	},
 	Wave: {
 		look: 'Rippling distortion. No black gaps - it gathers rather than scatters, so every output pixel is written.'
+	},
+	Displace: {
+		look: 'Content pushed around in two axes independently, following the field rather than a repeating wave. Smooth - no stair-stepping along the flat parts of the field, which is what tells you the bilinear read is working.',
+		note: 'Wants a normal map, not a height map. A greyscale field has red equal to green, so every pixel moves the same way and the whole frame shears along one diagonal - run NormalGenerator over a height map first and the two axes come apart. The "alpha" case pushes a part-transparent frame around: transparency travels with the pixel it belongs to, so what moves is a shape rather than a rectangle, and the check is that no edge has picked up a halo of colour from the transparent side of itself.'
 	},
 
 	// --- Misc ---

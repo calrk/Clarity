@@ -11,6 +11,7 @@ import heightmap from './samples/heightmap.png';
 import face from './samples/face.jpg';
 import books from './samples/books.jpg';
 import rorschach from './samples/rorschach.jpg';
+import blade from './samples/blade.png';
 import faceVideo from './samples/face.mp4';
 import face2Video from './samples/face2.mp4';
 import crystal from './samples/crystal.mp4';
@@ -51,6 +52,17 @@ export const SOURCES = [
 	// second frame can only come from a still image.
 	{ id: 'rorschach', label: 'Inkblot', kind: 'image', url: rorschach, thumb: rorschach },
 	{ id: 'heightmap', label: 'Height map', kind: 'image', url: heightmap, thumb: heightmap },
+	// The only source with an alpha channel, and the only one that is a *sprite*
+	// rather than a picture: Stamper scatters copies of its second frame and
+	// reads the alpha for their shape, so with any of the others selected it
+	// stamps opaque rectangles and looks broken. Every sample here was a
+	// photograph until this filter existed, which is why it needed adding rather
+	// than picking.
+	//
+	// It is in the list as a main source too, which is odd but harmless - and it
+	// is the quickest way to see what a sprite has to look like before you
+	// supply your own.
+	{ id: 'blade', label: 'Blade (sprite)', kind: 'image', url: blade, thumb: blade },
 	// The temporal filters - MotionDetector, Ghoster, DifferenceDetector,
 	// ScreenBurn, ShotDetector - have nothing to compare on a still frame. Before
 	// these, the only moving source was the webcam, so every one of them opened
