@@ -1,6 +1,6 @@
 {
   "name": "@calrk/clarity",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Canvas image filter library - composable, pipeline-style filters over ImageData",
   "type": "module",
   "license": "MIT",
