@@ -20,11 +20,11 @@
 
 /** @type {Snippet[]} */
 export const SNIPPETS = [
-	{
-		id: 'cartoon',
-		label: 'Cartoon',
-		note: 'The Build tab preset, written out',
-		source: `// Every filter is in scope by name, and so are \`canvas\` and \`image\` - the
+  {
+    id: 'cartoon',
+    label: 'Cartoon',
+    note: 'The Build tab preset, written out',
+    source: `// Every filter is in scope by name, and so are \`canvas\` and \`image\` - the
 // page's canvas, and whichever source is selected above. Hand the renderer
 // back and the page drives the frame loop.
 //
@@ -41,12 +41,12 @@ const renderer = new Renderer(canvas)
   .add(new hsvShifter({ saturation: 1.2 }));
 
 return renderer;`
-	},
-	{
-		id: 'generated',
-		label: 'Generated',
-		note: 'A field made from nothing, and driven by the clock',
-		source: `// Starters ignore their input, so this pays no attention to the picture you
+  },
+  {
+    id: 'generated',
+    label: 'Generated',
+    note: 'A field made from nothing, and driven by the clock',
+    source: `// Starters ignore their input, so this pays no attention to the picture you
 // have selected - it draws its own. There is still a source, because the
 // frame it produces is what sets the size of everything downstream.
 //
@@ -65,12 +65,12 @@ const renderer = new Renderer(canvas)
   .add(new Translator({ horizontal: 0.1, vertical: 0.02, speed: 0.15 }));
 
 return renderer;`
-	},
-	{
-		id: 'strength',
-		label: 'Half strength',
-		note: 'Any chain, dialled back to a percentage of itself',
-		source: `// The thing a list of filters cannot say. A chain is at full strength or
+  },
+  {
+    id: 'strength',
+    label: 'Half strength',
+    note: 'Any chain, dialled back to a percentage of itself',
+    source: `// The thing a list of filters cannot say. A chain is at full strength or
 // it is not there, and "I want about half of that" has no place to live -
 // there is no dial, because the amount is not a property of any of the
 // filters involved.
@@ -91,12 +91,12 @@ const effect = new Pipeline([
 return new Renderer(canvas)
   .source(image)
   .add(new Blend({ ratio: 0.35 }), { second: effect });`
-	},
-	{
-		id: 'normals',
-		label: 'Height to normals',
-		note: 'A greyscale picture read as a surface, and lit as one',
-		source: `// Pick the Height map source above to see this properly, though any
+  },
+  {
+    id: 'normals',
+    label: 'Height to normals',
+    note: 'A greyscale picture read as a surface, and lit as one',
+    source: `// Pick the Height map source above to see this properly, though any
 // picture works - it is only ever reading brightness as altitude.
 //
 // NormalGenerator writes a tangent-space normal map in the OpenGL
@@ -129,12 +129,12 @@ const renderer = new Renderer(canvas)
 // lines instead, which is the fastest way to see what the blur above did.
 
 return renderer;`
-	},
-	{
-		id: 'computed',
-		label: 'Computed',
-		note: 'A chain whose length is worked out rather than typed',
-		source: `// What a list cannot express, and the cheapest demonstration of why this
+  },
+  {
+    id: 'computed',
+    label: 'Computed',
+    note: 'A chain whose length is worked out rather than typed',
+    source: `// What a list cannot express, and the cheapest demonstration of why this
 // panel exists: the chain is built by a loop.
 //
 // Repeated small blurs are not one large blur. Each pass re-reads what the
@@ -152,12 +152,12 @@ for (let i = 0; i < passes; i++) {
 
 renderer.add(new Levels({ black: 20, white: 235 }));
 return renderer;`
-	},
-	{
-		id: 'fog',
-		label: 'Drifting fog',
-		note: 'Two cloud fields crossing, laid over the picture',
-		source: `// Two chains, built the same way and pointed in different directions,
+  },
+  {
+    id: 'fog',
+    label: 'Drifting fog',
+    note: 'Two cloud fields crossing, laid over the picture',
+    source: `// Two chains, built the same way and pointed in different directions,
 // laid over the photograph.
 //
 // A Pipeline is a valid input on either side of a two-input filter, which
@@ -200,12 +200,12 @@ const fog = new Pipeline()
 return new Renderer(canvas)
   .source(image)
   .add(new Multiply(), { second: fog });`
-	},
-	{
-		id: 'comic',
-		label: 'Comic book',
-		note: 'Flat colour with black ink over it, both drawn from the same photo',
-		source: `// Flat colour, with the ink laid over the top by a Multiply.
+  },
+  {
+    id: 'comic',
+    label: 'Comic book',
+    note: 'Flat colour with black ink over it, both drawn from the same photo',
+    source: `// Flat colour, with the ink laid over the top by a Multiply.
 //
 // The ink is a branch, and a branch is handed the outer chain's *source* -
 // not the frame at the point it is used. That is what this needs: the
@@ -246,12 +246,12 @@ return new Renderer(canvas)
   .add(new Bilateral(flatten))
   .add(new Posteriser({ colours: 6 }))
   .add(new Multiply(), { second: ink });`
-	},
-	{
-		id: 'watercolour',
-		label: 'Watercolour',
-		note: 'Diluted washes, pigment stranded at every rim, and paper underneath',
-		source: `// Four ideas in order: flatten the picture into regions, thin the pigment
+  },
+  {
+    id: 'watercolour',
+    label: 'Watercolour',
+    note: 'Diluted washes, pigment stranded at every rim, and paper underneath',
+    source: `// Four ideas in order: flatten the picture into regions, thin the pigment
 // until the paper shows through, strand what is left at the region
 // boundaries, then put the whole thing on paper.
 //
@@ -354,12 +354,12 @@ return new Renderer(canvas)
   .add(new Multiply(), { first: wash(), second: ink() })
   .add(new Multiply(), { second: paper(7, 6, 5, 0.13) })
   .add(new Multiply(), { second: paper(11, 16, 3, 0.09) });`
-	},
-	{
-		id: 'river',
-		label: 'River',
-		note: 'One distance field, giving the channel, the banks and the depth at once',
-		source: `// A texture rather than an effect: nothing above is used but the size of
+  },
+  {
+    id: 'river',
+    label: 'River',
+    note: 'One distance field, giving the channel, the banks and the depth at once',
+    source: `// A texture rather than an effect: nothing above is used but the size of
 // the frame, so pick any source you like.
 //
 // What makes a river harder than fog or paper is that it has a *subject*.
@@ -429,7 +429,7 @@ const course = new Pipeline()
   .add(new Wave({ axis: 'horizontal', frequency: 100, amplitude: 96, speed: 0 }))
   .add(new Blend({ ratio: 0.68 }), {
     second: gentle(
-      new Pipeline([new Cloud({ seed: 1, initialSize: 2, iterations: 4 })]),
+      new Pipeline([new Cloud({ initialSize: 2, iterations: 4 })]),
       0.9
     )
   });
@@ -465,7 +465,7 @@ const meadow = new Pipeline()
   .add(new Blend({ ratio: 0.42 }), {
     second: gentle(
       new Pipeline([
-        new Cloud({ seed: 2, fold: 'billow', initialSize: 4, iterations: 5, persistence: 0.55 })
+        new Cloud({ fold: 'billow', initialSize: 4, iterations: 5, persistence: 0.55 })
       ]),
       0.7
     )
@@ -504,12 +504,12 @@ const river = lerp(banked, depth, water);
 return new Renderer(canvas)
   .source(image)
   .add(new Vignette({ amount: 0.45, radius: 0.42, softness: 1.1 }), { first: river });`
-	},
-	{
-		id: 'dissolve',
-		label: 'Dissolve',
-		note: 'Two pictures trading places through a cloud, back and forth',
-		source: `// A dissolve, which is a crossfade that happens in a different place at
+  },
+  {
+    id: 'dissolve',
+    label: 'Dissolve',
+    note: 'Two pictures trading places through a cloud, back and forth',
+    source: `// A dissolve, which is a crossfade that happens in a different place at
 // a different time - the shape of the transition is a picture in its own
 // right, and here it is a ridged cloud, so one image eats the other along
 // its valleys.
@@ -565,12 +565,12 @@ everyFrame(() => {
 return new Renderer(canvas)
   .source(image)
   .add(new Add(), { first: front, second: back });`
-	},
-	{
-		id: 'chain',
-		label: 'Just a chain',
-		note: 'The short form, for when the renderer is not the interesting part',
-		source: `// A bare Pipeline is accepted too, and the page wires it up for you.
+  },
+  {
+    id: 'chain',
+    label: 'Just a chain',
+    note: 'The short form, for when the renderer is not the interesting part',
+    source: `// A bare Pipeline is accepted too, and the page wires it up for you.
 //
 // It is the headless half of the library - no canvas, no DOM, no frame loop -
 // which is what lets the whole thing run and be tested in Node. When the
@@ -580,7 +580,7 @@ return new Pipeline([
   new Convolver({ preset: 'sobel' }),
   new Invert()
 ]);`
-	}
+  }
 ];
 
 /** The one loaded into an empty editor. */
