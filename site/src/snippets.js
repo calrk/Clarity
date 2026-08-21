@@ -356,6 +356,156 @@ return new Renderer(canvas)
   .add(new Multiply(), { second: paper(11, 16, 3, 0.09) });`
 	},
 	{
+		id: 'river',
+		label: 'River',
+		note: 'One distance field, giving the channel, the banks and the depth at once',
+		source: `// A texture rather than an effect: nothing above is used but the size of
+// the frame, so pick any source you like.
+//
+// What makes a river harder than fog or paper is that it has a *subject*.
+// Noise can be scattered anywhere; a river has to be somewhere in particular
+// and be the same river all the way down the frame, and the water, the banks
+// either side of it and the shading within it all have to agree about where
+// that is.
+//
+// They do here because they are all read off one greyscale image. A ramp
+// across the frame, bent, and then Difference against flat mid-grey - which
+// gives \`|value - 128|\`, the distance from the line where the ramp reads 128.
+// Threshold that near zero and you have the channel; threshold it wider and
+// the ring around the channel is the bank; map it through a blue ramp and it
+// is the water's depth, pale along the middle and darkening to both edges,
+// because distance from the centreline is exactly what that shading is.
+//
+// Built as three separate fields they would drift apart and the bank would
+// stop following the water.
+//
+// Difference is doing something slightly unusual to earn that. It is a
+// compositing filter, meant for comparing two pictures - against a flat grey
+// it is an absolute-value operator instead. There is no \`abs\` filter in the
+// library and this is it.
+
+const flat = () => new Pipeline([new Fill({ colour: '808080' })]);
+
+// \`a * (1 - m) + b * m\`, per pixel: the cross-fade the library has no single
+// filter for, and the workhorse of the whole snippet. Every layer here is
+// "this picture, except where that mask says otherwise".
+const lerp = (under, over, mask) => new Pipeline()
+  .add(new Add(), {
+    first: new Pipeline().add(new Multiply(), {
+      first: under,
+      second: new Pipeline().add(new Invert(), { first: mask })
+    }),
+    second: new Pipeline().add(new Multiply(), { first: over, second: mask })
+  });
+
+// Pulls a field toward mid-grey so it can nudge something without taking it
+// over. \`keep\` is how much of the field survives.
+const gentle = (chain, keep) => new Pipeline()
+  .add(new Blend({ ratio: keep }), { first: chain, second: flat() });
+
+// --------------------------------------------------------------- the course
+// A ramp is a field whose contours are vertical lines. Bend those and you have
+// a river, and *how* you bend them decides what kind of one.
+//
+// Both bends are here on purpose and they do different jobs. Wave shifts each
+// row sideways by a sine of its own y - a shift that is constant along the
+// flow, so it moves the channel without changing its width anywhere. That is a
+// clean bend, and on its own it is also unmistakably a sine.
+//
+// The cloud is what stops it looking drawn by a computer: it varies along the
+// channel as well as across it, so the banks wander, pinch and swell
+// independently, which is what a river does and what a sine cannot do at any
+// amplitude.
+//
+// \`speed: 0\` because Wave reads the clock - left alone it animates, and a
+// texture that renders differently every frame is not a texture.
+//
+// Both of Wave's numbers are distances in pixels rather than proportions of
+// the frame, and its ceiling is 100 - so on a much larger picture than the
+// 1024px sources here the same pair gives a straighter river. \`ratio\` is the
+// dial to reach for then: less sine, more cloud.
+const course = new Pipeline()
+  .add(new Gradient({ shape: 'linear', angle: 0, start: 12, end: 244 }))
+  .add(new Wave({ axis: 'horizontal', frequency: 100, amplitude: 96, speed: 0 }))
+  .add(new Blend({ ratio: 0.68 }), {
+    second: gentle(
+      new Pipeline([new Cloud({ seed: 1, initialSize: 2, iterations: 4 })]),
+      0.9
+    )
+  });
+
+// Zero along the river's line, rising away from it in both directions.
+const distance = new Pipeline().add(new Difference(), { first: course, second: flat() });
+
+// Bright at the centreline instead, which is the way round a mask wants it.
+const nearness = new Pipeline().add(new Invert(), { first: distance });
+
+// Three cuts of that one field. Levels with the black and white points close
+// together is a soft threshold: everything below is black, above is white, and
+// the narrow span between them is the only part that stays grey - which is the
+// anti-aliased edge. Water is the narrowest cut, the bank sits just outside
+// it, and \`damp\` is wider still, somewhere for the grass to change colour
+// before it reaches the rock so the transition is not a line.
+const water = new Pipeline().add(new Levels({ black: 230, white: 240 }), { first: nearness });
+const bank = new Pipeline().add(new Levels({ black: 216, white: 228 }), { first: nearness });
+const damp = new Pipeline().add(new Levels({ black: 200, white: 216 }), { first: nearness });
+
+// ---------------------------------------------------------------- the land
+// A ramp for the lie of the land and a billowed cloud for the lumps in it,
+// then a gradient map to turn one number per pixel into grass. \`steps\`
+// because painted scenery has flat areas of colour with edges between them,
+// where a smooth ramp reads as an airbrush.
+//
+// The cloud is the larger share of that blend, and it has to be. Banding a
+// field that is mostly a straight ramp puts every band boundary on a straight
+// line, so the grass ends up striped across the frame - the steps only read as
+// terrain once the thing being stepped is lumpy.
+const meadow = new Pipeline()
+  .add(new Gradient({ shape: 'linear', angle: 90, start: 186, end: 116 }))
+  .add(new Blend({ ratio: 0.42 }), {
+    second: gentle(
+      new Pipeline([
+        new Cloud({ seed: 2, fold: 'billow', initialSize: 4, iterations: 5, persistence: 0.55 })
+      ]),
+      0.7
+    )
+  })
+  .add(new GradientMap({
+    steps: 8,
+    stops: [[0, 74, 116, 52], [0.42, 104, 146, 60], [0.74, 138, 176, 76], [1, 174, 202, 98]]
+  }))
+  // Takes the stair-step edges off the bands without softening them away.
+  .add(new Blur({ radius: 5 }));
+
+// ---------------------------------------------------------------- the water
+// The depth shading, and the payoff for building the field first. Levels
+// stretches the first 24 values of the distance field across the full range,
+// so the ramp below spends all of itself inside the channel: pale at the
+// centreline, deep at both edges, and registered with the banks exactly
+// because it is the same measurement they were cut from.
+const depth = new Pipeline()
+  .add(new Levels({ black: 0, white: 24 }), { first: distance })
+  .add(new GradientMap({
+    stops: [[0, 172, 214, 234], [0.4, 96, 158, 204], [1, 50, 104, 158]]
+  }));
+
+// ------------------------------------------------------------- the assembly
+// Widest band first, narrowest last. Painting the damp ground, then the rock
+// over it, then the water over that means the bank is whatever is left showing
+// between the last two - no subtraction anywhere, and the three cannot come
+// apart.
+const ground = lerp(meadow, new Pipeline([new Fill({ colour: '4a6a34' })]), damp);
+const banked = lerp(ground, new Pipeline([new Fill({ colour: '483826' })]), bank);
+const river = lerp(banked, depth, water);
+
+// A stage with \`first\` ignores whatever reached it, so the picture the page
+// is showing gets no further than setting the size - which is all a texture
+// wants from it.
+return new Renderer(canvas)
+  .source(image)
+  .add(new Vignette({ amount: 0.45, radius: 0.42, softness: 1.1 }), { first: river });`
+	},
+	{
 		id: 'dissolve',
 		label: 'Dissolve',
 		note: 'Two pictures trading places through a cloud, back and forth',
